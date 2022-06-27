@@ -142,7 +142,8 @@ class TestClearHolders(CiTestCase):
         # 1. wipe the bcache device contents
         m_block.wipe_volume.assert_called_with(self.test_blockdev,
                                                mode='superblock',
-                                               exclusive=False)
+                                               exclusive=False,
+                                               strict=True)
         # 2. extract the backing device
         m_bcache.get_backing_device.assert_called_with(self.test_blockdev)
         m_bcache.sysfs_path.assert_has_calls([
@@ -242,7 +243,7 @@ class TestClearHolders(CiTestCase):
         clear_holders.shutdown_mdadm(self.test_syspath)
 
         mock_wipe.assert_called_with(self.test_blockdev, exclusive=False,
-                                     mode='superblock')
+                                     mode='superblock', strict=True)
         mock_mdadm.set_sync_action.assert_has_calls([
                 mock.call(self.test_blockdev, action="idle"),
                 mock.call(self.test_blockdev, action="frozen")])
@@ -280,7 +281,7 @@ class TestClearHolders(CiTestCase):
         clear_holders.shutdown_mdadm(self.test_syspath)
 
         mock_wipe.assert_called_with(self.test_blockdev, exclusive=False,
-                                     mode='superblock')
+                                     mode='superblock', strict=True)
         mock_mdadm.set_sync_action.assert_has_calls([
                 mock.call(self.test_blockdev, action="idle"),
                 mock.call(self.test_blockdev, action="frozen")])
@@ -362,7 +363,7 @@ class TestClearHolders(CiTestCase):
         clear_holders.wipe_superblock(self.test_syspath)
         mock_block.sysfs_to_devpath.assert_called_with(self.test_syspath)
         mock_block.wipe_volume.assert_called_with(
-            self.test_blockdev, exclusive=True, mode='superblock')
+            self.test_blockdev, exclusive=True, mode='superblock', strict=True)
 
     @mock.patch('curtin.block.clear_holders.multipath')
     @mock.patch('curtin.block.clear_holders.is_swap_device')
@@ -390,7 +391,7 @@ class TestClearHolders(CiTestCase):
         mock_block.sysfs_to_devpath.assert_called_with(self.test_syspath)
         mock_zfs.zpool_export.assert_called_with('fake_pool')
         mock_block.wipe_volume.assert_called_with(
-            self.test_blockdev, exclusive=True, mode='superblock')
+            self.test_blockdev, exclusive=True, mode='superblock', strict=True)
 
     @mock.patch('curtin.block.clear_holders.multipath')
     @mock.patch('curtin.block.clear_holders.is_swap_device')
@@ -419,7 +420,7 @@ class TestClearHolders(CiTestCase):
         self.assertEqual(0, mock_zfs.device_to_poolname.call_count)
         self.assertEqual(0, mock_zfs.zpool_list.call_count)
         mock_block.wipe_volume.assert_called_with(
-            self.test_blockdev, exclusive=True, mode='superblock')
+            self.test_blockdev, exclusive=True, mode='superblock', strict=True)
 
     @mock.patch('curtin.block.clear_holders.udev')
     @mock.patch('curtin.block.clear_holders.multipath')
@@ -453,7 +454,7 @@ class TestClearHolders(CiTestCase):
         clear_holders.wipe_superblock(self.test_syspath)
         mock_block.sysfs_to_devpath.assert_called_with(self.test_syspath)
         mock_block.wipe_volume.assert_called_with(
-            self.test_blockdev, exclusive=True, mode='superblock')
+            self.test_blockdev, exclusive=True, mode='superblock', strict=True)
 
     @mock.patch('curtin.block.clear_holders.multipath')
     @mock.patch('curtin.block.clear_holders.is_swap_device')
@@ -481,7 +482,7 @@ class TestClearHolders(CiTestCase):
         clear_holders.wipe_superblock(self.test_syspath)
         mock_block.sysfs_to_devpath.assert_called_with(self.test_syspath)
         mock_block.wipe_volume.assert_called_with(
-            self.test_blockdev, exclusive=True, mode='superblock')
+            self.test_blockdev, exclusive=True, mode='superblock', strict=True)
         mock_block.get_sysfs_partitions.assert_has_calls(
             [mock.call(self.test_syspath)] * 3)
         mock_block.rescan_block_devices.assert_has_calls(
@@ -514,7 +515,7 @@ class TestClearHolders(CiTestCase):
         clear_holders.wipe_superblock(self.test_syspath)
         mock_block.sysfs_to_devpath.assert_called_with(self.test_syspath)
         mock_block.wipe_volume.assert_called_with(
-            self.test_blockdev, exclusive=True, mode='superblock')
+            self.test_blockdev, exclusive=True, mode='superblock', strict=True)
         mock_block.get_sysfs_partitions.assert_has_calls(
             [mock.call(self.test_syspath)] * 3)
         mock_block.rescan_block_devices.assert_has_calls(
@@ -576,7 +577,7 @@ class TestClearHolders(CiTestCase):
         clear_holders.wipe_superblock(self.test_syspath)
         mock_block.sysfs_to_devpath.assert_called_with(self.test_syspath)
         mock_block.wipe_volume.assert_called_with(
-            self.test_blockdev, exclusive=True, mode='superblock')
+            self.test_blockdev, exclusive=True, mode='superblock', strict=True)
 
     @mock.patch('curtin.block.clear_holders.zfs')
     @mock.patch('curtin.block.clear_holders.get_holders')
@@ -613,7 +614,7 @@ class TestClearHolders(CiTestCase):
         mock_block.sysfs_to_devpath.assert_called_with(self.test_syspath)
         mock_mpath.remove_partition.assert_called_with('mpatha-part1')
         mock_block.wipe_volume.assert_called_with(
-            self.test_blockdev, exclusive=True, mode='superblock')
+            self.test_blockdev, exclusive=True, mode='superblock', strict=True)
 
     @mock.patch('curtin.block.clear_holders.LOG')
     @mock.patch('curtin.block.clear_holders.block')

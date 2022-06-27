@@ -409,11 +409,11 @@ class TestWipeVolume(CiTestCase):
     def test_wipe_superblock(self, mock_quick_zero):
         block.wipe_volume(self.dev, mode='superblock')
         mock_quick_zero.assert_called_with(self.dev, exclusive=True,
-                                           partitions=False)
+                                           partitions=False, strict=False)
         block.wipe_volume(self.dev, exclusive=True,
                           mode='superblock-recursive')
         mock_quick_zero.assert_called_with(self.dev, exclusive=True,
-                                           partitions=True)
+                                           partitions=True, strict=False)
 
     @mock.patch('curtin.block.wipe_file')
     def test_wipe_zero(self, mock_wipe_file):
@@ -613,69 +613,6 @@ class TestNonAscii(CiTestCase):
         err = b''.decode()
         mock_subp.return_value = (out, err)
         block.blkid()
-
-
-class TestLsblkNormalization(CiTestCase):
-    # In the Jammy timeframe, lsblk changed output such that column names
-    # that previously contained dashes now have underscores instead.
-    # _lsblk is expected to normalize this format to the dash style.
-    # MAJ:MIN was also changed to MAJ_MIN
-    # impish, and expected format:
-    #   ALIGNMENT="0" DISC-ALN="512" MAJ:MIN="252:0" ...
-    # jammy:
-    #   ALIGNMENT="0" DISC_ALN="512" MAJ_MIN="252:0" ...
-    expected = {
-        'vda': {
-            'ALIGNMENT': "0",
-            'DISC-ALN': "512",
-            'DISC-GRAN': "512",
-            'DISC-MAX': "2147483136",
-            'DISC-ZERO': "0",
-            'FSTYPE': "",
-            'GROUP': "disk",
-            'KNAME': "vda",
-            'LABEL': "",
-            'LOG-SEC': "512",
-            'MAJ:MIN': "252:0",
-            'MIN-IO': "512",
-            'MODE': "brw-rw----",
-            'MODEL': "",
-            'MOUNTPOINT': "",
-            'NAME': "vda",
-            'OPT-IO': "0",
-            'OWNER': "root",
-            'PHY-SEC': "512",
-            'RM': "0",
-            'RO': "0",
-            'ROTA': "1",
-            'RQ-SIZE': "256",
-            'SIZE': "12884901888",
-            'STATE': "",
-            'TYPE': "disk",
-            'UUID': "",
-            'device_path': '/dev/vda'
-        }
-    }
-
-    def test_lsblk_impish_style(self):
-        line = ('ALIGNMENT="0" DISC-ALN="512" DISC-GRAN="512" '
-                'DISC-MAX="2147483136" DISC-ZERO="0" FSTYPE="" GROUP="disk" '
-                'KNAME="vda" LABEL="" LOG-SEC="512" MAJ:MIN="252:0" '
-                'MIN-IO="512" MODE="brw-rw----" MODEL="" MOUNTPOINT="" '
-                'NAME="vda" OPT-IO="0" OWNER="root" PHY-SEC="512" RM="0" '
-                'RO="0" ROTA="1" RQ-SIZE="256" SIZE="12884901888" STATE="" '
-                'TYPE="disk" UUID=""')
-        self.assertEqual(self.expected, block._lsblock_pairs_to_dict(line))
-
-    def test_lsblk_jammy_style(self):
-        line = ('ALIGNMENT="0" DISC_ALN="512" DISC_GRAN="512" '
-                'DISC_MAX="2147483136" DISC_ZERO="0" FSTYPE="" GROUP="disk" '
-                'KNAME="vda" LABEL="" LOG_SEC="512" MAJ_MIN="252:0" '
-                'MIN_IO="512" MODE="brw-rw----" MODEL="" MOUNTPOINT="" '
-                'NAME="vda" OPT_IO="0" OWNER="root" PHY_SEC="512" RM="0" '
-                'RO="0" ROTA="1" RQ_SIZE="256" SIZE="12884901888" STATE="" '
-                'TYPE="disk" UUID=""')
-        self.assertEqual(self.expected, block._lsblock_pairs_to_dict(line))
 
 
 class TestSlaveKnames(CiTestCase):

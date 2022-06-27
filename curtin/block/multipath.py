@@ -65,10 +65,11 @@ def is_mpath_device(devpath, info=None):
 def is_mpath_member(devpath, info=None):
     """ Check if a device is a multipath member (a path), returns boolean. """
     result = False
-    if not info:
-        info = udev.udevadm_info(devpath)
-    if info.get("DM_MULTIPATH_DEVICE_PATH") == "1":
+    try:
+        util.subp(['multipath', '-c', devpath], capture=True)
         result = True
+    except util.ProcessExecutionError:
+        pass
 
     LOG.debug('%s is multipath device member? %s', devpath, result)
     return result
@@ -80,7 +81,7 @@ def is_mpath_partition(devpath, info=None):
     if devpath.startswith('/dev/dm-'):
         if not info:
             info = udev.udevadm_info(devpath)
-        if 'DM_PART' in info and 'DM_MPATH' in info:
+        if 'DM_PART' in udev.udevadm_info(devpath):
             result = True
 
     LOG.debug("%s is multipath device partition? %s", devpath, result)

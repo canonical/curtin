@@ -162,7 +162,7 @@ class HirsuteTestMdadmBcache(relbase.hirsute, TestMdadmBcacheAbs):
     __test__ = True
 
 
-class ImpishTestMdadmBcache(relbase.impish, TestMdadmBcacheAbs):
+class GroovyTestMdadmBcache(relbase.groovy, TestMdadmBcacheAbs):
     __test__ = True
 
 
@@ -211,7 +211,7 @@ class HirsuteTestMirrorboot(relbase.hirsute, TestMirrorbootAbs):
     __test__ = True
 
 
-class ImpishTestMirrorboot(relbase.impish, TestMirrorbootAbs):
+class GroovyTestMirrorboot(relbase.groovy, TestMirrorbootAbs):
     __test__ = True
 
 
@@ -265,7 +265,7 @@ class HirsuteTestMirrorbootPartitions(relbase.hirsute,
     __test__ = True
 
 
-class ImpishTestMirrorbootPartitions(relbase.impish,
+class GroovyTestMirrorbootPartitions(relbase.groovy,
                                      TestMirrorbootPartitionsAbs):
     __test__ = True
 
@@ -365,7 +365,7 @@ class HirsuteTestMirrorbootPartitionsUEFI(relbase.hirsute,
     __test__ = True
 
 
-class ImpishTestMirrorbootPartitionsUEFI(relbase.impish,
+class GroovyTestMirrorbootPartitionsUEFI(relbase.groovy,
                                          TestMirrorbootPartitionsUEFIAbs):
     __test__ = True
 
@@ -418,7 +418,7 @@ class HirsuteTestRaid5boot(relbase.hirsute, TestRaid5bootAbs):
     __test__ = True
 
 
-class ImpishTestRaid5boot(relbase.impish, TestRaid5bootAbs):
+class GroovyTestRaid5boot(relbase.groovy, TestRaid5bootAbs):
     __test__ = True
 
 
@@ -483,7 +483,7 @@ class HirsuteTestRaid6boot(relbase.hirsute, TestRaid6bootAbs):
     __test__ = True
 
 
-class ImpishTestRaid6boot(relbase.impish, TestRaid6bootAbs):
+class GroovyTestRaid6boot(relbase.groovy, TestRaid6bootAbs):
     __test__ = True
 
 
@@ -534,7 +534,7 @@ class HirsuteTestRaid10boot(relbase.hirsute, TestRaid10bootAbs):
     __test__ = True
 
 
-class ImpishTestRaid10boot(relbase.impish, TestRaid10bootAbs):
+class GroovyTestRaid10boot(relbase.groovy, TestRaid10bootAbs):
     __test__ = True
 
 
@@ -642,7 +642,7 @@ class HirsuteTestAllindata(relbase.hirsute, TestAllindataAbs):
     __test__ = True
 
 
-class ImpishTestAllindata(relbase.impish, TestAllindataAbs):
+class GroovyTestAllindata(relbase.groovy, TestAllindataAbs):
     __test__ = True
 
 

@@ -27,8 +27,8 @@ apt:
   #
   # This is an empty list by default, so nothing is disabled.
   #
-  # If given, those suites are removed from sources.list after most other
-  # modifications have been made, but before component removal.
+  # If given, those suites are removed from sources.list after all other
+  # modifications have been made.
   # Suites are even disabled if no other modification was made,
   # but not if is preserve_sources_list is active.
   # There is a special alias “$RELEASE” as in the sources that will be replace
@@ -45,28 +45,12 @@ apt:
   # There is no harm in specifying a suite to be disabled that is not found in
   # the source.list file (just a no-op then)
   #
+  # Note: Lines don’t get deleted, but disabled by being converted to a comment.
   # The following example disables all usual defaults except $RELEASE-security.
   # On top it disables a custom suite called "mysuite"
   disable_suites: [$RELEASE-updates, backports, $RELEASE, mysuite]
 
-  # 1.3 disable_components
-  #
-  # This is an empty list by default, so nothing is disabled.
-  #
-  # If given, those components are removed from sources.list after all other
-  # modifications have been made.
-  # Components are even disabled if no other modification was made,
-  # but not if is preserve_sources_list is active.
-  # The 'main' component is never disabled.  Should that be desired, this can
-  # be achieved by way of a sources_list template.
-  #
-  # There is no harm in specifying a component to be disabled that is not found
-  # in the source.list file (just a no-op then)
-  #
-  # The following example disables all usual default components except main.
-  disable_components: [restricted, universe, multiverse]
-
-  # 1.4 primary/security
+  # 1.3 primary/security
   #
   # define a custom (e.g. localized) mirror that will be used in sources.list
   # and any custom sources entries for deb / deb-src lines.
@@ -106,7 +90,7 @@ apt:
   # primary: http://archive.ubuntu.com/ubuntu
   # security: http://security.ubuntu.com/ubuntu
 
-  # 1.5 sources_list
+  # 1.4 sources_list
   #
   # Provide a custom template for rendering sources.list
   # without one provided curtin will try to modify the sources.list it finds
@@ -121,7 +105,7 @@ apt:
     deb $PRIMARY $RELEASE universe restricted
     deb $SECURITY $RELEASE-security multiverse
 
-  # 1.6 conf
+  # 1.5 conf
   #
   # Any apt config string that will be made available to apt
   # see the APT.CONF(5) man page for details what can be specified
@@ -133,7 +117,7 @@ apt:
       };
     };
 
-  # 1.7 (http_|ftp_|https_)proxy
+  # 1.6 (http_|ftp_|https_)proxy
   #
   # Proxies are the most common apt.conf option, so that for simplified use
   # there is a shortcut for those. Those get automatically translated into the
@@ -145,7 +129,7 @@ apt:
   ftp_proxy: ftp://[[user][:pass]@]host[:port]/
   https_proxy: https://[[user][:pass]@]host[:port]/
 
-  # 1.8 add_apt_repo_match
+  # 1.7 add_apt_repo_match
   #
   # 'source' entries in apt-sources that match this python regex
   # expression will be passed to add-apt-repository

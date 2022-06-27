@@ -33,7 +33,7 @@ class HirsuteTestPreserveWipeLvm(relbase.hirsute, TestPreserveWipeLvm):
     __test__ = True
 
 
-class ImpishTestPreserveWipeLvm(relbase.impish, TestPreserveWipeLvm):
+class GroovyTestPreserveWipeLvm(relbase.groovy, TestPreserveWipeLvm):
     __test__ = True
 
 
@@ -61,7 +61,7 @@ class HirsuteTestPreserveWipeLvmSimple(relbase.hirsute,
     __test__ = True
 
 
-class ImpishTestPreserveWipeLvmSimple(relbase.impish,
+class GroovyTestPreserveWipeLvmSimple(relbase.groovy,
                                       TestPreserveWipeLvmSimple):
     __test__ = True
 

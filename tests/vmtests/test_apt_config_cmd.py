@@ -72,7 +72,7 @@ class HirsuteTestAptConfigCMDCMD(relbase.hirsute, TestAptConfigCMD):
     __test__ = True
 
 
-class ImpishTestAptConfigCMDCMD(relbase.impish, TestAptConfigCMD):
+class GroovyTestAptConfigCMDCMD(relbase.groovy, TestAptConfigCMD):
     __test__ = True
 
 

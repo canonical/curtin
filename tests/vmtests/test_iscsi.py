@@ -80,7 +80,7 @@ class HirsuteTestIscsiBasic(relbase.hirsute, TestBasicIscsiAbs):
     __test__ = True
 
 
-class ImpishTestIscsiBasic(relbase.impish, TestBasicIscsiAbs):
+class GroovyTestIscsiBasic(relbase.groovy, TestBasicIscsiAbs):
     __test__ = True
 
 

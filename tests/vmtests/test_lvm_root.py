@@ -101,7 +101,7 @@ class HirsuteTestLvmRootExt4(relbase.hirsute, TestLvmRootAbs):
     }
 
 
-class ImpishTestLvmRootExt4(relbase.impish, TestLvmRootAbs):
+class GroovyTestLvmRootExt4(relbase.groovy, TestLvmRootAbs):
     __test__ = True
     conf_replace = {
         '__ROOTFS_FORMAT__': 'ext4',
@@ -162,7 +162,7 @@ class HirsuteTestUefiLvmRootExt4(relbase.hirsute, TestUefiLvmRootAbs):
     }
 
 
-class ImpishTestUefiLvmRootExt4(relbase.impish, TestUefiLvmRootAbs):
+class GroovyTestUefiLvmRootExt4(relbase.groovy, TestUefiLvmRootAbs):
     __test__ = True
     conf_replace = {
         '__BOOTFS_FORMAT__': 'ext4',

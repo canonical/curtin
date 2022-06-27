@@ -33,7 +33,7 @@ class HirsuteTestPreserve(relbase.hirsute, TestPreserve):
     __test__ = True
 
 
-class ImpishTestPreserve(relbase.impish, TestPreserve):
+class GroovyTestPreserve(relbase.groovy, TestPreserve):
     __test__ = True
 
 

@@ -65,7 +65,7 @@ class HirsuteTestBonding(relbase.hirsute, TestNetworkBondingAbs):
     __test__ = True
 
 
-class ImpishTestBonding(relbase.impish, TestNetworkBondingAbs):
+class GroovyTestBonding(relbase.groovy, TestNetworkBondingAbs):
     __test__ = True
 
 

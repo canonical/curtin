@@ -30,7 +30,4 @@ class TestExportsFeatures(CiTestCase):
     def test_has_uefi_reorder_fallback_support(self):
         self.assertIn('UEFI_REORDER_FALLBACK_SUPPORT', curtin.FEATURES)
 
-    def test_has_fstab_default_fsck_on(self):
-        self.assertIn('FSTAB_DEFAULT_FSCK_ON_BLK', curtin.FEATURES)
-
 # vi: ts=4 expandtab syntax=python

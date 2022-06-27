@@ -1631,9 +1631,6 @@ class VMBaseClass(TestCase):
     def check_file_regex(self, filename, regex):
         self.assertRegex(self.load_collect_file(filename), regex)
 
-    def not_file_regex(self, filename, regex):
-        self.assertNotRegex(self.load_collect_file(filename), regex)
-
     # To get rid of deprecation warning in python 3.
     def assertRegex(self, s, r):
         try:
@@ -1642,14 +1639,6 @@ class VMBaseClass(TestCase):
         except AttributeError:
             # Python 2.
             self.assertRegexpMatches(s, r)
-
-    def assertNotRegex(self, s, r):
-        try:
-            # Python 3.
-            super(VMBaseClass, self).assertNotRegex(s, r)
-        except AttributeError:
-            # Python 2.
-            self.assertNotRegexpMatches(s, r)
 
     def get_blkid_data(self, blkid_file):
         data = self.load_collect_file(blkid_file)

@@ -12,8 +12,6 @@ import socket
 import mock
 from mock import call
 
-from aptsources.sourceslist import SourceEntry
-
 from curtin import distro
 from curtin import gpg
 from curtin import util
@@ -65,18 +63,6 @@ class PseudoChrootableTarget(util.ChrootableTarget):
 ChrootableTargetStr = "curtin.commands.apt_config.util.ChrootableTarget"
 
 
-def entryify(data):
-    return [SourceEntry(line) for line in data.splitlines()]
-
-
-def lineify(entries):
-    out = apt_config.entries_to_str(entries)
-    # the tests are written without the trailing newline,
-    # but we don't want to remove multiple of them
-    out = out[:-1] if len(out) > 0 and out[-1] == '\n' else out
-    return out
-
-
 class TestAptSourceConfig(CiTestCase):
     """ TestAptSourceConfig
     Main Class to test apt configs
@@ -91,7 +77,6 @@ class TestAptSourceConfig(CiTestCase):
         self.matcher = re.compile(ADD_APT_REPO_MATCH).search
         self.add_patch('curtin.util.subp', 'm_subp')
         self.m_subp.return_value = ('s390x', '')
-        self.target = self.tmp_dir()
 
     @staticmethod
     def _add_apt_sources(*args, **kwargs):
@@ -773,7 +758,6 @@ class TestAptSourceConfig(CiTestCase):
     def test_disable_suites(self):
         """test_disable_suites - disable_suites with many configurations"""
         release = "xenial"
-
         orig = """deb http://ubuntu.com//ubuntu xenial main
 deb http://ubuntu.com//ubuntu xenial-updates main
 deb http://ubuntu.com//ubuntu xenial-security main
@@ -787,38 +771,39 @@ deb http://ubuntu.com//ubuntu xenial-updates main
 deb http://ubuntu.com//ubuntu xenial-security main
 deb-src http://ubuntu.com//ubuntu universe multiverse
 deb http://ubuntu.com/ubuntu/ xenial-proposed main"""
-        result = apt_config.disable_suites(disabled, entryify(orig), release)
-        self.assertEqual(expect, lineify(result))
+        result = apt_config.disable_suites(disabled, orig, release)
+        self.assertEqual(expect, result)
 
         # single disable release suite
         disabled = ["$RELEASE"]
-        expect = """# deb http://ubuntu.com//ubuntu xenial main
+        expect = """\
+# suite disabled by curtin: deb http://ubuntu.com//ubuntu xenial main
 deb http://ubuntu.com//ubuntu xenial-updates main
 deb http://ubuntu.com//ubuntu xenial-security main
 deb-src http://ubuntu.com//ubuntu universe multiverse
 deb http://ubuntu.com/ubuntu/ xenial-proposed main"""
-        result = apt_config.disable_suites(disabled, entryify(orig), release)
-        self.assertEqual(expect, lineify(result))
+        result = apt_config.disable_suites(disabled, orig, release)
+        self.assertEqual(expect, result)
 
         # single disable other suite
         disabled = ["$RELEASE-updates"]
         expect = """deb http://ubuntu.com//ubuntu xenial main
-# deb http://ubuntu.com//ubuntu xenial-updates main
+# suite disabled by curtin: deb http://ubuntu.com//ubuntu xenial-updates main
 deb http://ubuntu.com//ubuntu xenial-security main
 deb-src http://ubuntu.com//ubuntu universe multiverse
 deb http://ubuntu.com/ubuntu/ xenial-proposed main"""
-        result = apt_config.disable_suites(disabled, entryify(orig), release)
-        self.assertEqual(expect, lineify(result))
+        result = apt_config.disable_suites(disabled, orig, release)
+        self.assertEqual(expect, result)
 
         # multi disable
         disabled = ["$RELEASE-updates", "$RELEASE-security"]
         expect = """deb http://ubuntu.com//ubuntu xenial main
-# deb http://ubuntu.com//ubuntu xenial-updates main
-# deb http://ubuntu.com//ubuntu xenial-security main
+# suite disabled by curtin: deb http://ubuntu.com//ubuntu xenial-updates main
+# suite disabled by curtin: deb http://ubuntu.com//ubuntu xenial-security main
 deb-src http://ubuntu.com//ubuntu universe multiverse
 deb http://ubuntu.com/ubuntu/ xenial-proposed main"""
-        result = apt_config.disable_suites(disabled, entryify(orig), release)
-        self.assertEqual(expect, lineify(result))
+        result = apt_config.disable_suites(disabled, orig, release)
+        self.assertEqual(expect, result)
 
         # multi line disable (same suite multiple times in input)
         disabled = ["$RELEASE-updates", "$RELEASE-security"]
@@ -830,14 +815,14 @@ deb http://UBUNTU.com//ubuntu xenial-updates main
 deb http://UBUNTU.COM//ubuntu xenial-updates main
 deb http://ubuntu.com/ubuntu/ xenial-proposed main"""
         expect = """deb http://ubuntu.com//ubuntu xenial main
-# deb http://ubuntu.com//ubuntu xenial-updates main
-# deb http://ubuntu.com//ubuntu xenial-security main
+# suite disabled by curtin: deb http://ubuntu.com//ubuntu xenial-updates main
+# suite disabled by curtin: deb http://ubuntu.com//ubuntu xenial-security main
 deb-src http://ubuntu.com//ubuntu universe multiverse
-# deb http://UBUNTU.com//ubuntu xenial-updates main
-# deb http://UBUNTU.COM//ubuntu xenial-updates main
+# suite disabled by curtin: deb http://UBUNTU.com//ubuntu xenial-updates main
+# suite disabled by curtin: deb http://UBUNTU.COM//ubuntu xenial-updates main
 deb http://ubuntu.com/ubuntu/ xenial-proposed main"""
-        result = apt_config.disable_suites(disabled, entryify(orig), release)
-        self.assertEqual(expect, lineify(result))
+        result = apt_config.disable_suites(disabled, orig, release)
+        self.assertEqual(expect, result)
 
         # comment in input
         disabled = ["$RELEASE-updates", "$RELEASE-security"]
@@ -850,15 +835,15 @@ deb-src http://ubuntu.com//ubuntu universe multiverse
 deb http://UBUNTU.COM//ubuntu xenial-updates main
 deb http://ubuntu.com/ubuntu/ xenial-proposed main"""
         expect = """deb http://ubuntu.com//ubuntu xenial main
-# deb http://ubuntu.com//ubuntu xenial-updates main
-# deb http://ubuntu.com//ubuntu xenial-security main
+# suite disabled by curtin: deb http://ubuntu.com//ubuntu xenial-updates main
+# suite disabled by curtin: deb http://ubuntu.com//ubuntu xenial-security main
 deb-src http://ubuntu.com//ubuntu universe multiverse
 #foo
-# deb http://UBUNTU.com//ubuntu xenial-updates main
-# deb http://UBUNTU.COM//ubuntu xenial-updates main
+#deb http://UBUNTU.com//ubuntu xenial-updates main
+# suite disabled by curtin: deb http://UBUNTU.COM//ubuntu xenial-updates main
 deb http://ubuntu.com/ubuntu/ xenial-proposed main"""
-        result = apt_config.disable_suites(disabled, entryify(orig), release)
-        self.assertEqual(expect, lineify(result))
+        result = apt_config.disable_suites(disabled, orig, release)
+        self.assertEqual(expect, result)
 
         # single disable custom suite
         disabled = ["foobar"]
@@ -869,9 +854,9 @@ deb http://ubuntu.com/ubuntu/ foobar main"""
         expect = """deb http://ubuntu.com//ubuntu xenial main
 deb http://ubuntu.com//ubuntu xenial-updates main
 deb http://ubuntu.com//ubuntu xenial-security main
-# deb http://ubuntu.com/ubuntu/ foobar main"""
-        result = apt_config.disable_suites(disabled, entryify(orig), release)
-        self.assertEqual(expect, lineify(result))
+# suite disabled by curtin: deb http://ubuntu.com/ubuntu/ foobar main"""
+        result = apt_config.disable_suites(disabled, orig, release)
+        self.assertEqual(expect, result)
 
         # single disable non existing suite
         disabled = ["foobar"]
@@ -883,8 +868,8 @@ deb http://ubuntu.com/ubuntu/ notfoobar main"""
 deb http://ubuntu.com//ubuntu xenial-updates main
 deb http://ubuntu.com//ubuntu xenial-security main
 deb http://ubuntu.com/ubuntu/ notfoobar main"""
-        result = apt_config.disable_suites(disabled, entryify(orig), release)
-        self.assertEqual(expect, lineify(result))
+        result = apt_config.disable_suites(disabled, orig, release)
+        self.assertEqual(expect, result)
 
         # single disable suite with option
         disabled = ["$RELEASE-updates"]
@@ -894,12 +879,12 @@ deb http://ubuntu.com//ubuntu xenial-security main
 deb-src http://ubuntu.com//ubuntu universe multiverse
 deb http://ubuntu.com/ubuntu/ xenial-proposed main"""
         expect = """deb http://ubuntu.com//ubuntu xenial main
-# deb [a=b] http://ubu.com//ubu xenial-updates main
+# suite disabled by curtin: deb [a=b] http://ubu.com//ubu xenial-updates main
 deb http://ubuntu.com//ubuntu xenial-security main
 deb-src http://ubuntu.com//ubuntu universe multiverse
 deb http://ubuntu.com/ubuntu/ xenial-proposed main"""
-        result = apt_config.disable_suites(disabled, entryify(orig), release)
-        self.assertEqual(expect, lineify(result))
+        result = apt_config.disable_suites(disabled, orig, release)
+        self.assertEqual(expect, result)
 
         # single disable suite with more options and auto $RELEASE expansion
         disabled = ["updates"]
@@ -909,12 +894,13 @@ deb http://ubuntu.com//ubuntu xenial-security main
 deb-src http://ubuntu.com//ubuntu universe multiverse
 deb http://ubuntu.com/ubuntu/ xenial-proposed main"""
         expect = """deb http://ubuntu.com//ubuntu xenial main
-# deb [a=b c=d] http://ubu.com//ubu xenial-updates main
+# suite disabled by curtin: deb [a=b c=d] \
+http://ubu.com//ubu xenial-updates main
 deb http://ubuntu.com//ubuntu xenial-security main
 deb-src http://ubuntu.com//ubuntu universe multiverse
 deb http://ubuntu.com/ubuntu/ xenial-proposed main"""
-        result = apt_config.disable_suites(disabled, entryify(orig), release)
-        self.assertEqual(expect, lineify(result))
+        result = apt_config.disable_suites(disabled, orig, release)
+        self.assertEqual(expect, result)
 
         # single disable suite while options at others
         disabled = ["$RELEASE-security"]
@@ -925,167 +911,25 @@ deb-src http://ubuntu.com//ubuntu universe multiverse
 deb http://ubuntu.com/ubuntu/ xenial-proposed main"""
         expect = """deb http://ubuntu.com//ubuntu xenial main
 deb [arch=foo] http://ubuntu.com//ubuntu xenial-updates main
-# deb http://ubuntu.com//ubuntu xenial-security main
+# suite disabled by curtin: deb http://ubuntu.com//ubuntu xenial-security main
 deb-src http://ubuntu.com//ubuntu universe multiverse
 deb http://ubuntu.com/ubuntu/ xenial-proposed main"""
-        result = apt_config.disable_suites(disabled, entryify(orig), release)
-        self.assertEqual(expect, lineify(result))
+        result = apt_config.disable_suites(disabled, orig, release)
+        self.assertEqual(expect, result)
 
     def test_disable_suites_blank_lines(self):
         """test_disable_suites_blank_lines - ensure blank lines allowed"""
+        lines = ["deb %(repo)s %(rel)s main universe",
+                 "",
+                 "deb %(repo)s %(rel)s-updates main universe",
+                 "   # random comment",
+                 "#comment here",
+                 ""]
         rel = "trusty"
-
-        orig = """
-deb http://example.com/mirrors/ubuntu trusty main universe
-
-deb http://example.com/mirrors/ubuntu trusty-updates main universe
-
-deb http://example.com/mirrors/ubuntu trusty-proposed main universe
-
-#comment here"""
-        expect = """
-deb http://example.com/mirrors/ubuntu trusty main universe
-
-deb http://example.com/mirrors/ubuntu trusty-updates main universe
-
-# deb http://example.com/mirrors/ubuntu trusty-proposed main universe
-
-#comment here"""
-        disabled = ["proposed"]
-        result = apt_config.disable_suites(disabled, entryify(orig), rel)
-        self.assertEqual(expect, lineify(result))
-
-    def test_disable_components(self):
-        orig = """\
-deb http://ubuntu.com/ubuntu xenial main restricted universe multiverse
-deb http://ubuntu.com/ubuntu xenial-updates main restricted universe multiverse
-deb http://ubuntu.com/ubuntu xenial-security \
-main restricted universe multiverse
-deb-src http://ubuntu.com/ubuntu xenial main restricted universe multiverse
-deb http://ubuntu.com/ubuntu/ xenial-proposed \
-main restricted universe multiverse"""
-        expect = orig
-
-        # no-op
-        disabled = []
-        result = apt_config.disable_components(disabled, entryify(orig))
-        self.assertEqual(expect, lineify(result))
-
-        # no-op 2
-        disabled = None
-        result = apt_config.disable_components(disabled, entryify(orig))
-        self.assertEqual(expect, lineify(result))
-
-        # we don't disable main
-        disabled = ('main', )
-        result = apt_config.disable_components(disabled, entryify(orig))
-        self.assertEqual(expect, lineify(result))
-
-        # nonsense
-        disabled = ('asdf', )
-        result = apt_config.disable_components(disabled, entryify(orig))
-        self.assertEqual(expect, lineify(result))
-
-        # free-only
-        expect = """\
-# deb http://ubuntu.com/ubuntu xenial main restricted universe multiverse
-deb http://ubuntu.com/ubuntu xenial main universe
-# deb http://ubuntu.com/ubuntu xenial-updates main restricted \
-universe multiverse
-deb http://ubuntu.com/ubuntu xenial-updates main universe
-# deb http://ubuntu.com/ubuntu xenial-security main restricted \
-universe multiverse
-deb http://ubuntu.com/ubuntu xenial-security main universe
-# deb-src http://ubuntu.com/ubuntu xenial main restricted universe multiverse
-deb-src http://ubuntu.com/ubuntu xenial main universe
-# deb http://ubuntu.com/ubuntu/ xenial-proposed main restricted \
-universe multiverse
-deb http://ubuntu.com/ubuntu/ xenial-proposed main universe"""
-        disabled = ('restricted', 'multiverse')
-        result = apt_config.disable_components(disabled, entryify(orig))
-        self.assertEqual(expect, lineify(result))
-
-        # skip line when this component is the last
-        orig = """\
-deb http://ubuntu.com/ubuntu xenial main universe multiverse
-deb http://ubuntu.com/ubuntu xenial-updates universe
-deb http://ubuntu.com/ubuntu xenial-security universe multiverse"""
-        expect = """\
-# deb http://ubuntu.com/ubuntu xenial main universe multiverse
-deb http://ubuntu.com/ubuntu xenial main
-# deb http://ubuntu.com/ubuntu xenial-updates universe
-# deb http://ubuntu.com/ubuntu xenial-security universe multiverse"""
-        disabled = ('universe', 'multiverse')
-        result = apt_config.disable_components(disabled, entryify(orig))
-        self.assertEqual(expect, lineify(result))
-
-        # comment everything
-        orig = """\
-deb http://ubuntu.com/ubuntu xenial-security universe multiverse"""
-        expect = """\
-# deb http://ubuntu.com/ubuntu xenial-security universe multiverse"""
-        disabled = ('universe', 'multiverse')
-        result = apt_config.disable_components(disabled, entryify(orig))
-        self.assertEqual(expect, lineify(result))
-
-        # double-hash comment
-        orig = """\
-
-## Major bug fix updates produced after the final release of the
-## distribution.
-
-deb http://archive.ubuntu.com/ubuntu/ impish-updates main restricted
-# deb http://archive.ubuntu.com/ubuntu/ impish-updates main restricted"""
-        expect = """\
-
-## Major bug fix updates produced after the final release of the
-## distribution.
-
-# deb http://archive.ubuntu.com/ubuntu/ impish-updates main restricted
-deb http://archive.ubuntu.com/ubuntu/ impish-updates main
-# deb http://archive.ubuntu.com/ubuntu/ impish-updates main restricted"""
-        disabled = ('restricted', )
-        result = apt_config.disable_components(disabled, entryify(orig))
-        self.assertEqual(expect, lineify(result))
-
-    @mock.patch("curtin.util.write_file")
-    @mock.patch("curtin.distro.get_architecture")
-    def test_generate_with_options(self, get_arch, write_file):
-        get_arch.return_value = "amd64"
-        orig = """deb http://ubuntu.com//ubuntu $RELEASE main
-# stuff things
-
-deb http://ubuntu.com//ubuntu $RELEASE-updates main
-deb http://ubuntu.com//ubuntu $RELEASE-security main
-deb-src http://ubuntu.com//ubuntu $RELEASE universe multiverse
-# deb http://ubuntu.com/ubuntu/ $RELEASE-proposed main
-deb [a=b] http://ubuntu.com/ubuntu/ $RELEASE-backports main
-"""
-        expect = """deb http://ubuntu.com//ubuntu xenial main
-# stuff things
-
-deb http://ubuntu.com//ubuntu xenial-updates main
-deb http://ubuntu.com//ubuntu xenial-security main
-deb-src http://ubuntu.com//ubuntu xenial universe multiverse
-# deb http://ubuntu.com/ubuntu/ xenial-proposed main
-# deb [a=b] http://ubuntu.com/ubuntu/ $RELEASE-backports main
-"""
-        # $RELEASE in backports doesn't get expanded because the line is
-        # considered invalid because of the options.  So when the line
-        # gets commented out, it comments out the original line, not
-        # what we've modifed it to.
-        rel = 'xenial'
-        mirrors = {'PRIMARY': 'http://ubuntu.com/ubuntu/'}
-
-        cfg = {
-            'preserve_sources_list': False,
-            'sources_list': orig,
-            'disable_suites': ['backports'],
-        }
-
-        apt_config.generate_sources_list(cfg, rel, mirrors, self.target)
-        filepath = os.path.join(self.target, 'etc/apt/sources.list')
-        write_file.assert_called_with(filepath, expect, mode=0o644)
+        repo = 'http://example.com/mirrors/ubuntu'
+        orig = "\n".join(lines) % {'repo': repo, 'rel': rel}
+        self.assertEqual(
+            orig, apt_config.disable_suites(["proposed"], orig, rel))
 
 
 class TestDebconfSelections(CiTestCase):

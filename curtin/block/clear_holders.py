@@ -332,7 +332,7 @@ def wipe_superblock(device):
             time.sleep(wait)
 
 
-def _wipe_superblock(blockdev, exclusive=True):
+def _wipe_superblock(blockdev, exclusive=True, strict=True):
     """ No checks, just call wipe_volume """
 
     retries = [1, 3, 5, 7]
@@ -341,7 +341,8 @@ def _wipe_superblock(blockdev, exclusive=True):
         LOG.debug('wiping %s attempt %s/%s',
                   blockdev, attempt + 1, len(retries))
         try:
-            block.wipe_volume(blockdev, mode='superblock', exclusive=exclusive)
+            block.wipe_volume(blockdev, mode='superblock',
+                              exclusive=exclusive, strict=strict)
             LOG.debug('successfully wiped device %s on attempt %s/%s',
                       blockdev, attempt + 1, len(retries))
             return

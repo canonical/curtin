@@ -73,18 +73,8 @@ class BionicTestNvme(relbase.bionic, TestNvmeAbs):
     __test__ = True
 
 
-class FocalTestNvme(relbase.focal, TestNvmeAbs):
-    __test__ = False
-    # An error occured handling 'nvme_disk2':
-    # OSError - [Errno 16] Device or resource busy: '/dev/mapper/mpatha'
-
-
-class HirsuteTestNvme(relbase.hirsute, TestNvmeAbs):
-    __test__ = False
-
-
-class ImpishTestNvme(relbase.impish, TestNvmeAbs):
-    __test__ = False
+class GroovyTestNvme(relbase.groovy, TestNvmeAbs):
+    __test__ = True
 
 
 class TestNvmeBcacheAbs(TestNvmeAbs):
@@ -157,7 +147,7 @@ class HirsuteTestNvmeBcache(relbase.hirsute, TestNvmeBcacheAbs):
     __test__ = True
 
 
-class ImpishTestNvmeBcache(relbase.impish, TestNvmeBcacheAbs):
+class GroovyTestNvmeBcache(relbase.groovy, TestNvmeBcacheAbs):
     __test__ = True
 
 

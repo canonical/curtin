@@ -81,7 +81,7 @@ def activate_volgroups(multipath=False):
     """
     cmd = ['vgchange', '--activate=y']
     if multipath:
-        # only operate on mp devices or encrypted volumes
+        # only operate on mp devices
         mp_filter = generate_multipath_dev_mapper_filter()
         cmd.extend(['--config', 'devices{ %s }' % mp_filter])
 
@@ -100,14 +100,12 @@ def _generate_multipath_filter(accept=None):
 
 
 def generate_multipath_dev_mapper_filter():
-    return _generate_multipath_filter(
-        accept=['/dev/mapper/mpath.*', '/dev/mapper/dm_crypt-.*'])
+    return _generate_multipath_filter(accept=['/dev/mapper/mpath.*'])
 
 
 def generate_multipath_dm_uuid_filter():
-    return _generate_multipath_filter(accept=[
-        '/dev/disk/by-id/dm-uuid-.*mpath-.*',
-        '/dev/disk/by-id/.*dm_crypt-.*'])
+    return _generate_multipath_filter(
+        accept=['/dev/disk/by-id/dm-uuid-.*mpath-.*'])
 
 
 def lvm_scan(activate=True, multipath=False):
@@ -128,9 +126,8 @@ def lvm_scan(activate=True, multipath=False):
         release = 'xenial'
 
     if multipath:
-        # only operate on mp devices or encrypted volumes
-        mponly = 'devices{ filter = [ "a|%s|", "a|%s|", "r|.*|" ] }' % (
-            '/dev/mapper/mpath.*', '/dev/mapper/dm_crypt-.*')
+        # only operate on mp devices
+        mponly = 'devices{ filter = [ "a|/dev/mapper/mpath.*|", "r|.*|" ] }'
 
     for cmd in [['pvscan'], ['vgscan']]:
         if release != 'precise' and lvmetad_running():

@@ -40,8 +40,7 @@ if __name__ == "__main__":
         description="Tool to remove vmtest classes by distro release")
     parser.add_argument('--distro-release', '-d',
                         action='store', required=True)
-    parser.add_argument('--path', '-p', action='store',
-                        default='./tests/vmtests')
+    parser.add_argument('--path', '-p', action='store', required=True)
 
     args = parser.parse_args()
     distro = args.distro_release.title()

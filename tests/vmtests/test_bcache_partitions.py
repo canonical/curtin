@@ -33,7 +33,7 @@ class HirsuteTestBcachePartitions(relbase.hirsute, TestBcachePartitions):
     __test__ = True
 
 
-class ImpishTestBcachePartitions(relbase.impish, TestBcachePartitions):
+class GroovyTestBcachePartitions(relbase.groovy, TestBcachePartitions):
     __test__ = True
 
 

@@ -79,12 +79,18 @@ class BionicTestNetworkVlan(relbase.bionic, TestNetworkVlanAbs):
 class FocalTestNetworkVlan(relbase.focal, TestNetworkVlanAbs):
     __test__ = True
 
+    def test_ip_output(self):
+        return super().test_ip_output()
+
 
 class HirsuteTestNetworkVlan(relbase.hirsute, TestNetworkVlanAbs):
     __test__ = True
 
+    def test_ip_output(self):
+        return super().test_ip_output()
 
-class ImpishTestNetworkVlan(relbase.impish, TestNetworkVlanAbs):
+
+class GroovyTestNetworkVlan(relbase.groovy, TestNetworkVlanAbs):
     __test__ = True
 
 

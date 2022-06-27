@@ -69,7 +69,7 @@ class HirsuteTestPollinateUserAgent(relbase.hirsute, TestPollinateUserAgent):
     __test__ = True
 
 
-class ImpishTestPollinateUserAgent(relbase.impish, TestPollinateUserAgent):
+class GroovyTestPollinateUserAgent(relbase.groovy, TestPollinateUserAgent):
     __test__ = True
 
 

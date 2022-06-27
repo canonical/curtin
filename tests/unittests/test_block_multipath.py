@@ -1,7 +1,7 @@
 import mock
 
 from curtin.block import multipath
-from .helpers import CiTestCase
+from .helpers import CiTestCase, raise_pexec_error
 
 
 # dmsetup uses tabs as separators
@@ -63,40 +63,23 @@ class TestMultipath(CiTestCase):
         self.m_udev.udevadm_info.return_value = {'DM_UUID': 'lvm-vg-foo-lv1'}
         self.assertFalse(multipath.is_mpath_device(self.random_string()))
 
-    def test_is_mpath_member_false(self):
-        """is_mpath_member returns false if DM_MULTIPATH_DEVICE_PATH is not
-        present"""
-        self.m_udev.udevadm_info.return_value = {}
-        self.assertFalse(multipath.is_mpath_member(self.random_string()))
-
-    def test_is_mpath_member_false_2(self):
-        """is_mpath_member returns false if DM_MULTIPATH_DEVICE_PATH is not
-        '1'"""
-        self.m_udev.udevadm_info.return_value = {
-            "DM_MULTIPATH_DEVICE_PATH": "2",
-            }
-        self.assertFalse(multipath.is_mpath_member(self.random_string()))
-
     def test_is_mpath_member_true(self):
-        """is_mpath_member returns true if DM_MULTIPATH_DEVICE_PATH is
-        '1'"""
-        self.m_udev.udevadm_info.return_value = {
-            "DM_MULTIPATH_DEVICE_PATH": "1",
-            }
+        """is_mpath_device returns false when DM_UUID doesnt start w/ mpath-"""
         self.assertTrue(multipath.is_mpath_member(self.random_string()))
 
+    def test_is_mpath_member_false(self):
+        """is_mpath_member returns false if 'multipath -c <dev>' exits err."""
+        self.m_subp.side_effect = raise_pexec_error
+        self.assertFalse(multipath.is_mpath_member(self.random_string()))
+
     def test_is_mpath_partition_true(self):
-        """is_mpath_partition returns true if udev info contains right keys."""
+        """is_mpath_member returns true if 'multipath -c <dev>' exits 0."""
         dm_device = "/dev/dm-" + self.random_string()
-        self.m_udev.udevadm_info.return_value = {
-            'DM_PART': '1',
-            'DM_MPATH': 'a',
-            }
+        self.m_udev.udevadm_info.return_value = {'DM_PART': '1'}
         self.assertTrue(multipath.is_mpath_partition(dm_device))
 
     def test_is_mpath_partition_false(self):
-        """is_mpath_partition returns false if DM_PART is not present for dev.
-        """
+        """is_mpath_member returns false if DM_PART is not present for dev."""
         self.assertFalse(multipath.is_mpath_partition(self.random_string()))
 
     def test_mpath_partition_to_mpath_id_and_partnumber(self):

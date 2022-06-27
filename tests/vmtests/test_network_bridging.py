@@ -244,7 +244,7 @@ class HirsuteTestBridging(relbase.hirsute, TestBridgeNetworkAbs):
     __test__ = True
 
 
-class ImpishTestBridging(relbase.impish, TestBridgeNetworkAbs):
+class GroovyTestBridging(relbase.groovy, TestBridgeNetworkAbs):
     __test__ = True
 
 

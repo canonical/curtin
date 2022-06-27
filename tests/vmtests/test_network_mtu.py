@@ -197,7 +197,7 @@ class HirsuteTestNetworkMtu(relbase.hirsute, TestNetworkMtuNetworkdAbs):
     __test__ = True
 
 
-class ImpishTestNetworkMtu(relbase.impish, TestNetworkMtuNetworkdAbs):
+class GroovyTestNetworkMtu(relbase.groovy, TestNetworkMtuNetworkdAbs):
     __test__ = True
 
 

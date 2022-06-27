@@ -30,7 +30,7 @@ class HirsuteTestNetworkIPV6Vlan(relbase.hirsute, TestNetworkIPV6VlanAbs):
     __test__ = True
 
 
-class ImpishTestNetworkIPV6Vlan(relbase.impish, TestNetworkIPV6VlanAbs):
+class GroovyTestNetworkIPV6Vlan(relbase.groovy, TestNetworkIPV6VlanAbs):
     __test__ = True
 
 

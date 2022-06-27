@@ -106,8 +106,7 @@ class TestBlockLvm(CiTestCase):
         lvm.lvm_scan(multipath=True)
         cmd_filter = [
             '--config',
-            'devices{ filter = [ "a|%s|", "a|%s|", "r|.*|" ] }' % (
-                '/dev/mapper/mpath.*', '/dev/mapper/dm_crypt-.*')
+            'devices{ filter = [ "a|/dev/mapper/mpath.*|", "r|.*|" ] }'
         ]
         expected = [cmd + cmd_filter for cmd in cmds]
         calls = [mock.call(cmd, capture=True) for cmd in expected]
@@ -118,15 +117,12 @@ class TestBlockLvm(CiTestCase):
 class TestBlockLvmMultipathFilter(CiTestCase):
 
     def test_generate_multipath_dev_mapper_filter(self):
-        expected = 'filter = [ "a|%s|", "a|%s|", "r|.*|" ]' % (
-            '/dev/mapper/mpath.*', '/dev/mapper/dm_crypt-.*')
+        expected = 'filter = [ "a|/dev/mapper/mpath.*|", "r|.*|" ]'
         self.assertEqual(expected, lvm.generate_multipath_dev_mapper_filter())
 
     def test_generate_multipath_dm_uuid_filter(self):
         expected = (
-            'filter = [ "a|%s|", "a|%s|", "r|.*|" ]' % (
-                '/dev/disk/by-id/dm-uuid-.*mpath-.*',
-                '/dev/disk/by-id/.*dm_crypt-.*'))
+            'filter = [ "a|/dev/disk/by-id/dm-uuid-.*mpath-.*|", "r|.*|" ]')
         self.assertEqual(expected, lvm.generate_multipath_dm_uuid_filter())
 
 

@@ -140,7 +140,7 @@ class WorkingDir(object):
             json.dump(config, fp)
 
         # just touch these files to make sure they exist
-        for f in (config_f, fstab_f, netconf_f, netstate_f):
+        for f in (interfaces_f, config_f, fstab_f, netconf_f, netstate_f):
             with open(f, "ab") as fp:
                 pass
 

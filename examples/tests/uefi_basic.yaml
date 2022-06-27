@@ -1,10 +1,6 @@
 showtrace: true
 
 early_commands:
-  # Create a small (512KiB) partition to test the fix for LP: #1868177.
-  tinypartition: [
-    "parted", /dev/disk/by-id/virtio-disk-a, "--script", "mklabel", "gpt",
-    "mkpart", "primary", "4096s", "4096s", "5120s"]
   # Recreate and test LP:1722322
   # Make one disk dirty with an MBR and a storage configuration
   # GPT and don't supply wipe: superblock.  This will exercise

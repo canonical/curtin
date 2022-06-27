@@ -83,7 +83,7 @@ class HirsuteTestBcacheCeph(relbase.hirsute, TestBcacheCeph):
     __test__ = True
 
 
-class ImpishTestBcacheCeph(relbase.impish, TestBcacheCeph):
+class GroovyTestBcacheCeph(relbase.groovy, TestBcacheCeph):
     __test__ = True
 
 
@@ -117,7 +117,7 @@ class HirsuteTestBcacheCephLvm(relbase.hirsute, TestBcacheCephLvm):
     __test__ = True
 
 
-class ImpishTestBcacheCephLvm(relbase.impish, TestBcacheCephLvm):
+class GroovyTestBcacheCephLvm(relbase.groovy, TestBcacheCephLvm):
     __test__ = True
 
 

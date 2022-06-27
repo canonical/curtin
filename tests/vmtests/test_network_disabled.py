@@ -67,7 +67,7 @@ class HirsuteCurtinDisableNetworkRendering(relbase.hirsute, TestKlass1):
     __test__ = True
 
 
-class ImpishCurtinDisableNetworkRendering(relbase.impish, TestKlass1):
+class GroovyCurtinDisableNetworkRendering(relbase.groovy, TestKlass1):
     __test__ = True
 
 
@@ -79,7 +79,7 @@ class HirsuteCurtinDisableCloudInitNetworking(relbase.hirsute, TestKlass2):
     __test__ = True
 
 
-class ImpishCurtinDisableCloudInitNetworking(relbase.impish, TestKlass2):
+class GroovyCurtinDisableCloudInitNetworking(relbase.groovy, TestKlass2):
     __test__ = True
 
 
@@ -92,7 +92,7 @@ class HirsuteCurtinDisableCloudInitNetworkingVersion1(relbase.hirsute,
     __test__ = True
 
 
-class ImpishCurtinDisableCloudInitNetworkingVersion1(relbase.impish,
+class GroovyCurtinDisableCloudInitNetworkingVersion1(relbase.groovy,
                                                      TestKlass3):
     __test__ = True
 

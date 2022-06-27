@@ -36,7 +36,7 @@ class HirsuteTestReuseRAIDMember(relbase.hirsute, TestReuseRAIDMember):
     __test__ = True
 
 
-class ImpishTestReuseRAIDMember(relbase.impish, TestReuseRAIDMember):
+class GroovyTestReuseRAIDMember(relbase.groovy, TestReuseRAIDMember):
     __test__ = True
 
 
@@ -55,7 +55,7 @@ class HirsuteTestReuseRAIDMemberPartition(relbase.hirsute,
     __test__ = True
 
 
-class ImpishTestReuseRAIDMemberPartition(relbase.impish,
+class GroovyTestReuseRAIDMemberPartition(relbase.groovy,
                                          TestReuseRAIDMemberPartition):
     __test__ = True
 

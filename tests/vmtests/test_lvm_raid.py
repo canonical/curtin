@@ -63,5 +63,5 @@ class HirsuteTestLvmOverRaid(relbase.hirsute, TestLvmOverRaidAbs):
     __test__ = True
 
 
-class ImpishTestLvmOverRaid(relbase.impish, TestLvmOverRaidAbs):
+class GroovyTestLvmOverRaid(relbase.groovy, TestLvmOverRaidAbs):
     __test__ = True

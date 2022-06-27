@@ -106,7 +106,7 @@ class HirsuteTestZfsRoot(relbase.hirsute, TestZfsRootAbs):
     mem = 4096
 
 
-class ImpishTestZfsRoot(relbase.impish, TestZfsRootAbs):
+class GroovyTestZfsRoot(relbase.groovy, TestZfsRootAbs):
     __test__ = True
     mem = 4096
 
@@ -140,9 +140,7 @@ class HirsuteTestZfsRootFsType(relbase.hirsute, TestZfsRootFsTypeAbs):
     mem = 4096
 
 
-class ImpishTestZfsRootFsType(relbase.impish, TestZfsRootFsTypeAbs):
+class GroovyTestZfsRootFsType(relbase.groovy, TestZfsRootFsTypeAbs):
     __test__ = True
-    mem = 4096
-
 
 # vi: ts=4 expandtab syntax=python

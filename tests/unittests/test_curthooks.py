@@ -536,13 +536,9 @@ class TestSetupZipl(CiTestCase):
 
     @patch('curtin.block.get_devices_for_mp')
     @patch('platform.machine')
-    @patch('curtin.commands.block_meta.get_volume_spec')
-    def test_setup_zipl_writes_etc_zipl_conf(
-            self, m_get_volume_spec, m_machine, m_get_devices):
+    def test_setup_zipl_writes_etc_zipl_conf(self, m_machine, m_get_devices):
         m_machine.return_value = 's390x'
         m_get_devices.return_value = ['/dev/mapper/ubuntu--vg-root']
-        root_dev = self.random_string()
-        m_get_volume_spec.return_value = root_dev
         curthooks.setup_zipl(None, self.target)
         m_get_devices.assert_called_with(self.target)
         with open(os.path.join(self.target, 'etc', 'zipl.conf')) as stream:
@@ -550,8 +546,6 @@ class TestSetupZipl(CiTestCase):
         self.assertIn(
             '# This has been modified by the MAAS curtin installer',
             content)
-        # validate the root= parameter was properly set in the cmdline
-        self.assertIn('root={}'.format(root_dev), content)
 
 
 class EfiOutput(object):

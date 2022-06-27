@@ -31,7 +31,7 @@ class HirsuteTestReuseLVMMemberPartition(relbase.hirsute,
     __test__ = True
 
 
-class ImpishTestReuseLVMMemberPartition(relbase.impish,
+class GroovyTestReuseLVMMemberPartition(relbase.groovy,
                                         TestReuseLVMMemberPartition):
     __test__ = True
 

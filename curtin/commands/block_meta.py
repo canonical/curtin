@@ -27,7 +27,7 @@ import time
 FstabData = namedtuple(
     "FstabData", ('spec', 'path', 'fstype', 'options', 'freq', 'passno',
                   'device'))
-FstabData.__new__.__defaults__ = (None, None, None, "", "0", "-1", None)
+FstabData.__new__.__defaults__ = (None, None, None, "", "0", "0", None)
 
 
 SIMPLE = 'simple'
@@ -72,8 +72,6 @@ CMD_ARGUMENTS = (
                         'choices': ['ext4', 'ext3'], 'default': None}),
      ('--umount', {'help': 'unmount any mounted filesystems before exit',
                    'action': 'store_true', 'default': False}),
-     ('--testmode', {'help': 'enable some test actions',
-                     'action': 'store_true', 'default': False}),
      ('mode', {'help': 'meta-mode to use',
                'choices': [CUSTOM, SIMPLE, SIMPLE_BOOT]}),
      )
@@ -83,10 +81,7 @@ CMD_ARGUMENTS = (
 @logged_time("BLOCK_META")
 def block_meta(args):
     # main entry point for the block-meta command.
-    if args.testmode:
-        state = {}
-    else:
-        state = util.load_command_environment(strict=True)
+    state = util.load_command_environment(strict=True)
     cfg = config.load_command_config(args, state)
     dd_images = util.get_dd_images(cfg.get('sources', {}))
 
@@ -104,8 +99,7 @@ def block_meta(args):
         args.devices = devices
 
     LOG.debug('clearing devices=%s', devices)
-    if devices:
-        meta_clear(devices, state.get('report_stack_prefix', ''))
+    meta_clear(devices, state.get('report_stack_prefix', ''))
 
     # dd-images requires use of meta_simple
     if len(dd_images) > 0 and args.force_mode is False:
@@ -151,15 +145,7 @@ def write_image_to_disk(source, dev):
                      extractor[source['type']] + '| dd bs=4M of="$2"'),
                     '--', source['uri'], devnode])
     util.subp(['partprobe', devnode])
-
-    udevadm_trigger([devnode])
-    try:
-        lvm.activate_volgroups()
-    except util.ProcessExecutionError:
-        # partial vg may not come up due to missing members, that's OK
-        pass
     udevadm_settle()
-
     # Images from MAAS have well-known/required paths present
     # on the rootfs partition.  Use these values to select the
     # root (target) partition to complete installation.
@@ -531,9 +517,6 @@ def get_path_to_storage_volume(volume, storage_config):
         volume_path = block.kname_to_path(bcache_kname)
         LOG.debug('got bcache volume path %s', volume_path)
 
-    elif vol.get('type') == 'image':
-        volume_path = vol['dev']
-
     else:
         raise NotImplementedError("cannot determine the path to storage \
             volume '%s' with type '%s'" % (volume, vol.get('type')))
@@ -547,29 +530,7 @@ def get_path_to_storage_volume(volume, storage_config):
     return volume_path
 
 
-DEVS = set()
-
-
-def image_handler(info, storage_config, handlers):
-    path = info['path']
-    if os.path.exists(path):
-        os.unlink(path)
-    try:
-        with open(path, 'wb') as fp:
-            fp.truncate(int(util.human2bytes(info['size'])))
-        dev = util.subp([
-            'losetup', '--show', '--find', path],
-            capture=True)[0].strip()
-    except BaseException:
-        if os.path.exists(path):
-            os.unlink(path)
-        raise
-    info['dev'] = dev
-    DEVS.add(dev)
-    handlers['disk'](info, storage_config, handlers)
-
-
-def dasd_handler(info, storage_config, handlers):
+def dasd_handler(info, storage_config):
     """ Prepare the specified dasd device per configuration
 
     params: info: dictionary of configuration, required keys are:
@@ -614,7 +575,7 @@ def dasd_handler(info, storage_config, handlers):
                 "Dasd %s failed to format" % dasd_device.devname)
 
 
-def disk_handler(info, storage_config, handlers):
+def disk_handler(info, storage_config):
     _dos_names = ['dos', 'msdos']
     ptable = info.get('ptable')
     if ptable and ptable not in PTABLES_VALID:
@@ -622,18 +583,7 @@ def disk_handler(info, storage_config, handlers):
             'Invalid partition table type: %s in %s' % (ptable, info))
 
     disk = get_path_to_storage_volume(info.get('id'), storage_config)
-    # For disks, 'preserve' is what indicates whether the partition
-    # table should be reused or recreated but for compound devices
-    # such as raids, it indicates if the raid should be created or
-    # assumed to already exist. So to allow a pre-existing raid to get
-    # a new partition table, we use presence of 'wipe' field to
-    # indicate if the disk should be reformatted or not.
-    if info['type'] == 'disk':
-        preserve_ptable = config.value_as_boolean(info.get('preserve'))
-    else:
-        preserve_ptable = config.value_as_boolean(info.get('preserve')) \
-                          and not config.value_as_boolean(info.get('wipe'))
-    if preserve_ptable:
+    if config.value_as_boolean(info.get('preserve')):
         # Handle preserve flag, verifying if ptable specified in config
         if ptable and ptable != PTABLE_UNSUPPORTED:
             current_ptable = block.get_part_table_type(disk)
@@ -641,9 +591,8 @@ def disk_handler(info, storage_config, handlers):
             if current_ptable not in PTABLES_SUPPORTED:
                 raise ValueError(
                     "disk '%s' does not have correct partition table or "
-                    "cannot be read, but preserve is set to true (or wipe is "
-                    "not set).  cannot continue installation." %
-                    info.get('id'))
+                    "cannot be read, but preserve is set to true. "
+                    "cannot continue installation." % info.get('id'))
         LOG.info("disk '%s' marked to be preserved, so keeping partition "
                  "table" % disk)
     else:
@@ -765,7 +714,12 @@ def verify_exists(devpath):
         raise RuntimeError("Device %s does not exist" % devpath)
 
 
-def verify_size(devpath, expected_size_bytes, part_info):
+def verify_size(devpath, expected_size_bytes, sfdisk_info=None):
+    if not sfdisk_info:
+        sfdisk_info = block.sfdisk_info(devpath)
+
+    part_info = block.get_partition_sfdisk_info(devpath,
+                                                sfdisk_info=sfdisk_info)
     (found_type, _code) = ptable_uuid_to_flag_entry(part_info.get('type'))
     if found_type == 'extended':
         found_size_bytes = int(part_info['size']) * 512
@@ -779,25 +733,30 @@ def verify_size(devpath, expected_size_bytes, part_info):
         raise RuntimeError(msg)
 
 
-def verify_ptable_flag(devpath, expected_flag, label, part_info):
+def verify_ptable_flag(devpath, expected_flag, sfdisk_info=None):
     if (expected_flag not in SGDISK_FLAGS.keys()) and (expected_flag not in
                                                        MSDOS_FLAGS.keys()):
         raise RuntimeError(
             'Cannot verify unknown partition flag: %s' % expected_flag)
 
+    if not sfdisk_info:
+        sfdisk_info = block.sfdisk_info(devpath)
+
+    entry = block.get_partition_sfdisk_info(devpath, sfdisk_info=sfdisk_info)
+    LOG.debug("Device %s ptable entry: %s", devpath, util.json_dumps(entry))
     found_flag = None
-    if (label in ('dos', 'msdos')):
+    if (sfdisk_info['label'] in ('dos', 'msdos')):
         if expected_flag == 'boot':
-            found_flag = 'boot' if part_info.get('bootable') is True else None
+            found_flag = 'boot' if entry.get('bootable') is True else None
         elif expected_flag == 'extended':
-            (found_flag, _code) = ptable_uuid_to_flag_entry(part_info['type'])
+            (found_flag, _code) = ptable_uuid_to_flag_entry(entry['type'])
         elif expected_flag == 'logical':
             (_parent, partnumber) = block.get_blockdev_for_partition(devpath)
             found_flag = 'logical' if int(partnumber) > 4 else None
 
     # gpt and msdos primary partitions look up flag by entry['type']
     if found_flag is None:
-        (found_flag, _code) = ptable_uuid_to_flag_entry(part_info['type'])
+        (found_flag, _code) = ptable_uuid_to_flag_entry(entry['type'])
     msg = (
         'Verifying %s partition flag, expecting %s, found %s' % (
          devpath, expected_flag, found_flag))
@@ -806,13 +765,16 @@ def verify_ptable_flag(devpath, expected_flag, label, part_info):
         raise RuntimeError(msg)
 
 
-def partition_verify_sfdisk(part_action, label, sfdisk_part_info):
-    devpath = sfdisk_part_info['node']
-    verify_size(
-        devpath, int(util.human2bytes(part_action['size'])), sfdisk_part_info)
-    expected_flag = part_action.get('flag')
+def partition_verify_sfdisk(devpath, info):
+    verify_exists(devpath)
+    sfdisk_info = block.sfdisk_info(devpath)
+    if not sfdisk_info:
+        raise RuntimeError('Failed to extract sfdisk info from %s' % devpath)
+    verify_size(devpath, int(util.human2bytes(info['size'])),
+                sfdisk_info=sfdisk_info)
+    expected_flag = info.get('flag')
     if expected_flag:
-        verify_ptable_flag(devpath, expected_flag, label, sfdisk_part_info)
+        verify_ptable_flag(devpath, info['flag'], sfdisk_info=sfdisk_info)
 
 
 def partition_verify_fdasd(disk_path, partnumber, info):
@@ -830,7 +792,7 @@ def partition_verify_fdasd(disk_path, partnumber, info):
         raise RuntimeError("dasd partitions do not support flags")
 
 
-def partition_handler(info, storage_config, handlers):
+def partition_handler(info, storage_config):
     device = info.get('device')
     size = info.get('size')
     flag = info.get('flag')
@@ -919,14 +881,12 @@ def partition_handler(info, storage_config, handlers):
     # Handle preserve flag
     create_partition = True
     if config.value_as_boolean(info.get('preserve')):
-        part_path = block.dev_path(
-            block.partition_kname(disk_kname, partnumber))
         if disk_ptable == 'vtoc':
             partition_verify_fdasd(disk, partnumber, info)
         else:
-            sfdisk_info = block.sfdisk_info(disk)
-            part_info = block.get_partition_sfdisk_info(part_path, sfdisk_info)
-            partition_verify_sfdisk(info, sfdisk_info['label'], part_info)
+            part_path = block.dev_path(
+                block.partition_kname(disk_kname, partnumber))
+            partition_verify_sfdisk(part_path, info)
         LOG.debug(
             '%s partition %s already present, skipping create',
             disk, partnumber)
@@ -1019,7 +979,7 @@ def partition_handler(info, storage_config, handlers):
         make_dname(info.get('id'), storage_config)
 
 
-def format_handler(info, storage_config, handlers):
+def format_handler(info, storage_config):
     volume = info.get('volume')
     if not volume:
         raise ValueError("volume must be specified for partition '%s'" %
@@ -1060,7 +1020,7 @@ def mount_data(info, storage_config):
     fstype = info.get('fstype')
     path = info.get('path')
     freq = str(info.get('freq', 0))
-    passno = str(info.get('passno', -1))
+    passno = str(info.get('passno', 0))
 
     # turn empty options into "defaults", which works in fstab and mount -o.
     if not info.get('options'):
@@ -1154,28 +1114,6 @@ def get_volume_spec(device_path):
     return devlinks[0] if len(devlinks) else device_path
 
 
-def proc_filesystems_passno(fstype):
-    """Examine /proc/filesystems - is this fstype listed and marked nodev?
-
-    :param fstype: a filesystem name such as ext2 or tmpfs
-    :return passno for fstype - nodev fs get 0, else 1"""
-
-    if fstype in ('swap', 'none'):
-        return "0"
-    with open('/proc/filesystems', 'r') as procfs:
-        for line in procfs.readlines():
-            tokens = line.strip('\n').split('\t')
-            if len(tokens) < 2:
-                continue
-
-            devstatus, curfs = tokens[:2]
-            if curfs != fstype:
-                continue
-
-            return "0" if devstatus == 'nodev' else "1"
-    return "1"
-
-
 def fstab_line_for_data(fdata):
     """Return a string representing fdata in /etc/fstab format.
 
@@ -1213,12 +1151,8 @@ def fstab_line_for_data(fdata):
     else:
         comment = None
 
-    passno = fdata.passno
-    if int(passno) < 0:
-        passno = proc_filesystems_passno(fdata.fstype)
-
     entry = ' '.join((spec, path, fdata.fstype, options,
-                      fdata.freq, passno)) + "\n"
+                      fdata.freq, fdata.passno)) + "\n"
     line = '\n'.join([comment, entry] if comment else [entry])
     return line
 
@@ -1269,7 +1203,7 @@ def mount_apply(fdata, target=None, fstab=None):
         LOG.info("fstab not in environment, so not writing")
 
 
-def mount_handler(info, storage_config, handlers):
+def mount_handler(info, storage_config):
     """ Handle storage config type: mount
 
     info = {
@@ -1305,7 +1239,7 @@ def lvm_volgroup_verify(vg_name, device_paths):
     verify_volgroup_members(vg_name, device_paths)
 
 
-def lvm_volgroup_handler(info, storage_config, handlers):
+def lvm_volgroup_handler(info, storage_config):
     devices = info.get('devices')
     device_paths = []
     name = info.get('name')
@@ -1366,7 +1300,7 @@ def lvm_partition_verify(lv_name, vg_name, info):
         verify_lv_size(lv_name, info['size'])
 
 
-def lvm_partition_handler(info, storage_config, handlers):
+def lvm_partition_handler(info, storage_config):
     volgroup = storage_config[info['volgroup']]['name']
     name = info['name']
     if not volgroup:
@@ -1390,7 +1324,7 @@ def lvm_partition_handler(info, storage_config, handlers):
         cmd = ["lvcreate", volgroup, "--name", name, "--zero=y"]
         release = distro.lsb_release()['codename']
         if release not in ['precise', 'trusty']:
-            cmd.extend(["--wipesignatures=y", "--yes"])
+            cmd.extend(["--wipesignatures=y"])
 
         if info.get('size'):
             size = util.human2bytes(info["size"])
@@ -1428,7 +1362,7 @@ def dm_crypt_verify(dmcrypt_dev, volume_path):
     verify_blkdev_used(dmcrypt_dev, volume_path)
 
 
-def dm_crypt_handler(info, storage_config, handlers):
+def dm_crypt_handler(info, storage_config):
     state = util.load_command_environment(strict=True)
     volume = info.get('volume')
     keysize = info.get('keysize')
@@ -1536,41 +1470,27 @@ def dm_crypt_handler(info, storage_config, handlers):
             so not writing crypttab")
 
 
-def verify_md_components(md_devname, raidlevel, device_paths, spare_paths,
-                         container):
+def verify_md_components(md_devname, raidlevel, device_paths, spare_paths):
     # check if the array is already up, if not try to assemble
-    errors = []
-    check_ok = False
-    try:
-        mdadm.md_check(md_devname, raidlevel, device_paths,
-                       spare_paths, container)
-        check_ok = True
-    except ValueError as err1:
-        errors.append(err1)
+    check_ok = mdadm.md_check(md_devname, raidlevel, device_paths,
+                              spare_paths)
+    if not check_ok:
         LOG.info("assembling preserved raid for %s", md_devname)
         mdadm.mdadm_assemble(md_devname, device_paths, spare_paths)
-        try:
-            mdadm.md_check(md_devname, raidlevel, device_paths,
-                           spare_paths, container)
-            check_ok = True
-        except ValueError as err2:
-            errors.append(err2)
-
-    msg = ('Verified %s raid composition, raid is %s'
+        check_ok = mdadm.md_check(md_devname, raidlevel, device_paths,
+                                  spare_paths)
+    msg = ('Verifying %s raid composition, found raid is %s'
            % (md_devname, 'OK' if check_ok else 'not OK'))
     LOG.debug(msg)
     if not check_ok:
-        for err in errors:
-            LOG.error("Error checking raid %s: %s", md_devname, err)
-        raise ValueError(msg)
+        raise RuntimeError(msg)
 
 
-def raid_verify(md_devname, raidlevel, device_paths, spare_paths, container):
-    verify_md_components(
-        md_devname, raidlevel, device_paths, spare_paths, container)
+def raid_verify(md_devname, raidlevel, device_paths, spare_paths):
+    verify_md_components(md_devname, raidlevel, device_paths, spare_paths)
 
 
-def raid_handler(info, storage_config, handlers):
+def raid_handler(info, storage_config):
     state = util.load_command_environment(strict=True)
     devices = info.get('devices')
     raidlevel = info.get('raidlevel')
@@ -1610,9 +1530,7 @@ def raid_handler(info, storage_config, handlers):
 
     create_raid = True
     if preserve:
-        raid_verify(
-            md_devname, raidlevel, device_paths, spare_device_paths,
-            container_dev)
+        raid_verify(md_devname, raidlevel, device_paths, spare_device_paths)
         LOG.debug('raid %s already present, skipping create', md_devname)
         create_raid = False
 
@@ -1652,7 +1570,7 @@ def raid_handler(info, storage_config, handlers):
     # If ptable is specified, call disk_handler on this mdadm device to create
     # the table
     if info.get('ptable'):
-        handlers['disk'](info, storage_config, handlers)
+        disk_handler(info, storage_config)
 
 
 def verify_bcache_cachedev(cachedev):
@@ -1719,7 +1637,7 @@ def bcache_verify(cachedev, backingdev, cache_mode):
     return True
 
 
-def bcache_handler(info, storage_config, handlers):
+def bcache_handler(info, storage_config):
     backing_device = get_path_to_storage_volume(info.get('backing_device'),
                                                 storage_config)
     cache_device = get_path_to_storage_volume(info.get('cache_device'),
@@ -1767,13 +1685,13 @@ def bcache_handler(info, storage_config, handlers):
         make_dname(info.get('id'), storage_config)
 
     if info.get('ptable'):
-        handlers['disk'](info, storage_config, handlers)
+        disk_handler(info, storage_config)
 
     LOG.debug('Finished bcache creation for backing %s or caching %s',
               backing_device, cache_device)
 
 
-def zpool_handler(info, storage_config, handlers):
+def zpool_handler(info, storage_config):
     """
     Create a zpool based in storage_configuration
     """
@@ -1812,7 +1730,7 @@ def zpool_handler(info, storage_config, handlers):
                      zfs_properties=fs_properties)
 
 
-def zfs_handler(info, storage_config, handlers):
+def zfs_handler(info, storage_config):
     """
     Create a zfs filesystem
     """
@@ -1995,11 +1913,7 @@ def meta_custom(args):
         'zpool': zpool_handler,
     }
 
-    if args.testmode:
-        command_handlers['image'] = image_handler
-        state = {}
-    else:
-        state = util.load_command_environment(strict=True)
+    state = util.load_command_environment(strict=True)
     cfg = config.load_command_config(args, state)
 
     storage_config_dict = extract_storage_ordered_dict(cfg)
@@ -2018,14 +1932,11 @@ def meta_custom(args):
                 description="configuring %s: %s" % (command['type'],
                                                     command['id'])):
             try:
-                handler(command, storage_config_dict, command_handlers)
+                handler(command, storage_config_dict)
             except Exception as error:
                 LOG.error("An error occured handling '%s': %s - %s" %
                           (item_id, type(error).__name__, error))
                 raise
-
-    if args.testmode:
-        util.subp(['losetup', '--detach'] + list(DEVS))
 
     if args.umount:
         util.do_umount(state['target'], recursive=True)
@@ -2052,14 +1963,10 @@ def meta_simple(args):
             serial = i.get("serial")
             if serial is None:
                 continue
-            try:
-                diskPath = block.lookup_disk(serial)
-            except ValueError as err:
-                LOG.debug("Skipping disk '%s': %s", i.get("id"), err)
-                continue
-            if i.get("grub_device"):
+            grub = i.get("grub_device")
+            diskPath = block.lookup_disk(serial)
+            if grub is True:
                 devpath = diskPath
-                break
 
     devices = args.devices
     bootpt = get_bootpt_cfg(
@@ -2097,10 +2004,10 @@ def meta_simple(args):
                 LOG.warn("No non-removable, installable devices found. List "
                          "populated with removable devices allowed: %s",
                          devices)
+    elif len(devices) == 0 and devpath:
+        devices = [devpath]
 
-    if devpath is not None:
-        target = devpath
-    elif len(devices) > 1:
+    if len(devices) > 1:
         if args.devices is not None:
             LOG.warn("'%s' mode but multiple devices given. "
                      "using first found", args.mode)

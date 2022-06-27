@@ -942,8 +942,8 @@ class TestBlockMdadmMdHelpers(CiTestCase):
         devname = '/dev/md0'
         md_uuid = '93a73e10:427f280b:b7076c02:204b8f7a'
         mock_os.path.realpath.return_value = devname
-        # "assertNotRaises"
-        mdadm.md_check_array_uuid(devname, md_uuid)
+        rv = mdadm.md_check_array_uuid(devname, md_uuid)
+        self.assertTrue(rv)
 
     @patch('curtin.block.mdadm.os')
     def test_md_check_array_uuid_mismatch(self, mock_os):
@@ -970,87 +970,43 @@ class TestBlockMdadmMdHelpers(CiTestCase):
 
     def test_md_check_raid_level(self):
         for rl in mdadm.VALID_RAID_LEVELS:
-            if isinstance(rl, int) or len(rl) <= 2:
-                el = 'raid%s' % (rl,)
-            elif rl == 'stripe':
-                el = 'raid0'
-            elif rl == 'mirror':
-                el = 'raid1'
-            else:
-                el = rl
-            # "assertNotRaises"
-            mdadm.md_check_raidlevel('md0', {'MD_LEVEL': el}, rl)
+            self.assertTrue(mdadm.md_check_raidlevel(rl))
 
     def test_md_check_raid_level_bad(self):
         bogus = '27'
         self.assertTrue(bogus not in mdadm.VALID_RAID_LEVELS)
         with self.assertRaises(ValueError):
-            mdadm.md_check_raidlevel('md0', {}, bogus)
+            mdadm.md_check_raidlevel(bogus)
 
     @patch('curtin.block.mdadm.md_sysfs_attr')
     def test_md_check_array_state(self, mock_attr):
         mdname = '/dev/md0'
-
-        def mock_attr_impl(md_devname, attrname, default=''):
-            if attrname == 'array_state':
-                return 'clean'
-            elif attrname == 'degraded':
-                return '0'
-            elif attrname == 'sync_action':
-                return 'idle'
-
-        mock_attr.side_effect = mock_attr_impl
-        # "assertNotRaises"
-        mdadm.md_check_array_state(mdname)
-
-    @patch('curtin.block.mdadm.md_sysfs_attr')
-    def test_md_check_array_state_raid0(self, mock_attr):
-        # Raid 0 arrays do not have a degraded or sync_action sysfs
-        # attribute.
-        mdname = '/dev/md0'
-
-        def mock_attr_impl(md_devname, attrname, default=''):
-            if attrname == 'array_state':
-                return 'clean'
-            elif attrname == 'degraded':
-                return default
-            elif attrname == 'sync_action':
-                return default
-
-        mock_attr.side_effect = mock_attr_impl
-        # "assertNotRaises"
-        mdadm.md_check_array_state(mdname)
+        mock_attr.side_effect = [
+            'clean',  # array_state
+            '0',  # degraded
+            'idle',  # sync_action
+        ]
+        self.assertTrue(mdadm.md_check_array_state(mdname))
 
     @patch('curtin.block.mdadm.md_sysfs_attr')
     def test_md_check_array_state_norw(self, mock_attr):
         mdname = '/dev/md0'
-
-        def mock_attr_impl(md_devname, attrname, default=''):
-            if attrname == 'array_state':
-                return 'suspended'
-            elif attrname == 'degraded':
-                return '0'
-            elif attrname == 'sync_action':
-                return 'idle'
-
-        mock_attr.side_effect = mock_attr_impl
+        mock_attr.side_effect = [
+            'suspended',  # array_state
+            '0',  # degraded
+            'idle',  # sync_action
+        ]
         with self.assertRaises(ValueError):
             mdadm.md_check_array_state(mdname)
 
     @patch('curtin.block.mdadm.md_sysfs_attr')
     def test_md_check_array_state_degraded(self, mock_attr):
         mdname = '/dev/md0'
-
-        def mock_attr_impl(md_devname, attrname, default=''):
-            if attrname == 'array_state':
-                return 'clean'
-            elif attrname == 'degraded':
-                return '1'
-            elif attrname == 'sync_action':
-                return 'idle'
-
-        mock_attr.side_effect = mock_attr_impl
-
+        mock_attr.side_effect = [
+            'clean',  # array_state
+            '1',  # degraded
+            'idle',  # sync_action
+        ]
         with self.assertRaises(ValueError):
             mdadm.md_check_array_state(mdname)
 
@@ -1083,8 +1039,8 @@ class TestBlockMdadmMdHelpers(CiTestCase):
         mock_guuid.return_value = '93a73e10:427f280b:b7076c02:204b8f7a'
         mock_ckuuid.return_value = True
 
-        # "assertNotRaises"
-        mdadm.md_check_uuid(mdname)
+        rv = mdadm.md_check_uuid(mdname)
+        self.assertTrue(rv)
 
     @patch('curtin.block.mdadm.md_check_array_uuid')
     @patch('curtin.block.mdadm.md_get_uuid')
@@ -1196,7 +1152,6 @@ class TestBlockMdadmMdHelpers(CiTestCase):
         with self.assertRaises(ValueError):
             mdadm.md_check_array_membership(mdname, devices)
 
-    @patch('curtin.block.mdadm.mdadm_query_detail')
     @patch('curtin.block.mdadm.md_check_array_membership')
     @patch('curtin.block.mdadm.md_check_spares')
     @patch('curtin.block.mdadm.md_check_devices')
@@ -1204,7 +1159,7 @@ class TestBlockMdadmMdHelpers(CiTestCase):
     @patch('curtin.block.mdadm.md_check_raidlevel')
     @patch('curtin.block.mdadm.md_check_array_state')
     def test_md_check_all_good(self, mock_array, mock_raid, mock_uuid,
-                               mock_dev, mock_spare, mock_member, mock_detail):
+                               mock_dev, mock_spare, mock_member):
         md_devname = '/dev/md0'
         raidlevel = 1
         devices = ['/dev/vda', '/dev/vdb']
@@ -1216,142 +1171,15 @@ class TestBlockMdadmMdHelpers(CiTestCase):
         mock_dev.return_value = None
         mock_spare.return_value = None
         mock_member.return_value = None
-        detail = {'MD_NAME': 'foo'}
-        mock_detail.return_value = detail
 
-        mdadm.md_check(
-            md_devname, raidlevel, devices=devices, spares=spares,
-            container=None)
+        mdadm.md_check(md_devname, raidlevel, devices=devices, spares=spares)
 
         mock_array.assert_has_calls([call(md_devname)])
-        mock_raid.assert_has_calls([call(md_devname, detail, raidlevel)])
+        mock_raid.assert_has_calls([call(raidlevel)])
         mock_uuid.assert_has_calls([call(md_devname)])
         mock_dev.assert_has_calls([call(md_devname, devices)])
         mock_spare.assert_has_calls([call(md_devname, spares)])
         mock_member.assert_has_calls([call(md_devname, devices + spares)])
-
-    @patch('curtin.block.mdadm.os.path.realpath')
-    @patch('curtin.block.mdadm.mdadm_query_detail')
-    @patch('curtin.block.mdadm.md_check_array_membership')
-    @patch('curtin.block.mdadm.md_check_spares')
-    @patch('curtin.block.mdadm.md_check_devices')
-    @patch('curtin.block.mdadm.md_check_uuid')
-    @patch('curtin.block.mdadm.md_check_raidlevel')
-    @patch('curtin.block.mdadm.md_check_array_state')
-    def test_md_check_all_good_container(self, mock_array, mock_raid,
-                                         mock_uuid, mock_dev, mock_spare,
-                                         mock_member, mock_detail,
-                                         mock_realpath):
-        md_devname = '/dev/md0'
-        raidlevel = 1
-        devices = ['/dev/vda', '/dev/vdb']
-        spares = ['/dev/vdc']
-
-        mock_array.return_value = None
-        mock_raid.return_value = None
-        mock_uuid.return_value = None
-        mock_dev.return_value = None
-        mock_spare.return_value = None
-        mock_member.return_value = None
-        container_name = self.random_string()
-        container_dev = self.random_string()
-        detail = {'MD_CONTAINER': container_name}
-        mock_detail.return_value = detail
-
-        def realpath_impl(path):
-            if path == container_name:
-                return container_dev
-            else:
-                self.fail("unexpected realpath arg %r" % (path,))
-
-        mock_realpath.side_effect = realpath_impl
-
-        mdadm.md_check(
-            md_devname, raidlevel, devices=devices, spares=spares,
-            container=container_dev)
-
-        mock_array.assert_has_calls([call(md_devname)])
-        mock_raid.assert_has_calls([call(md_devname, detail, raidlevel)])
-        mock_uuid.assert_has_calls([call(md_devname)])
-        mock_dev.assert_has_calls([])
-        mock_spare.assert_has_calls([])
-        mock_member.assert_has_calls([])
-
-    @patch('curtin.block.mdadm.mdadm_query_detail')
-    @patch('curtin.block.mdadm.md_check_array_membership')
-    @patch('curtin.block.mdadm.md_check_spares')
-    @patch('curtin.block.mdadm.md_check_devices')
-    @patch('curtin.block.mdadm.md_check_uuid')
-    @patch('curtin.block.mdadm.md_check_raidlevel')
-    @patch('curtin.block.mdadm.md_check_array_state')
-    def test_md_check_all_no_container(self, mock_array, mock_raid,
-                                       mock_uuid, mock_dev, mock_spare,
-                                       mock_member, mock_detail):
-        md_devname = '/dev/md0'
-        raidlevel = 1
-        devices = ['/dev/vda', '/dev/vdb']
-        spares = ['/dev/vdc']
-
-        mock_array.return_value = None
-        mock_raid.return_value = None
-        mock_uuid.return_value = None
-        mock_dev.return_value = None
-        mock_spare.return_value = None
-        mock_member.return_value = None
-        container_name = self.random_string()
-        detail = {}
-
-        mock_detail.return_value = detail
-
-        with self.assertRaises(ValueError):
-            mdadm.md_check(
-                md_devname, raidlevel, devices=devices, spares=spares,
-                container=container_name)
-
-        mock_array.assert_has_calls([call(md_devname)])
-        mock_raid.assert_has_calls([call(md_devname, detail, raidlevel)])
-        mock_uuid.assert_has_calls([call(md_devname)])
-        mock_dev.assert_has_calls([])
-        mock_spare.assert_has_calls([])
-        mock_member.assert_has_calls([])
-
-    @patch('curtin.block.mdadm.mdadm_query_detail')
-    @patch('curtin.block.mdadm.md_check_array_membership')
-    @patch('curtin.block.mdadm.md_check_spares')
-    @patch('curtin.block.mdadm.md_check_devices')
-    @patch('curtin.block.mdadm.md_check_uuid')
-    @patch('curtin.block.mdadm.md_check_raidlevel')
-    @patch('curtin.block.mdadm.md_check_array_state')
-    def test_md_check_all_wrong_container(self, mock_array, mock_raid,
-                                          mock_uuid, mock_dev, mock_spare,
-                                          mock_member, mock_detail):
-        md_devname = '/dev/md0'
-        raidlevel = 1
-        devices = ['/dev/vda', '/dev/vdb']
-        spares = ['/dev/vdc']
-
-        mock_array.return_value = None
-        mock_raid.return_value = None
-        mock_uuid.return_value = None
-        mock_dev.return_value = None
-        mock_spare.return_value = None
-        mock_member.return_value = None
-        container_name = self.random_string()
-        detail = {'MD_CONTAINER': container_name + '1'}
-
-        mock_detail.return_value = detail
-
-        with self.assertRaises(ValueError):
-            mdadm.md_check(
-                md_devname, raidlevel, devices=devices, spares=spares,
-                container=container_name)
-
-        mock_array.assert_has_calls([call(md_devname)])
-        mock_raid.assert_has_calls([call(md_devname, detail, raidlevel)])
-        mock_uuid.assert_has_calls([call(md_devname)])
-        mock_dev.assert_has_calls([])
-        mock_spare.assert_has_calls([])
-        mock_member.assert_has_calls([])
 
     def test_md_check_all_good_devshort(self):
         md_devname = 'md0'
@@ -1361,7 +1189,7 @@ class TestBlockMdadmMdHelpers(CiTestCase):
 
         with self.assertRaises(ValueError):
             mdadm.md_check(md_devname, raidlevel, devices=devices,
-                           spares=spares, container=None)
+                           spares=spares)
 
     def test_md_present(self):
         mdname = 'md0'

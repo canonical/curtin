@@ -96,7 +96,7 @@ class HirsuteTestRaid5Bcache(relbase.hirsute, TestMdadmBcacheAbs):
     __test__ = True
 
 
-class ImpishTestRaid5Bcache(relbase.impish, TestMdadmBcacheAbs):
+class GroovyTestRaid5Bcache(relbase.groovy, TestMdadmBcacheAbs):
     __test__ = True
 
 

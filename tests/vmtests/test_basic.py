@@ -263,7 +263,7 @@ class HirsuteTestBasic(relbase.hirsute, TestBasicAbs):
     __test__ = True
 
 
-class ImpishTestBasic(relbase.impish, TestBasicAbs):
+class GroovyTestBasic(relbase.groovy, TestBasicAbs):
     __test__ = True
 
 
@@ -387,7 +387,7 @@ class HirsuteTestScsiBasic(relbase.hirsute, TestBasicScsiAbs):
     __test__ = True
 
 
-class ImpishTestScsiBasic(relbase.impish, TestBasicScsiAbs):
+class GroovyTestScsiBasic(relbase.groovy, TestBasicScsiAbs):
     __test__ = True
 
 

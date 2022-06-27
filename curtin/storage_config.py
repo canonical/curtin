@@ -7,7 +7,7 @@ import re
 import yaml
 
 from curtin.log import LOG
-from curtin.block import multipath, schemas
+from curtin.block import schemas
 from curtin import config as curtin_config
 from curtin import util
 
@@ -164,7 +164,7 @@ def _stype_to_deps(stype):
         'lvm_volgroup': {'devices'},
         'mount': {'device'},
         'partition': {'device'},
-        'raid': {'devices', 'spare_devices', 'container'},
+        'raid': {'devices', 'spare_devices'},
         'zfs': {'pool'},
         'zpool': {'vdevs'},
     }
@@ -212,7 +212,7 @@ def _validate_dep_type(source_id, dep_key, dep_id, sconfig):
         'mount': {'format'},
         'partition': {'bcache', 'disk', 'raid', 'partition'},
         'raid': {'bcache', 'disk', 'dm_crypt', 'lvm_partition',
-                 'partition', 'raid'},
+                 'partition'},
         'zfs': {'zpool'},
         'zpool': {'disk', 'partition'},
     }
@@ -453,15 +453,72 @@ class ProbertParser(object):
 
         return None
 
-    def is_mpath_member(self, blockdev):
-        return multipath.is_mpath_member(blockdev.get('DEVNAME', ''), blockdev)
+    def is_mpath(self, blockdev):
+        if blockdev.get('DM_MULTIPATH_DEVICE_PATH') == "1":
+            return True
 
-    def is_mpath_device(self, blockdev):
-        return multipath.is_mpath_device(blockdev.get('DEVNAME', ''), blockdev)
+        return bool('mpath-' in blockdev.get('DM_UUID', ''))
 
-    def is_mpath_partition(self, blockdev):
-        return multipath.is_mpath_partition(
-            blockdev.get('DEVNAME', ''), blockdev)
+    def get_mpath_name(self, blockdev):
+        mpath_data = self.probe_data.get('multipath')
+        if not mpath_data:
+            return None
+
+        bd_name = blockdev['DEVNAME']
+        if blockdev['DEVTYPE'] == 'partition':
+            bd_name = self.partition_parent_devname(blockdev)
+        bd_name = os.path.basename(bd_name)
+        for path in mpath_data.get('paths', []):
+            if bd_name == path.get('device'):
+                rv = path.get('multipath')
+                return rv
+
+    def find_mpath_member(self, blockdev):
+        if blockdev.get('DM_MULTIPATH_DEVICE_PATH') == "1":
+            # find all other DM_MULTIPATH_DEVICE_PATH devs with same serial
+            serial = blockdev.get('ID_SERIAL')
+            members = sorted([os.path.basename(dev['DEVNAME'])
+                              for dev in self.blockdev_data.values()
+                              if dev.get("ID_SERIAL", "") == serial and
+                              dev['DEVTYPE'] == blockdev['DEVTYPE']])
+            # [/dev/sda, /dev/sdb]
+            # [/dev/sda1, /dev/sda2, /dev/sdb1, /dev/sdb2]
+
+        else:
+            dm_mpath = blockdev.get('DM_MPATH')
+            dm_uuid = blockdev.get('DM_UUID')
+            dm_part = blockdev.get('DM_PART')
+            dm_name = blockdev.get('DM_NAME')
+
+            if dm_mpath:
+                multipath = dm_mpath
+            elif dm_name:
+                multipath = dm_name
+            else:
+                # part1-mpath-30000000000000064
+                # mpath-30000000000000064
+                # mpath-36005076306ffd6b60000000000002406
+                match = re.search(r'mpath\-([a-zA-Z]*|\d*)+$', dm_uuid)
+                if not match:
+                    LOG.debug('Failed to extract multipath ID pattern from '
+                              'DM_UUID value: "%s"', dm_uuid)
+                    return None
+                # remove leading 'mpath-'
+                multipath = match.group(0)[6:]
+            mpath_data = self.probe_data.get('multipath')
+            if not mpath_data:
+                return None
+            members = sorted([path['device'] for path in mpath_data['paths']
+                              if path['multipath'] == multipath])
+
+            # append partition number if present
+            if dm_part:
+                members = [member + dm_part for member in members]
+
+        if len(members):
+            return members[0]
+
+        return None
 
     def blockdev_to_id(self, blockdev):
         """ Examine a blockdev dictionary and return a tuple of curtin
@@ -482,18 +539,21 @@ class ProbertParser(object):
             if 'DM_LV_NAME' in blockdev:
                 devtype = 'lvm-partition'
                 name = blockdev['DM_LV_NAME']
-            elif self.is_mpath_device(blockdev):
-                devtype = 'mpath-disk'
-                name = blockdev['DM_NAME']
-            elif self.is_mpath_partition(blockdev):
-                devtype = 'mpath-partition'
-                name = '{}-part{}'.format(
-                    blockdev['DM_MPATH'], blockdev['DM_PART'])
+            elif self.is_mpath(blockdev):
+                # extract a multipath member device
+                member = self.find_mpath_member(blockdev)
+                if member:
+                    name = member
+                else:
+                    name = blockdev['DM_UUID']
+                if 'DM_PART' in blockdev:
+                    devtype = 'partition'
             elif is_dmcrypt(blockdev):
                 devtype = 'dmcrypt'
                 name = blockdev['DM_NAME']
         elif devname.startswith('/dev/md'):
-            devtype = 'raid'
+            if 'MD_NAME' in blockdev:
+                devtype = 'raid'
 
         for key, val in {'name': name, 'devtype': devtype}.items():
             if not val or val == 'MISSING':
@@ -621,15 +681,10 @@ class BlockdevParser(ProbertParser):
         errors = []
 
         for devname, data in self.blockdev_data.items():
-            # skip composed devices here, except partitions and multipath
+            # skip composed devices here, except partitions
             if data.get('DEVPATH', '').startswith('/devices/virtual/block'):
-                if not self.is_mpath_device(data):
-                    if not self.is_mpath_partition(data):
-                        if data.get('DEVTYPE', '') != "partition":
-                            continue
-            # skip disks that are members of multipath devices
-            if self.is_mpath_member(data):
-                continue
+                if data.get('DEVTYPE', '') != "partition":
+                    continue
             entry = self.asdict(data)
             if entry:
                 try:
@@ -643,10 +698,7 @@ class BlockdevParser(ProbertParser):
     def valid_id(self, id_value):
         # reject wwn=0x0+
         if id_value.lower().startswith('0x'):
-            try:
-                return int(id_value, 16) > 0
-            except ValueError:
-                return True
+            return int(id_value, 16) > 0
         # accept non-empty (removing whitspace) strings
         return len(''.join(id_value.split())) > 0
 
@@ -658,16 +710,10 @@ class BlockdevParser(ProbertParser):
             blockdev attribute.
         """
         uniq = {}
-        if self.is_mpath_device(blockdev):
-            source_keys = {
-                'wwn': ['DM_WWN'],
-                'serial': ['DM_SERIAL'],  # only present with focal+
-            }
-        else:
-            source_keys = {
-                'wwn': ['ID_WWN_WITH_EXTENSION', 'ID_WWN'],
-                'serial': ['ID_SERIAL', 'ID_SERIAL_SHORT'],
-            }
+        source_keys = {
+            'wwn': ['ID_WWN_WITH_EXTENSION', 'ID_WWN'],
+            'serial': ['ID_SERIAL', 'ID_SERIAL_SHORT'],
+        }
         for skey, id_keys in source_keys.items():
             for id_key in id_keys:
                 if id_key in blockdev and skey not in uniq:
@@ -694,10 +740,6 @@ class BlockdevParser(ProbertParser):
             storage config dictionary.  This method
             will return curtin storage types: disk, partition.
         """
-        dev_type = blockdev_data['DEVTYPE']
-        if self.is_mpath_partition(blockdev_data):
-            dev_type = 'partition'
-
         # just disks and partitions
         if blockdev_data['DEVTYPE'] not in ["disk", "partition"]:
             return None
@@ -710,13 +752,13 @@ class BlockdevParser(ProbertParser):
 
         devname = blockdev_data.get('DEVNAME')
         entry = {
-            'type': dev_type,
+            'type': blockdev_data['DEVTYPE'],
             'id': self.blockdev_to_id(blockdev_data),
         }
-        if self.is_mpath_device(blockdev_data):
-            entry['multipath'] = blockdev_data['DM_NAME']
-        elif self.is_mpath_partition(blockdev_data):
-            entry['multipath'] = blockdev_data['DM_MPATH']
+        if blockdev_data.get('DM_MULTIPATH_DEVICE_PATH') == "1":
+            mpath_name = self.get_mpath_name(blockdev_data)
+            if mpath_name:
+                entry['multipath'] = mpath_name
 
         # default disks to gpt
         if entry['type'] == 'disk':
@@ -754,17 +796,8 @@ class BlockdevParser(ProbertParser):
 
         if entry['type'] == 'partition':
             attrs = blockdev_data['attrs']
-            if self.is_mpath_partition(blockdev_data):
-                entry['number'] = int(blockdev_data['DM_PART'])
-                parent_devname = self.lookup_devname(
-                    '/dev/mapper/' + blockdev_data['DM_MPATH'])
-                if parent_devname is None:
-                    raise ValueError(
-                        "Cannot find parent mpath device %s for %s" % (
-                            blockdev_data['DM_MPATH'], devname))
-            else:
-                entry['number'] = int(attrs['partition'])
-                parent_devname = self.partition_parent_devname(blockdev_data)
+            entry['number'] = int(attrs['partition'])
+            parent_devname = self.partition_parent_devname(blockdev_data)
             parent_blockdev = self.blockdev_data[parent_devname]
             if 'ID_PART_TABLE_TYPE' not in parent_blockdev:
                 # Exclude the fake partition that the kernel creates
@@ -777,7 +810,9 @@ class BlockdevParser(ProbertParser):
             if ptable:
                 part = None
                 for pentry in ptable['partitions']:
-                    if self.lookup_devname(pentry['node']) == devname:
+                    node = pentry['node']
+                    node_p = node.replace(parent_devname, '')
+                    if node_p.replace('p', '') == attrs['partition']:
                         part = pentry
                         break
 
@@ -845,9 +880,6 @@ class FilesystemParser(ProbertParser):
                 errors.append(err)
                 continue
 
-            if self.is_mpath_member(blockdev_data):
-                continue
-
             # no floppy, no cdrom
             if blockdev_data['MAJOR'] in ["11", "2"]:
                 continue
@@ -855,24 +887,21 @@ class FilesystemParser(ProbertParser):
             volume_id = self.blockdev_to_id(blockdev_data)
 
             # don't capture non-filesystem usage
-            # crypto is just a disguised filesystem
-            if data['USAGE'] not in ("filesystem", "crypto"):
+            if data['USAGE'] != "filesystem":
+                continue
+
+            # ignore types that we cannot create
+            if data.get('TYPE') not in schemas._fstypes:
                 continue
 
             entry = self.asdict(volume_id, data)
-            if not entry:
-                continue
-
-            # allow types that we cannot create only if preserve == true
-            if data.get('TYPE') not in schemas._fstypes:
-                entry['preserve'] = True
-
-            try:
-                validate_config(entry)
-            except ValueError as e:
-                errors.append(e)
-                continue
-            configs.append(entry)
+            if entry:
+                try:
+                    validate_config(entry)
+                except ValueError as e:
+                    errors.append(e)
+                    continue
+                configs.append(entry)
         return (configs, errors)
 
     def asdict(self, volume_id, fs_data):
@@ -1049,27 +1078,16 @@ class RaidParser(ProbertParser):
         # FIXME, need to handle rich md_name values, rather than mdX
         # LP: #1803933
         raidname = os.path.basename(devname)
-
-        action = {
-            'type': 'raid',
-            'id': self.blockdev_to_id(raid_data),
-            'name': raidname,
-            'raidlevel': raid_data.get('raidlevel'),
-            }
-
-        if 'MD_METADATA' in raid_data:
-            action['metadata'] = raid_data["MD_METADATA"]
-
-        if 'container' in raid_data:
-            action['container'] = self.blockdev_byid_to_devname(
-                raid_data['container'])
-        else:
-            for k in 'devices', 'spare_devices':
-                action[k] = sorted([
-                    self.blockdev_byid_to_devname(dev)
-                    for dev in raid_data.get(k, [])])
-
-        return action
+        return {'type': 'raid',
+                'id': 'raid-%s' % raidname,
+                'name': raidname,
+                'raidlevel': raid_data.get('raidlevel'),
+                'devices': sorted([
+                    self.blockdev_to_id(self.blockdev_data[dev])
+                    for dev in raid_data.get('devices')]),
+                'spare_devices': sorted([
+                    self.blockdev_to_id(self.blockdev_data[dev])
+                    for dev in raid_data.get('spare_devices')])}
 
     def parse(self):
         """parse probert 'raid' data format.

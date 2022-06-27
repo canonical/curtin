@@ -505,9 +505,9 @@ def md_sysfs_attr_path(md_devname, attrname):
     return os.path.join(sysmd, attrname)
 
 
-def md_sysfs_attr(md_devname, attrname, default=''):
+def md_sysfs_attr(md_devname, attrname):
     """ Return the attribute str of an md device found under the 'md' dir """
-    attrdata = default
+    attrdata = ''
     if not valid_mdname(md_devname):
         raise ValueError('Invalid md devicename: [{}]'.format(md_devname))
 
@@ -645,6 +645,45 @@ def md_device_key_dev(devname):
     return 'MD_DEVICE_' + dev_short(devname) + '_DEV'
 
 
+def __upgrade_detail_dict(detail):
+    ''' This method attempts to convert mdadm --detail output into
+        a KEY=VALUE output the same as mdadm --detail --export from mdadm v3.3
+    '''
+    # if the input already has MD_UUID, it's already been converted
+    if 'MD_UUID' in detail:
+        return detail
+
+    md_detail = {
+        'MD_LEVEL': detail['raid_level'],
+        'MD_DEVICES': detail['raid_devices'],
+        'MD_METADATA': detail['version'],
+        'MD_NAME': detail['name'].split()[0],
+    }
+
+    # exmaine has ARRAY UUID
+    if 'array_uuid' in detail:
+        md_detail.update({'MD_UUID': detail['array_uuid']})
+    # query,detail has UUID
+    elif 'uuid' in detail:
+        md_detail.update({'MD_UUID': detail['uuid']})
+
+    device = detail['device']
+
+    #  MD_DEVICE_vdc1_DEV=/dev/vdc1
+    md_detail.update({md_device_key_dev(device): device})
+
+    if 'device_role' in detail:
+        role = detail['device_role']
+        if role != 'spare':
+            # device_role = Active device 1
+            role = role.split()[-1]
+
+        # MD_DEVICE_vdc1_ROLE=spare
+        md_detail.update({md_device_key_role(device): role})
+
+    return md_detail
+
+
 def md_read_run_mdadm_map():
     '''
         md1 1.2 59beb40f:4c202f67:088e702b:efdf577a /dev/md1
@@ -680,6 +719,8 @@ def md_check_array_uuid(md_devname, md_uuid):
                '%s -> %s != %s' % (mduuid_path, mdlink_devname, md_devname))
         raise ValueError(err)
 
+    return True
+
 
 def md_get_uuid(md_devname):
     valid_mdname(md_devname)
@@ -700,24 +741,13 @@ def _compare_devlist(expected, found):
                          " Missing: {} Extra: {}".format(missing, extra))
 
 
-def md_check_raidlevel(md_devname, detail, raidlevel):
+def md_check_raidlevel(raidlevel):
     # Validate raidlevel against what curtin supports configuring
     if raidlevel not in VALID_RAID_LEVELS:
         err = ('Invalid raidlevel: ' + raidlevel +
                ' Must be one of: ' + str(VALID_RAID_LEVELS))
         raise ValueError(err)
-    # normalize raidlevel to the values mdadm prints.
-    if isinstance(raidlevel, int) or len(raidlevel) <= 2:
-        raidlevel = 'raid' + str(raidlevel)
-    elif raidlevel == 'stripe':
-        raidlevel = 'raid0'
-    elif raidlevel == 'mirror':
-        raidlevel = 'raid1'
-    actual_level = detail.get("MD_LEVEL")
-    if actual_level != raidlevel:
-        raise ValueError(
-            "raid device %s should have level %r but has level %r" % (
-                md_devname, raidlevel, actual_level))
+    return True
 
 
 def md_block_until_in_sync(md_devname):
@@ -740,25 +770,24 @@ def md_check_array_state(md_devname):
     # check array state
 
     writable = md_check_array_state_rw(md_devname)
-    # Raid 0 arrays do not have degraded or sync_action sysfs
-    # attributes.
-    degraded = md_sysfs_attr(md_devname, 'degraded', None)
-    sync_action = md_sysfs_attr(md_devname, 'sync_action', None)
+    degraded = md_sysfs_attr(md_devname, 'degraded')
+    sync_action = md_sysfs_attr(md_devname, 'sync_action')
 
     if not writable:
         raise ValueError('Array not in writable state: ' + md_devname)
-    if degraded is not None and degraded != "0":
+    if degraded != "0":
         raise ValueError('Array in degraded state: ' + md_devname)
-    if degraded is not None and sync_action not in ("idle", "resync"):
-        raise ValueError(
-            'Array is %s, not idle: %s' % (sync_action, md_devname))
+    if sync_action != "idle":
+        raise ValueError('Array syncing, not idle state: ' + md_devname)
+
+    return True
 
 
 def md_check_uuid(md_devname):
     md_uuid = md_get_uuid(md_devname)
     if not md_uuid:
         raise ValueError('Failed to get md UUID from device: ' + md_devname)
-    md_check_array_uuid(md_devname, md_uuid)
+    return md_check_array_uuid(md_devname, md_uuid)
 
 
 def md_check_devices(md_devname, devices):
@@ -804,35 +833,26 @@ def md_check_array_membership(md_devname, devices):
             raise ValueError(err)
 
 
-def md_check(md_devname, raidlevel, devices, spares, container):
+def md_check(md_devname, raidlevel, devices=[], spares=[]):
     ''' Check passed in variables from storage configuration against
         the system we're running upon.
     '''
     LOG.debug('RAID validation: ' +
-              'name={} raidlevel={} devices={} spares={} container={}'.format(
-                  md_devname, raidlevel, devices, spares, container))
+              'name={} raidlevel={} devices={} spares={}'.format(md_devname,
+                                                                 raidlevel,
+                                                                 devices,
+                                                                 spares))
     assert_valid_devpath(md_devname)
 
-    detail = mdadm_query_detail(md_devname)
-
-    if raidlevel != "container":
-        md_check_array_state(md_devname)
-    md_check_raidlevel(md_devname, detail, raidlevel)
+    md_check_array_state(md_devname)
+    md_check_raidlevel(raidlevel)
     md_check_uuid(md_devname)
-    if container is None:
-        md_check_devices(md_devname, devices)
-        md_check_spares(md_devname, spares)
-        md_check_array_membership(md_devname, devices + spares)
-    else:
-        if 'MD_CONTAINER' not in detail:
-            raise ValueError("%s is not in a container" % (
-                md_devname))
-        actual_container = os.path.realpath(detail['MD_CONTAINER'])
-        if actual_container != container:
-            raise ValueError("%s is in container %r, not %r" % (
-                md_devname, actual_container, container))
+    md_check_devices(md_devname, devices)
+    md_check_spares(md_devname, spares)
+    md_check_array_membership(md_devname, devices + spares)
 
     LOG.debug('RAID array OK: ' + md_devname)
+    return True
 
 
 def md_is_in_container(md_devname):
