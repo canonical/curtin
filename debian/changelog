@@ -1,3 +1,72 @@
+curtin (22.1-0ubuntu1) kinetic; urgency=medium
+
+  * New upstream release. (LP: #1979687)
+    - deb: fix dependencies [Dan Bungert]
+    - tox: drop xenial-py3 from default env list [Dan Bungert]
+    - block/v2: preserve disk label id [Dan Bungert]
+    - block/v2: docs for partition_type [Dan Bungert]
+    - block/v2: unit tests for partition_type [Dan Bungert]
+    - block/v2: raw partition table codes for gpt [Dan Bungert]
+    - block/v2: allow setting raw partition_type value [Dan Bungert]
+    - Make sure curthooks do not discard supplied proxy settings
+      [Olivier Gayot]
+    - block/v2: resize-friendly ordering of wipe [Dan Bungert]
+    - block/v2: handle resize when no format action [Dan Bungert]
+    - block/v2: resize of ntfs [Dan Bungert]
+    - vmtests: remove out of date skip [Dan Bungert]
+    - block: provide get_resize_fstypes [Dan Bungert]
+    - Add support for resize of ext{2,3,4} [Dan Bungert]
+    - Add riscv64 to supported UEFI architectures [William Wilson]
+    - block_meta_v2: call make_dname when required [Michael Hudson-Doyle]
+    - examples: even more tweaks for v2 [Michael Hudson-Doyle]
+    - Add riscv64 support [Heinrich Schuchardt]
+    - examples: stop assuming curtin accounts for overhead of logical
+      partitions [Michael Hudson-Doyle]
+    - block_meta_v2: zero start of partitions before they are created
+      [Michael Hudson-Doyle]
+    - examples: enlarge / for some more vmtests [Michael Hudson-Doyle]
+    - skip BionicTestPartitionExistingRAID.test_correct_ptype
+      [Michael Hudson-Doyle]
+    - examples: boost size of / in multipath-reuse.yaml [Michael Hudson-Doyle]
+    - examples: add offsets to preserved partitions [Michael Hudson-Doyle]
+    - block_meta_v2: change how we invoke sfdisk again, restore partprobe call
+      [Michael Hudson-Doyle]
+    - block_meta_v2: fix partitioning a device with sector size != 512
+      [Michael Hudson-Doyle]
+    - block_meta_v2: fix implicit offset calculation for dos partitions
+      [Michael Hudson-Doyle]
+    - block_meta_v2: do not use aliases for partition types
+      [Michael Hudson-Doyle]
+    - Remove CentOS 6 tests. [Michael Hudson-Doyle]
+    - vmtests: boost the size of / in a few tests [Michael Hudson-Doyle]
+    - examples: sleep after creating bcache device in preserve-bcache.yaml
+      [Michael Hudson-Doyle]
+    - vmtests: fix parted invocation in partition-existing-raid.yaml
+      [Michael Hudson-Doyle]
+    - vmtests: bump VM memory size to 2048 MiB for all tests
+      [Michael Hudson-Doyle]
+    - vmtests: drop assertion that clear-holders ran [Michael Hudson-Doyle]
+    - block_meta_v2: a few more fixes for v2 partitioning
+      [Michael Hudson-Doyle]
+    - block_meta: call realpath on partition node returned by sfdisk
+      [Michael Hudson-Doyle]
+    - Add rocky linux as a RHEL-like variant [Dimitri John Ledkov]
+    - Update pylint version in tox.ini [Michael Hudson-Doyle]
+    - block_meta: implement v2 partitioning [Michael Hudson-Doyle]
+    - Stop running CI against Python 2 [Michael Hudson-Doyle]
+    - Make sure curthooks do not discard APT preferences [Olivier Gayot]
+    - Remove leftover debug print statement [Olivier Gayot]
+    - Fix format of examples/apt-source.yaml [Olivier Gayot]
+    - Implement support for APT preferences in apt-config [Olivier Gayot]
+    - build-deb: changelog gen with dch [Dan Bungert]
+    - vmtests uefi: relax the uefi check [Dan Bungert]
+    - block: output partition device path [Dan Bungert]
+    - support version 2 curtin storage configs [Michael Hudson-Doyle]
+    - system-upgrade: lookup os family [Dan Bungert]
+    - add preserve: true support to the image action [Michael Hudson-Doyle]
+
+ -- Dan Bungert <daniel.bungert@canonical.com>  Mon, 27 Jun 2022 16:24:54 -0600
+
 curtin (21.3-0ubuntu1) jammy; urgency=medium
 
   * New upstream release.
