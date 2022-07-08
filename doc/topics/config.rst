@@ -706,7 +706,7 @@ This results in Curtin downloading the following URLs::
 stages
 ~~~~~~
 Curtin installation executes in stages.  At each stage, Curtin will look for
-a list of commands to run at each stage by reading in from the Curtin config
+a list of commands to run by reading in from the Curtin config
 *<stage_name>_commands* which is a dictionary and each key contains a list
 of commands to run.  Users may override the stages value to control
 what curtin stages execute.  During each stage, the commands are executed
@@ -728,10 +728,6 @@ This stage runs ``curtin block-meta simple`` by default.
 - **network**: *Probe and configure networking*
 
 This stage runs ``curtin net-meta auto`` by default.
-
-- **extract**: *Writing install sources to disk*
-
-This stage runs ``curtin extract`` by default.
 
 - **extract**: *Writing install sources to disk*
 
