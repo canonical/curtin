@@ -1,7 +1,10 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
 
 import os
-from typing import Optional
+from typing import (
+    List,
+    Optional,
+    )
 
 import attr
 
@@ -25,11 +28,18 @@ from curtin.udev import udevadm_settle
 
 @attr.s(auto_attribs=True)
 class PartTableEntry:
+    # The order listed here matches the order sfdisk represents these fields
+    # when using the --dump argument.
     number: int
     start: int
     size: int
     type: str
     uuid: Optional[str]
+    # name here is the sfdisk term - quoted descriptive text of the partition -
+    # not to be confused with what make_dname() does.
+    # Offered in the partition command as 'partition_name'.
+    name: Optional[str]
+    attrs: Optional[List[str]]
     bootable: bool = False
 
     def render(self):
@@ -38,9 +48,24 @@ class PartTableEntry:
             v = getattr(self, a)
             if v is not None:
                 r += f' {a}={v}'
+        if self.name is not None:
+            r += f' name="{self.name}"'
+        if self.attrs:
+            v = ' '.join(self.attrs)
+            r += f' attrs="{v}"'
         if self.bootable:
             r += ' bootable'
         return r
+
+    def preserve(self, part_info):
+        """for an existing partition,
+        initialize unset values to current values"""
+        for a in 'uuid', 'name':
+            if getattr(self, a) is None:
+                setattr(self, a, part_info.get(a))
+        attrs = part_info.get('attrs')
+        if attrs is not None and self.attrs is None:
+            self.attrs = attrs.split(' ')
 
 
 ONE_MIB_BYTES = 1 << 20
@@ -114,8 +139,9 @@ class SFDiskPartTable:
 
     def render(self):
         r = ['label: ' + self.label]
-        if self.label_id:
+        if self.label_id is not None:
             r.extend(['label-id: ' + self.label_id])
+        r.extend(self._headers())
         r.extend([''])
         r.extend([e.render() for e in self.entries])
         return '\n'.join(r)
@@ -138,10 +164,34 @@ class SFDiskPartTable:
         # updated by the kernel.
         udevadm_settle()
 
+    def preserve(self, sfdisk_info):
+        """for an existing disk,
+        initialize unset values to current values"""
+        if sfdisk_info is None:
+            return
+        if self.label_id is None:
+            self.label_id = sfdisk_info.get('id')
+        self._preserve(sfdisk_info)
+
+    def _preserve(self, sfdisk_info):
+        """table-type specific value preservation"""
+        pass
+
+    def _headers(self):
+        """table-type specific headers for render()"""
+        return []
+
 
 class GPTPartTable(SFDiskPartTable):
 
     label = 'gpt'
+
+    def __init__(self, sector_bytes):
+        #                           json name    script name
+        self.first_lba = None     # firstlba     first-lba
+        self.last_lba = None      # lastlba      last-lba
+        self.table_length = None  # table-length table-length
+        super().__init__(sector_bytes)
 
     def add(self, action):
         number = action.get('number', len(self.entries) + 1)
@@ -157,9 +207,33 @@ class GPTPartTable(SFDiskPartTable):
         uuid = action.get('uuid')
         type = action.get('partition_type',
                           FLAG_TO_GUID.get(action.get('flag')))
-        entry = PartTableEntry(number, start, size, type, uuid)
+        name = action.get('partition_name')
+        attrs = action.get('attrs')
+        entry = PartTableEntry(
+            number, start, size, type,
+            uuid=uuid, name=name, attrs=attrs)
         self.entries.append(entry)
         return entry
+
+    def _preserve(self, sfdisk_info):
+        if self.first_lba is None:
+            self.first_lba = sfdisk_info.get('firstlba')
+        if self.last_lba is None:
+            self.last_lba = sfdisk_info.get('lastlba')
+        if self.table_length is None:
+            table_length = sfdisk_info.get('table-length')
+            if table_length is not None:
+                self.table_length = int(table_length)
+
+    def _headers(self):
+        r = []
+        if self.first_lba is not None:
+            r.extend(['first-lba: ' + str(self.first_lba)])
+        if self.last_lba is not None:
+            r.extend(['last-lba: ' + str(self.last_lba)])
+        if self.table_length is not None:
+            r.extend(['table-length: ' + str(self.table_length)])
+        return r
 
 
 class DOSPartTable(SFDiskPartTable):
@@ -222,7 +296,8 @@ class DOSPartTable(SFDiskPartTable):
         else:
             bootable = None
         entry = PartTableEntry(
-            number, start, size, type, uuid=None, bootable=bootable)
+            number, start, size, type,
+            uuid=None, name=None, bootable=bootable, attrs=None)
         if flag == 'extended':
             self._extended = entry
         self.entries.append(entry)
@@ -365,14 +440,17 @@ def disk_handler_v2(info, storage_config, handlers):
             part_info = _find_part_info(sfdisk_info, entry.start)
             partition_verify_sfdisk_v2(action, sfdisk_info['label'], part_info,
                                        storage_config, table)
+            entry.preserve(part_info)
             resizes[entry.start] = _prepare_resize(storage_config, action,
                                                    table, part_info)
             preserved_offsets.add(entry.start)
         wipes[entry.start] = _wipe_for_action(action)
 
-    # preserve disk label ids
-    if info.get('preserve') and sfdisk_info is not None:
-        table.label_id = sfdisk_info['id']
+    if info.get('preserve'):
+        if sfdisk_info is None:
+            # See above block comment
+            sfdisk_info = block.sfdisk_info(disk)
+        table.preserve(sfdisk_info)
 
     for kname, nr, offset, size in block.sysfs_partition_data(disk):
         offset_sectors = table.bytes2sectors(offset)

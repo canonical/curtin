@@ -468,6 +468,32 @@ in ``/dev/disk/by-dname/<name>``.
 For partitions, the udev rule created relies upon disk contents, in this case
 the partition entry UUID.  This will remain in effect unless the underlying disk
 on which the partition resides has the partition table modified or wiped.
+This value differs from the ``partition_name`` field below.
+
+**partition_name** *<name for gpt table partition entry>*
+
+Only applicable with a gpt ``ptable``.
+This value is not the same as the ``name`` field above.
+This field sets the optional freeform ASCII name string on the partition.
+On preserved partitions, if this value is unspecified, the current name will be
+retained.
+
+**uuid**: *<uuid>*
+
+Only applicable with a gpt ``ptable``.
+This field sets the optional UUID value on the partition.
+On preserved partitions, if this value is unspecified, the current UUID will be
+retained.
+
+**attrs**: *<list of strings in sfdisk(8) format>*
+
+Only applicable with a gpt ``ptable``.
+Partition attribute flags may optionally be set.  These flags must be specified
+in the same format that
+`sfdisk(8) <https://manpages.ubuntu.com/manpages/focal/man8/sfdisk.8.html#commands>`_
+expects for the part-attrs argument.
+On preserved partitions, if this value is unspecified, the current attributes
+will be retained.
 
 **multipath**: *<multipath name or serial>*
 

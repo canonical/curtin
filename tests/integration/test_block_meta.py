@@ -988,3 +988,187 @@ class TestBlockMeta(IntegrationTestCase):
             PartData(number=1, offset=1 << 20, size=18 << 20))
         with loop_dev(self.img) as dev:
             self.assertEqual(orig_label_id, _get_disk_label_id(dev))
+
+    def test_gpt_uuid_persistent(self):
+        # A persistent partition with an unspecified uuid shall keep the uuid
+        self.img = self.tmp_path('image.img')
+        config = StorageConfigBuilder(version=2)
+        config.add_image(path=self.img, size='20M', ptable='gpt')
+        config.add_part(number=1, offset=1 << 20, size=18 << 20)
+        self.run_bm(config.render())
+        pd = PartData(number=1, offset=1 << 20, size=18 << 20)
+        self.assertPartitions(pd)
+        with loop_dev(self.img) as dev:
+            sfdisk_info = block.sfdisk_info(dev)
+            expected_uuid = sfdisk_info['partitions'][0]['uuid']
+
+        config.set_preserve()
+        self.run_bm(config.render())
+        self.assertPartitions(pd)
+        with loop_dev(self.img) as dev:
+            sfdisk_info = block.sfdisk_info(dev)
+            actual_uuid = sfdisk_info['partitions'][0]['uuid']
+            self.assertEqual(expected_uuid, actual_uuid)
+
+    def test_gpt_set_name(self):
+        self.img = self.tmp_path('image.img')
+        name = self.random_string() + ' ' + self.random_string()
+        config = StorageConfigBuilder(version=2)
+        config.add_image(path=self.img, size='20M', ptable='gpt')
+        config.add_part(number=1, offset=1 << 20, size=18 << 20,
+                        partition_name=name)
+        self.run_bm(config.render())
+        pd = PartData(number=1, offset=1 << 20, size=18 << 20)
+        self.assertPartitions(pd)
+        with loop_dev(self.img) as dev:
+            sfdisk_info = block.sfdisk_info(dev)
+            actual_name = sfdisk_info['partitions'][0]['name']
+        self.assertEqual(name, actual_name)
+
+    def test_gpt_name_persistent(self):
+        self.img = self.tmp_path('image.img')
+        name = self.random_string()
+        config = StorageConfigBuilder(version=2)
+        config.add_image(path=self.img, size='20M', ptable='gpt')
+        p1 = config.add_part(number=1, offset=1 << 20, size=18 << 20,
+                             partition_name=name)
+        self.run_bm(config.render())
+        pd = PartData(number=1, offset=1 << 20, size=18 << 20)
+        self.assertPartitions(pd)
+        with loop_dev(self.img) as dev:
+            sfdisk_info = block.sfdisk_info(dev)
+            actual_name = sfdisk_info['partitions'][0]['name']
+        self.assertEqual(name, actual_name)
+
+        del p1['partition_name']
+        config.set_preserve()
+        self.run_bm(config.render())
+        self.assertPartitions(pd)
+        with loop_dev(self.img) as dev:
+            sfdisk_info = block.sfdisk_info(dev)
+            actual_name = sfdisk_info['partitions'][0]['name']
+        self.assertEqual(name, actual_name)
+
+    def test_gpt_set_single_attr(self):
+        self.img = self.tmp_path('image.img')
+        config = StorageConfigBuilder(version=2)
+        config.add_image(path=self.img, size='20M', ptable='gpt')
+        attrs = ['GUID:63']
+        config.add_part(number=1, offset=1 << 20, size=18 << 20,
+                        attrs=attrs)
+        self.run_bm(config.render())
+        pd = PartData(number=1, offset=1 << 20, size=18 << 20)
+        self.assertPartitions(pd)
+        with loop_dev(self.img) as dev:
+            sfdisk_info = block.sfdisk_info(dev)
+            attrs_str = sfdisk_info['partitions'][0]['attrs']
+            actual_attrs = set(attrs_str.split(' '))
+        self.assertEqual(set(attrs), actual_attrs)
+
+    def test_gpt_set_multi_attr(self):
+        self.img = self.tmp_path('image.img')
+        config = StorageConfigBuilder(version=2)
+        config.add_image(path=self.img, size='20M', ptable='gpt')
+        attrs = ['GUID:63', 'RequiredPartition']
+        config.add_part(number=1, offset=1 << 20, size=18 << 20,
+                        attrs=attrs)
+        self.run_bm(config.render())
+        pd = PartData(number=1, offset=1 << 20, size=18 << 20)
+        self.assertPartitions(pd)
+        with loop_dev(self.img) as dev:
+            sfdisk_info = block.sfdisk_info(dev)
+            attrs_str = sfdisk_info['partitions'][0]['attrs']
+            actual_attrs = set(attrs_str.split(' '))
+        self.assertEqual(set(attrs), actual_attrs)
+
+    def test_gpt_attrs_persistent(self):
+        self.img = self.tmp_path('image.img')
+        config = StorageConfigBuilder(version=2)
+        config.add_image(path=self.img, size='20M', ptable='gpt')
+        attrs = ['GUID:63']
+        p1 = config.add_part(number=1, offset=1 << 20, size=18 << 20,
+                             attrs=attrs)
+        self.run_bm(config.render())
+        pd = PartData(number=1, offset=1 << 20, size=18 << 20)
+        self.assertPartitions(pd)
+        with loop_dev(self.img) as dev:
+            sfdisk_info = block.sfdisk_info(dev)
+            attrs_str = sfdisk_info['partitions'][0]['attrs']
+            actual_attrs = set(attrs_str.split(' '))
+        self.assertEqual(set(attrs), actual_attrs)
+
+        del p1['attrs']
+        config.set_preserve()
+        self.run_bm(config.render())
+        self.assertPartitions(pd)
+        with loop_dev(self.img) as dev:
+            sfdisk_info = block.sfdisk_info(dev)
+            attrs_str = sfdisk_info['partitions'][0]['attrs']
+            actual_attrs = set(attrs_str.split(' '))
+        self.assertEqual(set(attrs), actual_attrs)
+
+    def test_gpt_first_lba_persistent(self):
+        self.img = self.tmp_path('image.img')
+        config = StorageConfigBuilder(version=2)
+        config.add_image(path=self.img, create=True, size='20M', ptable='gpt',
+                         preserve=True)
+        script = '''\
+label: gpt
+first-lba: 34'''.encode()
+        with loop_dev(self.img) as dev:
+            cmd = ['sfdisk', dev]
+            util.subp(cmd, data=script)
+
+        config.add_part(number=1, offset=1 << 20, size=1 << 20)
+        self.run_bm(config.render())
+        self.assertPartitions(
+            PartData(number=1, offset=1 << 20, size=1 << 20))
+
+        with loop_dev(self.img) as dev:
+            sfdisk_info = block.sfdisk_info(dev)
+            # default is 2048
+            self.assertEqual(34, sfdisk_info['firstlba'])
+
+    def test_gpt_last_lba_persistent(self):
+        self.img = self.tmp_path('image.img')
+        config = StorageConfigBuilder(version=2)
+        config.add_image(path=self.img, create=True, size='20M', ptable='gpt',
+                         preserve=True)
+        script = '''\
+label: gpt
+last-lba: 10240'''.encode()
+        with loop_dev(self.img) as dev:
+            cmd = ['sfdisk', dev]
+            util.subp(cmd, data=script)
+
+        config.add_part(number=1, offset=1 << 20, size=1 << 20)
+        self.run_bm(config.render())
+        self.assertPartitions(
+            PartData(number=1, offset=1 << 20, size=1 << 20))
+
+        with loop_dev(self.img) as dev:
+            sfdisk_info = block.sfdisk_info(dev)
+            # default is disk size in sectors - 17 KiB
+            self.assertEqual(10240, sfdisk_info['lastlba'])
+
+    def test_gpt_table_length_persistent(self):
+        self.img = self.tmp_path('image.img')
+        config = StorageConfigBuilder(version=2)
+        config.add_image(path=self.img, create=True, size='20M', ptable='gpt',
+                         preserve=True)
+        script = '''\
+label: gpt
+table-length: 256'''.encode()
+        with loop_dev(self.img) as dev:
+            cmd = ['sfdisk', dev]
+            util.subp(cmd, data=script)
+
+        config.add_part(number=1, offset=1 << 20, size=1 << 20)
+        self.run_bm(config.render())
+        self.assertPartitions(
+            PartData(number=1, offset=1 << 20, size=1 << 20))
+
+        with loop_dev(self.img) as dev:
+            sfdisk_info = block.sfdisk_info(dev)
+            # default is 128
+            self.assertEqual(256, int(sfdisk_info['table-length']))

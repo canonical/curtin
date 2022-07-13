@@ -2713,6 +2713,85 @@ label: gpt
 1:  start=2048 size=18432 type={ptype}'''
         self.assertEqual(expected, table.render())
 
+    def test_gpt_name(self):
+        name = self.random_string()
+        table = block_meta_v2.GPTPartTable(512)
+        table.add(dict(number=1, offset=1 << 20, size=9 << 20, flag='boot',
+                       partition_name=name))
+        type_id = "C12A7328-F81F-11D2-BA4B-00A0C93EC93B"
+        expected = f'''\
+label: gpt
+
+1:  start=2048 size=18432 type={type_id} name="{name}"'''
+        self.assertEqual(expected, table.render())
+
+    def test_gpt_name_spaces(self):
+        name = self.random_string() + " " + self.random_string()
+        table = block_meta_v2.GPTPartTable(512)
+        table.add(dict(number=1, offset=1 << 20, size=9 << 20, flag='boot',
+                       partition_name=name))
+        type_id = "C12A7328-F81F-11D2-BA4B-00A0C93EC93B"
+        expected = f'''\
+label: gpt
+
+1:  start=2048 size=18432 type={type_id} name="{name}"'''
+        self.assertEqual(expected, table.render())
+
+    def test_gpt_attrs_none(self):
+        table = block_meta_v2.GPTPartTable(512)
+        table.add(dict(number=1, offset=1 << 20, size=9 << 20, flag='boot',
+                       attrs=None))
+        type_id = "C12A7328-F81F-11D2-BA4B-00A0C93EC93B"
+        expected = f'''\
+label: gpt
+
+1:  start=2048 size=18432 type={type_id}'''
+        self.assertEqual(expected, table.render())
+
+    def test_gpt_attrs_empty(self):
+        table = block_meta_v2.GPTPartTable(512)
+        table.add(dict(number=1, offset=1 << 20, size=9 << 20, flag='boot',
+                       attrs=[]))
+        type_id = "C12A7328-F81F-11D2-BA4B-00A0C93EC93B"
+        expected = f'''\
+label: gpt
+
+1:  start=2048 size=18432 type={type_id}'''
+        self.assertEqual(expected, table.render())
+
+    def test_gpt_attrs_required(self):
+        table = block_meta_v2.GPTPartTable(512)
+        table.add(dict(number=1, offset=1 << 20, size=9 << 20, flag='boot',
+                       attrs=['RequiredPartition']))
+        type_id = "C12A7328-F81F-11D2-BA4B-00A0C93EC93B"
+        expected = f'''\
+label: gpt
+
+1:  start=2048 size=18432 type={type_id} attrs="RequiredPartition"'''
+        self.assertEqual(expected, table.render())
+
+    def test_gpt_attrs_bit(self):
+        table = block_meta_v2.GPTPartTable(512)
+        table.add(dict(number=1, offset=1 << 20, size=9 << 20, flag='boot',
+                       attrs=['GUID:51']))
+        type_id = "C12A7328-F81F-11D2-BA4B-00A0C93EC93B"
+        expected = f'''\
+label: gpt
+
+1:  start=2048 size=18432 type={type_id} attrs="GUID:51"'''
+        self.assertEqual(expected, table.render())
+
+    def test_gpt_attrs_multi(self):
+        table = block_meta_v2.GPTPartTable(512)
+        table.add(dict(number=1, offset=1 << 20, size=9 << 20, flag='boot',
+                       attrs=['RequiredPartition', 'GUID:51']))
+        type_id = "C12A7328-F81F-11D2-BA4B-00A0C93EC93B"
+        expected = f'''\
+label: gpt
+
+1:  start=2048 size=18432 type={type_id} attrs="RequiredPartition GUID:51"'''
+        self.assertEqual(expected, table.render())
+
     def test_dos_basic(self):
         table = block_meta_v2.DOSPartTable(512)
         expected = '''\
@@ -2739,6 +2818,115 @@ label: dos
 
 1:  start=2048 size=18432 type={ptype} bootable'''
         self.assertEqual(expected, table.render())
+
+    def test_preserve_labelid_gpt(self):
+        table = block_meta_v2.GPTPartTable(512)
+        self.assertIsNone(table.label_id)
+        label_id = str(random_uuid())
+        sfdisk_info = {'id': label_id}
+        table.preserve(sfdisk_info)
+        self.assertEqual(label_id, table.label_id)
+
+    def test_override_labelid_gpt(self):
+        table = block_meta_v2.GPTPartTable(512)
+        self.assertIsNone(table.label_id)
+        table.label_id = label_id = str(random_uuid())
+        sfdisk_info = {'id': str(random_uuid())}
+        table.preserve(sfdisk_info)
+        self.assertEqual(label_id, table.label_id)
+
+    def test_preserve_labelid_msdos(self):
+        table = block_meta_v2.DOSPartTable(512)
+        self.assertIsNone(table.label_id)
+        label_id = '0x12345678'
+        sfdisk_info = {'id': label_id}
+        table.preserve(sfdisk_info)
+        self.assertEqual(label_id, table.label_id)
+
+    def test_override_labelid_msdos(self):
+        table = block_meta_v2.GPTPartTable(512)
+        self.assertIsNone(table.label_id)
+        table.label_id = label_id = '0x12345678'
+        sfdisk_info = {'id': '0x88888888'}
+        table.preserve(sfdisk_info)
+        self.assertEqual(label_id, table.label_id)
+
+    def test_preserve_firstlba(self):
+        table = block_meta_v2.GPTPartTable(512)
+        self.assertIsNone(table.first_lba)
+        first_lba = 1234
+        sfdisk_info = {'firstlba': first_lba}
+        table.preserve(sfdisk_info)
+        self.assertEqual(first_lba, table.first_lba)
+
+    def test_override_firstlba(self):
+        table = block_meta_v2.GPTPartTable(512)
+        self.assertIsNone(table.first_lba)
+        table.first_lba = first_lba = 1234
+        sfdisk_info = {'firstlba': 8888}
+        table.preserve(sfdisk_info)
+        self.assertEqual(first_lba, table.first_lba)
+
+    def test_preserve_lastlba(self):
+        table = block_meta_v2.GPTPartTable(512)
+        self.assertIsNone(table.last_lba)
+        last_lba = 1234
+        sfdisk_info = {'lastlba': last_lba}
+        table.preserve(sfdisk_info)
+        self.assertEqual(last_lba, table.last_lba)
+
+    def test_override_lastlba(self):
+        table = block_meta_v2.GPTPartTable(512)
+        self.assertIsNone(table.last_lba)
+        table.last_lba = last_lba = 1234
+        sfdisk_info = {'lastlba': 8888}
+        table.preserve(sfdisk_info)
+        self.assertEqual(last_lba, table.last_lba)
+
+    def test_preserve_tablelength(self):
+        table = block_meta_v2.GPTPartTable(512)
+        self.assertIsNone(table.table_length)
+        table_length = 256
+        sfdisk_info = {'table-length': str(table_length)}
+        table.preserve(sfdisk_info)
+        self.assertEqual(table_length, table.table_length)
+
+    def test_override_tablelength(self):
+        table = block_meta_v2.GPTPartTable(512)
+        self.assertIsNone(table.last_lba)
+        table.table_length = table_length = 256
+        sfdisk_info = {'table-length': '128'}
+        table.preserve(sfdisk_info)
+        self.assertEqual(table_length, table.table_length)
+
+    def test_dos_entry_render(self):
+        pte = block_meta_v2.PartTableEntry(
+                number=1, start=2, size=3, type='04', bootable=True,
+                uuid=None, name=None, attrs=None)
+        expected = '1:  start=2 size=3 type=04 bootable'
+        self.assertEqual(expected, pte.render())
+
+    def test_gpt_entry_render(self):
+        uuid = str(random_uuid())
+        pte = block_meta_v2.PartTableEntry(
+                number=1, start=2, size=3, type='04', bootable=True,
+                uuid=uuid, name='name',
+                attrs=['stuff', 'things'])
+        expected = f'1:  start=2 size=3 type=04 uuid={uuid} ' + \
+            'name="name" attrs="stuff things" bootable'
+        self.assertEqual(expected, pte.render())
+
+    def test_gpt_entry_preserve(self):
+        uuid = str(random_uuid())
+        name = self.random_string()
+        attrs = f'{self.random_string()} {self.random_string()}'
+        pte = block_meta_v2.PartTableEntry(
+                number=1, start=2, size=3, type='04', bootable=False,
+                uuid=None, name=None, attrs=None)
+        pte.preserve({'uuid': uuid, 'name': name, 'attrs': attrs})
+        expected = f'1:  start=2 size=3 type=04 uuid={uuid} ' + \
+            f'name="{name}" attrs="{attrs}"'
+        self.assertEqual(expected, pte.render())
 
 
 class TestPartitionNeedsResize(CiTestCase):
