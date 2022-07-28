@@ -526,7 +526,7 @@ CMD_ARGUMENTS = (
                 'help': ('define a config variable. key can be a "/" '
                          'delimited path ("early_commands/cmd1=a"). if '
                          'key starts with "json:" then val is loaded as '
-                         'json (json:stages="[\'early\']")'),
+                         'json (json:stages=\'["early"]\')'),
                 'metavar': 'key=val', 'dest': 'cfgopts'}),
      ('source', {'help': 'what to install', 'nargs': '*'}),
      )
