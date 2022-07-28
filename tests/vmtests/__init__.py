@@ -2412,9 +2412,11 @@ def boot_log_wrap(name, func, cmd, console_log, timeout, purpose):
 def get_lan_ip():
     (out, _) = util.subp(['ip', 'a'], capture=True)
     info = ip_a_to_dict(out)
-    (routes, _) = util.subp(['route', '-n'], capture=True)
-    gwdevs = [route.split()[-1] for route in routes.splitlines()
-              if route.startswith('0.0.0.0') and 'UG' in route]
+    (routes, _) = util.subp(['ip', '-json', 'route', 'show'], capture=True)
+    gwdevs = []
+    for route in json.loads(routes):
+        if route['dst'] == 'default':
+            gwdevs.append(route['dev'])
     if len(gwdevs) > 0:
         dev = gwdevs.pop()
         addr = info[dev].get('inet4')[0].get('address')
