@@ -132,11 +132,10 @@ def partition_kname(disk_kname, partition_number):
                     os.path.realpath('%s-part%s' % (disk_link,
                                                     partition_number)))
 
-    for dev_type in ['bcache', 'nvme', 'mmcblk', 'cciss', 'mpath', 'md',
-                     'loop']:
-        if disk_kname.startswith(dev_type):
-            partition_number = "p%s" % partition_number
-            break
+    # follow the same rules the kernel check_partition() does
+    # https://github.com/torvalds/linux/blob/0fac198/block/partitions/core.c#L141
+    if disk_kname[-1:].isdigit():
+        partition_number = "p%s" % partition_number
     return "%s%s" % (disk_kname, partition_number)
 
 

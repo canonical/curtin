@@ -457,7 +457,11 @@ class TestBlockKnames(CiTestCase):
                        (('cciss!c0d0', 1), 'cciss!c0d0p1'),
                        (('dm-0', 1),  'dm-1'),
                        (('md0', 1), 'md0p1'),
-                       (('mpath1', 2), 'mpath1p2')]
+                       (('mpath1', 2), 'mpath1p2'),
+                       (('pmem0', 1), 'pmem0p1'),
+                       (('asdf7', 3), 'asdf7p3'),
+                       (('zdc', 4), 'zdc4'),
+                       ]
         for ((disk_kname, part_number), part_kname) in part_knames:
             self.assertEqual(part_kname,
                              block.partition_kname(disk_kname, part_number))
