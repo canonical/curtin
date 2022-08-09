@@ -11,6 +11,8 @@ import subprocess
 import sys
 import tempfile
 
+import attr
+
 from curtin.block import iscsi, zfs
 from curtin import config
 from curtin import distro
@@ -56,6 +58,7 @@ CONFIG_BUILTIN = {
     'network_commands': {'builtin': ['curtin', 'net-meta', 'auto']},
     'apply_net_commands': {'builtin': []},
     'install': {'log_file': INSTALL_LOG,
+                'log_file_append': False,
                 'error_tarfile': ERROR_TARFILE}
 }
 
@@ -109,8 +112,50 @@ def writeline(fname, output):
         pass
 
 
-class WorkingDir(object):
-    def __init__(self, config):
+@attr.s(auto_attribs=True)
+class WorkingDir:
+    target: str
+    top: str
+    scratch: str
+    interfaces: str
+    netconf: str
+    netstate: str
+    fstab: str
+    config_file: str
+
+    @classmethod
+    def import_existing(cls, config):
+        """ Import the data from the directory specified and create the
+        WorkingDirectory instance. """
+        resume_data_path = config["install"]["resume_data"]
+        with open(resume_data_path, mode="r") as resume_data_file:
+            resume_data = json.load(resume_data_file)
+
+        target = resume_data["target"]
+
+        # When resuming, the name of the target directory should be retrieved
+        # from the exported data. If the user supplies a name explicitly in the
+        # config, make sure it matches.
+        if config["install"].get("target"):
+            if config["install"]["target"] != target:
+                raise ValueError(
+                    "Attempting to resume from a different target directory"
+                    " '%s' vs '%s'" % (config["install"]["target"], target))
+
+        if not os.path.exists(target):
+            raise ValueError(
+                "Attempting to resume an installation but the target directory"
+                " does not exist.")
+
+        with open(resume_data["config_file"], "w") as fp:
+            json.dump(config, fp)
+
+        return cls(**resume_data)
+
+    @classmethod
+    def create(cls, config):
+        """ Create the needed directories and create the associated
+        WorkingDirectory instance. """
         top_d = tempfile.mkdtemp()
         state_d = os.path.join(top_d, 'state')
         scratch_d = os.path.join(top_d, 'scratch')
@@ -144,15 +189,14 @@ class WorkingDir(object):
             with open(f, "ab") as fp:
                 pass
 
-        self.scratch = scratch_d
-        self.target = target_d
-        self.top = top_d
-        self.interfaces = interfaces_f
-        self.netconf = netconf_f
-        self.netstate = netstate_f
-        self.fstab = fstab_f
-        self.config = config
-        self.config_file = config_f
+        return cls(scratch=scratch_d,
+                   target=target_d,
+                   top=top_d,
+                   interfaces=interfaces_f,
+                   netconf=netconf_f,
+                   netstate=netstate_f,
+                   fstab=fstab_f,
+                   config_file=config_f)
 
     def env(self):
         return ({'WORKING_DIR': self.scratch, 'OUTPUT_FSTAB': self.fstab,
@@ -161,6 +205,11 @@ class WorkingDir(object):
                  'OUTPUT_NETWORK_STATE': self.netstate,
                  'TARGET_MOUNT_POINT': self.target,
                  'CONFIG': self.config_file})
+
+    def export(self, path):
+        """ Export all attributes so that they can be loaded again later. """
+        with open(path, mode="w") as fh:
+            json.dump(attr.asdict(self), fh)
 
 
 class Stage(object):
@@ -415,6 +464,7 @@ def cmd_install(args):
 
     instcfg = cfg.get('install', {})
     logfile = instcfg.get('log_file')
+    logfile_append = instcfg.get('log_file_append')
     error_tarfile = instcfg.get('error_tarfile')
     post_files = instcfg.get('post_files', [logfile])
 
@@ -432,7 +482,8 @@ def cmd_install(args):
         cfg['write_files'] = write_files
 
     # Load reporter
-    clear_install_log(logfile)
+    if not logfile_append:
+        clear_install_log(logfile)
     legacy_reporter = load_reporter(cfg)
     legacy_reporter.files = post_files
 
@@ -440,7 +491,16 @@ def cmd_install(args):
     args.reportstack.post_files = post_files
     workingd = None
     try:
-        workingd = WorkingDir(cfg)
+        export_path = cfg.get("install", {}).get("resume_data")
+        if export_path is None or not os.path.exists(export_path):
+            workingd = WorkingDir.create(cfg)
+            if export_path is not None:
+                LOG.debug("Exporting resume data to %s so that further stages"
+                          " can be executed in a later invocation.",
+                          export_path)
+                workingd.export(export_path)
+        else:
+            workingd = WorkingDir.import_existing(cfg)
         dd_images = util.get_dd_images(cfg.get('sources', {}))
         if len(dd_images) > 1:
             raise ValueError("You may not use more than one disk image")

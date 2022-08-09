@@ -329,6 +329,12 @@ Configure Curtin's install options.
 
 Curtin logs install progress by default to /var/log/curtin/install.log
 
+**log_file_append**: *<boolean>*
+
+By default, curtin install will truncate the install log file (if it already
+exists). Setting ``log_file_append`` to true will cause curtin to open the file
+in append mode instead.
+
 **error_tarfile**: *<path to write a tar of Curtin's log and configuration
 data in the event of an error>*
 
@@ -362,6 +368,15 @@ a value is set, then curtin will utilize the ``target`` value instead.
 If this key is set to the string 'disabled' then curtin will not
 unmount the target filesystem when install is complete.  This
 skips unmounting in all cases of install success or failure.
+
+**resume_data**: *<path where to load or store the data needed to resume>*
+
+If specified and the file exists, curtin will load the data to resume an
+installation that has already been initiated. The target directory will not be
+expected to be empty.
+
+If the file does not exist, curtin will create it and store the necessary data
+so that one can resume the installation and run further stages later.
 
 **Example**::
 

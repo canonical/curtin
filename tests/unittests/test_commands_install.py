@@ -1,7 +1,9 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
 
 import copy
+import json
 import mock
+import os
 
 from curtin import config
 from curtin.commands import install
@@ -201,7 +203,8 @@ class TestWorkingDir(CiTestCase):
         ensure_dir(target_d)
         with mock.patch("curtin.commands.install.tempfile.mkdtemp",
                         return_value=work_d) as m_mkdtemp:
-            workingdir = install.WorkingDir({'install': {'target': target_d}})
+            workingdir = install.WorkingDir.create(
+                    {'install': {'target': target_d}})
         self.assertEqual(1, m_mkdtemp.call_count)
         self.assertEqual(target_d, workingdir.target)
         self.assertEqual(target_d, workingdir.env().get('TARGET_MOUNT_POINT'))
@@ -217,7 +220,7 @@ class TestWorkingDir(CiTestCase):
         with mock.patch("curtin.commands.install.tempfile.mkdtemp",
                         return_value=work_d):
             with self.assertRaises(ValueError):
-                install.WorkingDir({'install': {'target': target_d}})
+                install.WorkingDir.create({'install': {'target': target_d}})
 
     def test_target_dir_by_default_is_under_workd(self):
         """WorkingDir does not require target in config."""
@@ -226,6 +229,48 @@ class TestWorkingDir(CiTestCase):
         ensure_dir(work_d)
         with mock.patch("curtin.commands.install.tempfile.mkdtemp",
                         return_value=work_d) as m_mkdtemp:
-            wd = install.WorkingDir({})
+            wd = install.WorkingDir.create({})
         self.assertEqual(1, m_mkdtemp.call_count)
         self.assertTrue(wd.target.startswith(work_d + "/"))
+
+    def test_import_target_dir_exists(self):
+        tmp_d = self.tmp_dir()
+        target_d = self.tmp_path("target_d", tmp_d)
+        ensure_dir(target_d)
+        resume_data_path = os.path.join(tmp_d, "resume_data")
+        with open(resume_data_path, mode="w") as fh:
+            json.dump({"target": target_d,
+                       "top": "/dev/zero",
+                       "scratch": "/dev/zero",
+                       "interfaces": "/dev/zero",
+                       "netconf": "/dev/zero",
+                       "netstate": "/dev/zero",
+                       "fstab": "/dev/zero",
+                       "config_file": "/dev/zero"}, fh)
+
+        work_d = self.tmp_path("work_d", tmp_d)
+        ensure_dir(work_d)
+        with mock.patch("curtin.commands.install.tempfile.mkdtemp",
+                        return_value=work_d):
+            install.WorkingDir.import_existing(
+                    {"install": {"resume_data": resume_data_path}})
+
+    def test_import_target_dir_does_not_exist(self):
+        tmp_d = self.tmp_dir()
+        resume_data_path = os.path.join(tmp_d, "resume_data")
+        with open(resume_data_path, mode="w") as fh:
+            json.dump({"target": "/inexistent",
+                       "top": "/dev/zero",
+                       "scratch": "/dev/zero",
+                       "interfaces": "/dev/zero",
+                       "netconf": "/dev/zero",
+                       "netstate": "/dev/zero",
+                       "fstab": "/dev/zero",
+                       "config_file": "/dev/zero"}, fh)
+        work_d = self.tmp_path("work_d", tmp_d)
+        ensure_dir(work_d)
+        with mock.patch("curtin.commands.install.tempfile.mkdtemp",
+                        return_value=work_d):
+            with self.assertRaises(ValueError):
+                install.WorkingDir.import_existing(
+                        {"install": {"resume_data": resume_data_path}})
