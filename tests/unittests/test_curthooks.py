@@ -107,7 +107,7 @@ class TestEnableDisableUpdateInitramfs(CiTestCase):
         self.mock_which.assert_called_with('update-initramfs',
                                            target=self.target)
 
-    def test_disable_changes_binary_name_write_dummy_binary(self):
+    def test_disable_changes_binary_name_write_stub_binary(self):
         self.mock_which.return_value = self.update_initramfs
         self.mock_subp.side_effect = iter([('', '')] * 10)
         curthooks.disable_update_initramfs({}, self.target)
@@ -119,7 +119,7 @@ class TestEnableDisableUpdateInitramfs(CiTestCase):
         self.assertEqual([call('update-initramfs', target=self.target)],
                          self.mock_which.call_args_list)
 
-        # make sure we have a dummy binary
+        # make sure we have a stub binary
         target_update_initramfs = self.target + self.update_initramfs
         self.assertTrue(os.path.exists(target_update_initramfs))
         self.assertTrue(util.is_exe(target_update_initramfs))
@@ -176,7 +176,7 @@ class TestEnableDisableUpdateInitramfs(CiTestCase):
             lhs = [call(tname, target=self.target)]
             self.assertIn(lhs, self.mock_which.call_args_list)
 
-            # make sure we have a dummy binary
+            # make sure we have a stub binary
             target_tool = self.target + tool
             self.assertTrue(os.path.exists(target_tool))
             self.assertTrue(util.is_exe(target_tool))

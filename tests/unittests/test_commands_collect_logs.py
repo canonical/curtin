@@ -234,7 +234,7 @@ class TestCollectLogs(CiTestCase):
 
 
 class TestCreateTar(CiTestCase):
-    """Whitebox testing of create_log_tarfile."""
+    """Open-box testing of create_log_tarfile."""
 
     def setUp(self):
         super(TestCreateTar, self).setUp()
@@ -336,7 +336,7 @@ class TestCreateTar(CiTestCase):
 
 
 class TestWBCollectLogs(CiTestCase):
-    """Whitebox testing of _redact_sensitive_information."""
+    """Open-box testing of _redact_sensitive_information."""
 
     def test_wb_redact_sensitive_information(self):
         """_redact_sensitive_information replaces redact_values in any file."""

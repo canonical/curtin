@@ -136,7 +136,7 @@ def disable_update_initramfs(cfg, target, machine=None):
                           '--divert', rename, found]
                 in_chroot.subp(divert)
 
-                # create a dummy update-initramfs which just returns true;
+                # create a no-op update-initramfs which just returns true;
                 # this handles postinstall scripts which make invoke $tool
                 # directly
                 util.write_file(target + found,

@@ -783,7 +783,7 @@ class TestClearHolders(CiTestCase):
     @mock.patch('curtin.block.clear_holders.util')
     def test_shutdown_swap_calls_swapoff(self, mock_util):
         """clear_holders.shutdown_swap() calls swapoff on active swap device"""
-        blockdev = '/mydev/dummydisk'
+        blockdev = '/mydev/sampledisk'
         mock_util.load_file.return_value = textwrap.dedent("""\
             Filename				Type		Size	Used	Priority
             %s        disk		4194300	53508	-1
@@ -794,7 +794,7 @@ class TestClearHolders(CiTestCase):
     @mock.patch('curtin.block.clear_holders.util')
     def test_shutdown_swap_skips_nomatch(self, mock_util):
         """clear_holders.shutdown_swap() ignores unmatched swapdevices"""
-        blockdev = '/mydev/dummydisk'
+        blockdev = '/mydev/sampledisk'
         mock_util.load_file.return_value = textwrap.dedent("""\
             Filename				Type		Size	Used	Priority
             /foobar/wark            disk		4194300	53508	-1

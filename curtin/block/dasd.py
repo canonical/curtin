@@ -368,7 +368,7 @@ class DasdDevice(CcwDevice):
         :param layout: string specify disk layout format. Must be one of
             'cdl' (Compatible Disk Layout, default) or
             'ldl' (Linux Disk Layout).
-        :param force: boolean set true to skip sanity checks,
+        :param force: boolean set True to skip checking if mounted,
             defaults to False
         :param set_label: string to write to the volume label for
             identification.  If no label provided, a label is generated from

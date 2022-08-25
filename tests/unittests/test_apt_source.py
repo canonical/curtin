@@ -600,7 +600,7 @@ Pin-Priority: 50
                     "pin": "release a=unstable",
                     "pin-priority": 50,
                 }, {
-                    "package": "dummy-unwanted-package",
+                    "package": "sample-unwanted-package",
                     "pin": "origin *ubuntu.com*",
                     "pin-priority": -1,
                 }
@@ -612,7 +612,7 @@ Package: *
 Pin: release a=unstable
 Pin-Priority: 50
 
-Package: dummy-unwanted-package
+Package: sample-unwanted-package
 Pin: origin *ubuntu.com*
 Pin-Priority: -1
 """
