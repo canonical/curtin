@@ -1792,7 +1792,7 @@ class TestCurthooksChzdev(CiTestCase):
         """chzdev_persist uses export, sends to prepare & import consumes."""
         export_value = self.random_string()
         import_value = self.random_string().encode()
-        m_chz_export.return_value = (export_value, '')
+        m_chz_export.return_value = (export_value, '', 0)
         m_chz_prepare.return_value = import_value
         curthooks.chzdev_persist_active_online({}, self.target)
         self.assertEqual(1, m_chz_export.call_count)
@@ -1802,6 +1802,18 @@ class TestCurthooksChzdev(CiTestCase):
         m_chz_import.assert_called_with(data=import_value,
                                         persistent=True, noroot=True,
                                         base={'/etc': self.target + '/etc'})
+
+    @patch('curtin.commands.curthooks.chzdev_export')
+    @patch('curtin.commands.curthooks.chzdev_prepare_for_import')
+    @patch('curtin.commands.curthooks.chzdev_import')
+    def test_chzdev_skip_empty_selection(self, m_chz_import,
+                                         m_chz_prepare, m_chz_export):
+        """when chzdev_export returns an empty selection error, bail"""
+        m_chz_export.return_value = (None, None, 8)
+        curthooks.chzdev_persist_active_online({}, self.target)
+        self.assertEqual(1, m_chz_export.call_count)
+        self.assertEqual(0, m_chz_prepare.call_count)
+        self.assertEqual(0, m_chz_import.call_count)
 
     def test_export_defaults_to_stdout(self):
         """chzdev_export returns (stdout, stderr) from subp."""

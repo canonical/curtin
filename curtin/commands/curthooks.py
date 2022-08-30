@@ -218,7 +218,11 @@ def chzdev_persist_active_online(cfg, target):
 
     LOG.info('Persisting zdevice configuration in target')
     target_etc = paths.target_path(target, 'etc')
-    (chzdev_conf, _) = chzdev_export(active=True, online=True)
+    ERR_EMPTY_SELECTION = 8  # No settings found to export
+    (chzdev_conf, _, ec) = chzdev_export(active=True, online=True)
+    if ec == ERR_EMPTY_SELECTION:
+        LOG.info('z specific devices not found')
+        return
     chzdev_persistent = chzdev_prepare_for_import(chzdev_conf)
     chzdev_import(data=chzdev_persistent,
                   persistent=True, noroot=True, base={'/etc': target_etc})
@@ -240,7 +244,11 @@ def chzdev_export(active=True, online=True, persistent=False,
         cmd.extend(['--persistent'])
     cmd.extend(['--export', export_file])
 
-    return util.subp(cmd, capture=True)
+    try:
+        out, err = util.subp(cmd, capture=True)
+        return (out, err, 0)
+    except util.ProcessExecutionError as proc_ex_err:
+        return (None, None, proc_ex_err.exit_code)
 
 
 def chzdev_import(data=None, persistent=True, noroot=True, base=None,
