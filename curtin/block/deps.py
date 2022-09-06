@@ -59,6 +59,7 @@ def detect_required_packages_mapping(osfamily=DISTROS.debian):
         DISTROS.debian: {
             'bcache': ['bcache-tools'],
             'btrfs': ['^btrfs-(progs|tools)$'],
+            'dm_crypt': ['cryptsetup'],
             'ext2': ['e2fsprogs'],
             'ext3': ['e2fsprogs'],
             'ext4': ['e2fsprogs'],
@@ -77,6 +78,7 @@ def detect_required_packages_mapping(osfamily=DISTROS.debian):
         DISTROS.redhat: {
             'bcache': [],
             'btrfs': ['btrfs-progs'],
+            'dm_crypt': ['cryptsetup'],
             'ext2': ['e2fsprogs'],
             'ext3': ['e2fsprogs'],
             'ext4': ['e2fsprogs'],
