@@ -157,7 +157,7 @@ class StorageConfigBuilder:
             }
 
     def _add(self, *, type, **kw):
-        if type != 'image' and self.cur_image is None:
+        if type not in ['image', 'device'] and self.cur_image is None:
             raise Exception("no current image")
         action = {'id': 'id' + str(len(self.config))}
         action.update(type=type, **kw)
@@ -169,6 +169,11 @@ class StorageConfigBuilder:
             with open(path, "wb") as f:
                 f.write(b"\0" * int(util.human2bytes(size)))
         action = self._add(type='image', path=path, size=size, **kw)
+        self.cur_image = action['id']
+        return action
+
+    def add_device(self, *, path, **kw):
+        action = self._add(type='device', path=path, **kw)
         self.cur_image = action['id']
         return action
 
@@ -1188,3 +1193,15 @@ table-length: 256'''.encode()
             sfdisk_info = block.sfdisk_info(dev)
             # default is 128
             self.assertEqual(256, int(sfdisk_info['table-length']))
+
+    def test_device_action(self):
+        self.img = self.tmp_path('image.img')
+        with open(self.img, 'w') as fp:
+            fp.truncate(10 << 20)
+        with loop_dev(self.img) as dev:
+            config = StorageConfigBuilder(version=2)
+            config.add_device(path=dev, ptable='gpt')
+            config.add_part(number=1, offset=1 << 20, size=1 << 20)
+            self.run_bm(config.render())
+        self.assertPartitions(
+            PartData(number=1, offset=1 << 20, size=1 << 20))

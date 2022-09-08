@@ -71,6 +71,7 @@ commands include:
 - Bcache Command (``bcache``)
 - Zpool Command (``zpool``) **Experimental**
 - ZFS Command (``zfs``)) **Experimental**
+- Device "Command" (``device``)
 
 Any action that refers to a block device (so things like ``partition``
 and ``dm_crypt`` but not ``lvm_volgroup`` or ``mount``, for example)
@@ -1174,6 +1175,22 @@ passed to the ZFS dataset creation command.
    properties:
      canmount: noauto
      mountpoint: /
+
+Device "Command"
+~~~~~~~~~~~~~~~~
+
+This is a special command that can be used to refer to an arbitrary
+block device. It can be useful when you want to refer to a device that
+has been set up outside curtin for some reason -- partitioning or
+formatting or including in a RAID array or LVM volume group, for example.
+
+**path**: *path to device node*
+
+Path or symlink to the device node in /dev.
+
+The device action also supports the **ptable** attribute, to allow an
+arbitrary device node to be partitioned.
+
 
 
 Additional Examples

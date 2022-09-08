@@ -535,6 +535,9 @@ def get_path_to_storage_volume(volume, storage_config):
     elif vol.get('type') == 'image':
         volume_path = vol['dev']
 
+    elif vol.get('type') == 'device':
+        volume_path = vol['path']
+
     else:
         raise NotImplementedError("cannot determine the path to storage \
             volume '%s' with type '%s'" % (volume, vol.get('type')))
@@ -581,6 +584,11 @@ def image_handler(info, storage_config, context):
         raise
     context.id_to_device[info['id']] = info['dev'] = dev
     DEVS.add(dev)
+    context.handlers['disk'](info, storage_config, context)
+
+
+def device_handler(info, storage_config, context):
+    context.id_to_device[info['id']] = info['path']
     context.handlers['disk'](info, storage_config, context)
 
 
@@ -2036,6 +2044,7 @@ def meta_custom(args):
 
     command_handlers = {
         'dasd': dasd_handler,
+        'device': device_handler,
         'disk': disk_handler,
         'partition': partition_handler,
         'format': format_handler,
@@ -2096,7 +2105,7 @@ def meta_custom(args):
         with open(device_map_path, 'w') as fp:
             json.dump(context.id_to_device, fp)
 
-    if args.testmode:
+    if args.testmode and DEVS:
         util.subp(['losetup', '--detach'] + list(DEVS))
 
     if args.umount:
