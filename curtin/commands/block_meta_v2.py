@@ -400,8 +400,8 @@ def partition_verify_sfdisk_v2(part_action, label, sfdisk_part_info,
         verify_ptable_flag(devpath, expected_flag, label, sfdisk_part_info)
 
 
-def disk_handler_v2(info, storage_config, handlers):
-    disk_handler_v1(info, storage_config, handlers)
+def disk_handler_v2(info, storage_config, context):
+    disk_handler_v1(info, storage_config, context)
 
     part_actions = []
 
@@ -416,7 +416,7 @@ def disk_handler_v2(info, storage_config, handlers):
 
     if table_cls is None:
         for action in part_actions:
-            partition_handler_v1(action, storage_config, handlers)
+            partition_handler_v1(action, storage_config, context)
         return
 
     disk = get_path_to_storage_volume(info.get('id'), storage_config)
@@ -493,8 +493,9 @@ def disk_handler_v2(info, storage_config, handlers):
                 make_dname(action['id'], storage_config)
 
 
-def partition_handler_v2(info, storage_config, handlers):
-    pass
+def partition_handler_v2(info, storage_config, context):
+    context.id_to_device[info['id']] = get_path_to_storage_volume(
+        info.get('id'), storage_config)
 
 
 # vi: ts=4 expandtab syntax=python

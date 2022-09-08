@@ -255,12 +255,28 @@ class TestBlockMeta(IntegrationTestCase):
         psize = 40 << 20
         img = self.tmp_path('image.img')
         config = StorageConfigBuilder(version=version)
-        config.add_image(
+        disk_action = config.add_image(
             path=img, size='200M', ptable=ptable, sector_size=sector_size)
         p1 = config.add_part(size=psize, number=1)
         p2 = config.add_part(size=psize, number=2)
         p3 = config.add_part(size=psize, number=3)
-        self.run_bm(config.render())
+        c = config.render()
+
+        # Request that curtin dump the device node path for each action
+        dmp = c['storage']['device_map_path'] = self.tmp_path('map.json')
+
+        self.run_bm(c)
+
+        # We can't check a whole lot about the device map, but we can
+        # check all actions are in the map and each action should be
+        # /dev/loopXXpX were /dev/loopXX is the device for the image.
+        with open(dmp) as fp:
+            device_map = json.load(fp)
+            image_device = device_map[disk_action['id']]
+            for action in c['storage']['config']:
+                self.assertIn(action['id'], device_map)
+                self.assertTrue(
+                    device_map[action['id']].startswith(image_device))
 
         with loop_dev(img, sector_size) as dev:
             self.assertEqual(

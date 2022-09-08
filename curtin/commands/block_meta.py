@@ -17,6 +17,7 @@ from curtin.udev import (compose_udev_equality, udevadm_settle,
                          udevadm_trigger, udevadm_info)
 
 import glob
+import json
 import os
 import platform
 import string
@@ -550,7 +551,7 @@ def get_path_to_storage_volume(volume, storage_config):
 DEVS = set()
 
 
-def image_handler(info, storage_config, handlers):
+def image_handler(info, storage_config, context):
     path = info['path']
     size = int(util.human2bytes(info['size']))
     sector_size = str(int(util.human2bytes(info.get('sector_size', 512))))
@@ -578,12 +579,12 @@ def image_handler(info, storage_config, handlers):
         if os.path.exists(path) and not info.get('preserve'):
             os.unlink(path)
         raise
-    info['dev'] = dev
+    context.id_to_device[info['id']] = info['dev'] = dev
     DEVS.add(dev)
-    handlers['disk'](info, storage_config, handlers)
+    context.handlers['disk'](info, storage_config, context)
 
 
-def dasd_handler(info, storage_config, handlers):
+def dasd_handler(info, storage_config, context):
     """ Prepare the specified dasd device per configuration
 
     params: info: dictionary of configuration, required keys are:
@@ -628,7 +629,7 @@ def dasd_handler(info, storage_config, handlers):
                 "Dasd %s failed to format" % dasd_device.devname)
 
 
-def disk_handler(info, storage_config, handlers):
+def disk_handler(info, storage_config, context):
     _dos_names = ['dos', 'msdos']
     ptable = info.get('ptable')
     if ptable and ptable not in PTABLES_VALID:
@@ -636,6 +637,7 @@ def disk_handler(info, storage_config, handlers):
             'Invalid partition table type: %s in %s' % (ptable, info))
 
     disk = get_path_to_storage_volume(info.get('id'), storage_config)
+    context.id_to_device[info['id']] = disk
     # For disks, 'preserve' is what indicates whether the partition
     # table should be reused or recreated but for compound devices
     # such as raids, it indicates if the raid should be created or
@@ -849,7 +851,7 @@ def partition_verify_fdasd(disk_path, partnumber, info):
         raise RuntimeError("dasd partitions do not support flags")
 
 
-def partition_handler(info, storage_config, handlers):
+def partition_handler(info, storage_config, context):
     device = info.get('device')
     size = info.get('size')
     flag = info.get('flag')
@@ -863,6 +865,8 @@ def partition_handler(info, storage_config, handlers):
     disk = get_path_to_storage_volume(device, storage_config)
     partnumber = determine_partition_number(info.get('id'), storage_config)
     disk_kname = block.path_to_kname(disk)
+    part_path = block.dev_path(block.partition_kname(disk_kname, partnumber))
+    context.id_to_device[info['id']] = part_path
 
     # consider the disks logical sector size when calculating sectors
     try:
@@ -938,8 +942,6 @@ def partition_handler(info, storage_config, handlers):
     # Handle preserve flag
     create_partition = True
     if config.value_as_boolean(info.get('preserve')):
-        part_path = block.dev_path(
-            block.partition_kname(disk_kname, partnumber))
         if disk_ptable == 'vtoc':
             partition_verify_fdasd(disk, partnumber, info)
         else:
@@ -1038,7 +1040,7 @@ def partition_handler(info, storage_config, handlers):
         make_dname(info.get('id'), storage_config)
 
 
-def format_handler(info, storage_config, handlers):
+def format_handler(info, storage_config, context):
     volume = info.get('volume')
     if not volume:
         raise ValueError("volume must be specified for partition '%s'" %
@@ -1294,7 +1296,7 @@ def mount_apply(fdata, target=None, fstab=None):
         LOG.info("fstab not in environment, so not writing")
 
 
-def mount_handler(info, storage_config, handlers):
+def mount_handler(info, storage_config, context):
     """ Handle storage config type: mount
 
     info = {
@@ -1330,7 +1332,7 @@ def lvm_volgroup_verify(vg_name, device_paths):
     verify_volgroup_members(vg_name, device_paths)
 
 
-def lvm_volgroup_handler(info, storage_config, handlers):
+def lvm_volgroup_handler(info, storage_config, context):
     devices = info.get('devices')
     device_paths = []
     name = info.get('name')
@@ -1391,7 +1393,7 @@ def lvm_partition_verify(lv_name, vg_name, info):
         verify_lv_size(lv_name, info['size'])
 
 
-def lvm_partition_handler(info, storage_config, handlers):
+def lvm_partition_handler(info, storage_config, context):
     volgroup = storage_config[info['volgroup']]['name']
     name = info['name']
     if not volgroup:
@@ -1428,9 +1430,11 @@ def lvm_partition_handler(info, storage_config, handlers):
     # refresh lvmetad
     lvm.lvm_scan()
 
+    lv_path = get_path_to_storage_volume(info['id'], storage_config)
+    context.id_to_device[info['id']] = lv_path
+
     wipe_mode = info.get('wipe', 'superblock')
     if wipe_mode and create_lv:
-        lv_path = get_path_to_storage_volume(info['id'], storage_config)
         LOG.debug('Wiping logical volume %s mode=%s', lv_path, wipe_mode)
         block.wipe_volume(lv_path, mode=wipe_mode, exclusive=False)
 
@@ -1453,7 +1457,7 @@ def dm_crypt_verify(dmcrypt_dev, volume_path):
     verify_blkdev_used(dmcrypt_dev, volume_path)
 
 
-def dm_crypt_handler(info, storage_config, handlers):
+def dm_crypt_handler(info, storage_config, context):
     state = util.load_command_environment(strict=True)
     volume = info.get('volume')
     keysize = info.get('keysize')
@@ -1462,6 +1466,7 @@ def dm_crypt_handler(info, storage_config, handlers):
     if not dm_name:
         dm_name = info.get('id')
     dmcrypt_dev = os.path.join("/dev", "mapper", dm_name)
+    context.id_to_device[info['id']] = dmcrypt_dev
     preserve = config.value_as_boolean(info.get('preserve'))
     if not volume:
         raise ValueError("volume for cryptsetup to operate on must be \
@@ -1595,12 +1600,13 @@ def raid_verify(md_devname, raidlevel, device_paths, spare_paths, container):
         md_devname, raidlevel, device_paths, spare_paths, container)
 
 
-def raid_handler(info, storage_config, handlers):
+def raid_handler(info, storage_config, context):
     state = util.load_command_environment(strict=True)
     devices = info.get('devices')
     raidlevel = info.get('raidlevel')
     spare_devices = info.get('spare_devices')
     md_devname = block.md_path(info.get('name'))
+    context.id_to_device[info['id']] = md_devname
     container = info.get('container')
     metadata = info.get('metadata')
     preserve = config.value_as_boolean(info.get('preserve'))
@@ -1677,7 +1683,7 @@ def raid_handler(info, storage_config, handlers):
     # If ptable is specified, call disk_handler on this mdadm device to create
     # the table
     if info.get('ptable'):
-        handlers['disk'](info, storage_config, handlers)
+        context.handlers['disk'](info, storage_config, context)
 
 
 def verify_bcache_cachedev(cachedev):
@@ -1744,7 +1750,7 @@ def bcache_verify(cachedev, backingdev, cache_mode):
     return True
 
 
-def bcache_handler(info, storage_config, handlers):
+def bcache_handler(info, storage_config, context):
     backing_device = get_path_to_storage_volume(info.get('backing_device'),
                                                 storage_config)
     cache_device = get_path_to_storage_volume(info.get('cache_device'),
@@ -1777,6 +1783,8 @@ def bcache_handler(info, storage_config, handlers):
     if create_bcache and backing_device:
         bcache_dev = bcache.create_backing_device(backing_device, cache_device,
                                                   cache_mode, cset_uuid)
+        # Not sure what to do in the preserve case here.
+        context.id_to_device[info['id']] = bcache_dev
 
     if cache_mode and not backing_device:
         raise ValueError("cache mode specified which can only be set on "
@@ -1792,13 +1800,13 @@ def bcache_handler(info, storage_config, handlers):
         make_dname(info.get('id'), storage_config)
 
     if info.get('ptable'):
-        handlers['disk'](info, storage_config, handlers)
+        context.handlers['disk'](info, storage_config, context)
 
     LOG.debug('Finished bcache creation for backing %s or caching %s',
               backing_device, cache_device)
 
 
-def zpool_handler(info, storage_config, handlers):
+def zpool_handler(info, storage_config, context):
     """
     Create a zpool based in storage_configuration
     """
@@ -1837,7 +1845,7 @@ def zpool_handler(info, storage_config, handlers):
                      zfs_properties=fs_properties)
 
 
-def zfs_handler(info, storage_config, handlers):
+def zfs_handler(info, storage_config, context):
     """
     Create a zfs filesystem
     """
@@ -1980,6 +1988,13 @@ def zfsroot_update_storage_config(storage_config):
     return ret
 
 
+class BlockMetaContext:
+
+    def __init__(self, handlers):
+        self.handlers = handlers
+        self.id_to_device = {}
+
+
 def meta_clear(devices, report_prefix=''):
     """ Run clear_holders on specified list of devices.
 
@@ -2045,8 +2060,10 @@ def meta_custom(args):
     # set up reportstack
     stack_prefix = state.get('report_stack_prefix', '')
 
+    context = BlockMetaContext(command_handlers)
+
     for item_id, command in storage_config_dict.items():
-        handler = command_handlers.get(command['type'])
+        handler = context.handlers.get(command['type'])
         if not handler:
             raise ValueError("unknown command type '%s'" % command['type'])
         with events.ReportEventStack(
@@ -2054,11 +2071,16 @@ def meta_custom(args):
                 description="configuring %s: %s" % (command['type'],
                                                     command['id'])):
             try:
-                handler(command, storage_config_dict, command_handlers)
+                handler(command, storage_config_dict, context)
             except Exception as error:
                 LOG.error("An error occured handling '%s': %s - %s" %
                           (item_id, type(error).__name__, error))
                 raise
+
+    device_map_path = cfg['storage'].get('device_map_path')
+    if device_map_path is not None:
+        with open(device_map_path, 'w') as fp:
+            json.dump(context.id_to_device, fp)
 
     if args.testmode:
         util.subp(['losetup', '--detach'] + list(DEVS))

@@ -26,6 +26,12 @@ dictionary with at least a version number and the configuration list.
        serial: QM00002
        model: QEMU_HARDDISK
 
+The ``storage`` configuration can also have a ``device_map_path`` key
+that specifies a file path where curtin will record (in JSON format) a
+mapping from device id as specified in the action to the path to the
+device node for the block device this action ended up modifying or
+creating.
+
 Config versions
 ---------------
 

@@ -22,6 +22,9 @@ def random_uuid():
     return uuid.uuid4()
 
 
+empty_context = block_meta.BlockMetaContext({})
+
+
 class TestGetPathToStorageVolume(CiTestCase):
 
     def setUp(self):
@@ -380,7 +383,7 @@ class TestBlockMeta(CiTestCase):
         holders = ['md1']
         self.mock_get_holders.return_value = holders
 
-        block_meta.disk_handler(info, self.storage_config, {})
+        block_meta.disk_handler(info, self.storage_config, empty_context)
 
         print("clear_holders: %s" % self.mock_clear_holders.call_args_list)
         print("assert_clear: %s" % self.mock_assert_clear.call_args_list)
@@ -403,7 +406,8 @@ class TestBlockMeta(CiTestCase):
         self.mock_block_sys_block_path.return_value = '/sys/class/block/xxx'
         self.mock_block_sector_size.return_value = (512, 512)
 
-        block_meta.partition_handler(part_info, self.storage_config, {})
+        block_meta.partition_handler(
+            part_info, self.storage_config, empty_context)
         part_offset = 2048 * 512
         self.mock_block_zero_file.assert_called_with(disk_kname, [part_offset],
                                                      exclusive=False)
@@ -430,7 +434,8 @@ class TestBlockMeta(CiTestCase):
         }
         self.mock_get_volume_type.return_value = 'part'
 
-        block_meta.mount_handler(mount_info, self.storage_config, {})
+        block_meta.mount_handler(
+            mount_info, self.storage_config, empty_context)
         options = 'defaults'
         comment = "# / was on /wark/xxx during curtin installation"
         expected = "%s\n%s %s %s %s 0 1\n" % (comment,
@@ -458,7 +463,8 @@ class TestBlockMeta(CiTestCase):
         }
         self.mock_get_volume_type.return_value = 'part'
 
-        block_meta.mount_handler(mount_info, self.storage_config, {})
+        block_meta.mount_handler(
+            mount_info, self.storage_config, empty_context)
         options = 'ro'
         comment = "# /readonly was on /wark/xxx during curtin installation"
         expected = "%s\n%s %s %s %s 0 1\n" % (comment,
@@ -487,7 +493,8 @@ class TestBlockMeta(CiTestCase):
         }
         self.mock_get_volume_type.return_value = 'part'
 
-        block_meta.mount_handler(mount_info, self.storage_config, {})
+        block_meta.mount_handler(
+            mount_info, self.storage_config, empty_context)
         options = 'defaults'
         comment = "# /readonly was on /wark/xxx during curtin installation"
         expected = "%s\n%s %s %s %s 0 1\n" % (comment,
@@ -518,7 +525,8 @@ class TestBlockMeta(CiTestCase):
         }
         self.mock_get_volume_type.return_value = 'part'
 
-        block_meta.mount_handler(mount_info, self.storage_config, {})
+        block_meta.mount_handler(
+            mount_info, self.storage_config, empty_context)
         options = 'defaults'
         comment = "# /readonly was on /wark/xxx during curtin installation"
         expected = "#curtin-test\n%s\n%s %s %s %s 0 1\n" % (comment,
@@ -551,7 +559,7 @@ class TestZpoolHandler(CiTestCase):
         m_getpath.return_value = disk_path
         m_block.disk_to_byid_path.return_value = None
         m_util.load_command_environment.return_value = {'target': 'mytarget'}
-        block_meta.zpool_handler(info, storage_config, {})
+        block_meta.zpool_handler(info, storage_config, empty_context)
         m_zfs.zpool_create.assert_called_with(
             info['pool'], [disk_path],
             mountpoint="/",
@@ -1265,7 +1273,7 @@ class TestDasdHandler(CiTestCase):
         m_dasd_devname.return_value = disk_path
         m_getpath.return_value = disk_path
         m_dasd_needf.side_effect = [True, False]
-        block_meta.dasd_handler(info, storage_config, {})
+        block_meta.dasd_handler(info, storage_config, empty_context)
         m_dasd_format.assert_called_with(blksize=4096, layout='cdl',
                                          set_label='cloudimg-rootfs',
                                          mode='quick')
@@ -1287,7 +1295,7 @@ class TestDasdHandler(CiTestCase):
         disk_path = "/wark/dasda"
         m_getpath.return_value = disk_path
         m_dasd_needf.side_effect = [False, False]
-        block_meta.dasd_handler(info, storage_config, {})
+        block_meta.dasd_handler(info, storage_config, empty_context)
         self.assertEqual(0, m_dasd_format.call_count)
 
     @patch('curtin.commands.block_meta.dasd.DasdDevice.format')
@@ -1307,7 +1315,7 @@ class TestDasdHandler(CiTestCase):
         disk_path = "/wark/dasda"
         m_getpath.return_value = disk_path
         m_dasd_needf.side_effect = [False, False]
-        block_meta.dasd_handler(info, storage_config, {})
+        block_meta.dasd_handler(info, storage_config, empty_context)
         self.assertEqual(1, m_dasd_needf.call_count)
         self.assertEqual(0, m_dasd_format.call_count)
 
@@ -1330,7 +1338,7 @@ class TestDasdHandler(CiTestCase):
         m_getpath.return_value = disk_path
         m_dasd_needf.side_effect = [True, False]
         with self.assertRaises(ValueError):
-            block_meta.dasd_handler(info, storage_config, {})
+            block_meta.dasd_handler(info, storage_config, empty_context)
         self.assertEqual(1, m_dasd_needf.call_count)
         self.assertEqual(0, m_dasd_format.call_count)
 
@@ -1353,7 +1361,7 @@ class TestDiskHandler(CiTestCase):
         m_getpath.return_value = disk_path
         m_block.get_part_table_type.return_value = 'vtoc'
         m_getpath.return_value = disk_path
-        block_meta.disk_handler(info, storage_config, {})
+        block_meta.disk_handler(info, storage_config, empty_context)
         m_getpath.assert_called_with(info['id'], storage_config)
         m_block.get_part_table_type.assert_called_with(disk_path)
 
@@ -1369,7 +1377,7 @@ class TestDiskHandler(CiTestCase):
         m_getpath.return_value = disk_path
         m_block.get_part_table_type.return_value = self.random_string()
         m_getpath.return_value = disk_path
-        block_meta.disk_handler(info, storage_config, {})
+        block_meta.disk_handler(info, storage_config, empty_context)
         m_getpath.assert_called_with(info['id'], storage_config)
         self.assertEqual(0, m_block.get_part_table_type.call_count)
 
@@ -1385,7 +1393,7 @@ class TestDiskHandler(CiTestCase):
         m_getpath.return_value = disk_path
         m_block.get_part_table_type.return_value = 'gpt'
         m_getpath.return_value = disk_path
-        block_meta.disk_handler(info, storage_config, {})
+        block_meta.disk_handler(info, storage_config, empty_context)
         m_getpath.assert_called_with(info['id'], storage_config)
         self.assertEqual(0, m_block.get_part_table_type.call_count)
 
@@ -1403,7 +1411,7 @@ class TestDiskHandler(CiTestCase):
         m_block.get_part_table_type.return_value = None
         m_getpath.return_value = disk_path
         with self.assertRaises(ValueError):
-            block_meta.disk_handler(info, storage_config, {})
+            block_meta.disk_handler(info, storage_config, empty_context)
         m_getpath.assert_called_with(info['id'], storage_config)
         m_block.get_part_table_type.assert_called_with(disk_path)
 
@@ -1415,7 +1423,7 @@ class TestDiskHandler(CiTestCase):
         info = {'ptable': 'vtoc', 'type': 'disk', 'id': 'disk-foobar'}
         path = m_getpath.return_value = self.random_string()
         m_get_holders.return_value = []
-        block_meta.disk_handler(info, OrderedDict(), {})
+        block_meta.disk_handler(info, OrderedDict(), empty_context)
         m_subp.assert_called_once_with(['fdasd', '-c', '/dev/null', path])
 
 
@@ -1462,7 +1470,7 @@ class TestLvmVolgroupHandler(CiTestCase):
         self.m_getpath.side_effect = iter(devices)
 
         block_meta.lvm_volgroup_handler(self.storage_config['lvm-volgroup1'],
-                                        self.storage_config, {})
+                                        self.storage_config, empty_context)
 
         self.assertEqual([call(['vgcreate', '--force', '--zero=y', '--yes',
                                 'vg1'] + devices,  capture=True)],
@@ -1478,7 +1486,7 @@ class TestLvmVolgroupHandler(CiTestCase):
 
         self.storage_config['lvm-volgroup1']['preserve'] = True
         block_meta.lvm_volgroup_handler(self.storage_config['lvm-volgroup1'],
-                                        self.storage_config, {})
+                                        self.storage_config, empty_context)
 
         self.assertEqual(0, self.m_subp.call_count)
         self.assertEqual(1, self.m_lvm.lvm_scan.call_count)
@@ -1491,7 +1499,7 @@ class TestLvmVolgroupHandler(CiTestCase):
         self.storage_config['lvm-volgroup1']['preserve'] = True
 
         block_meta.lvm_volgroup_handler(self.storage_config['lvm-volgroup1'],
-                                        self.storage_config, {})
+                                        self.storage_config, empty_context)
 
         self.assertEqual(1, self.m_lvm.activate_volgroups.call_count)
         self.assertEqual([call('vg1')],
@@ -1508,7 +1516,9 @@ class TestLvmVolgroupHandler(CiTestCase):
 
         with self.assertRaises(RuntimeError):
             block_meta.lvm_volgroup_handler(
-                self.storage_config['lvm-volgroup1'], self.storage_config, {})
+                self.storage_config['lvm-volgroup1'],
+                self.storage_config,
+                empty_context)
 
         self.assertEqual(1, self.m_lvm.activate_volgroups.call_count)
         self.assertEqual([call('vg1')],
@@ -1558,8 +1568,10 @@ class TestLvmPartitionHandler(CiTestCase):
         self.assertEqual(int, type(lv_size))
         expected_size_str = "%sB" % util.human2bytes(lv_size)
 
-        block_meta.lvm_partition_handler(self.storage_config['lvm-part1'],
-                                         self.storage_config, {})
+        block_meta.lvm_partition_handler(
+            self.storage_config['lvm-part1'],
+            self.storage_config,
+            empty_context)
 
         call_name, call_args, call_kwargs = self.m_subp.mock_calls[0]
         # call_args is an n-tuple of arg list
@@ -1573,7 +1585,7 @@ class TestLvmPartitionHandler(CiTestCase):
         self.m_getpath.return_value = devpath
 
         block_meta.lvm_partition_handler(self.storage_config['lvm-part1'],
-                                         self.storage_config, {})
+                                         self.storage_config, empty_context)
         self.m_wipe.assert_called_with(devpath, mode='superblock',
                                        exclusive=False)
 
@@ -1587,7 +1599,7 @@ class TestLvmPartitionHandler(CiTestCase):
         wipe_mode = 'zero'
         self.storage_config['lvm-part1']['wipe'] = wipe_mode
         block_meta.lvm_partition_handler(self.storage_config['lvm-part1'],
-                                         self.storage_config, {})
+                                         self.storage_config, empty_context)
         self.m_wipe.assert_called_with(devpath, mode=wipe_mode,
                                        exclusive=False)
 
@@ -1596,7 +1608,7 @@ class TestLvmPartitionHandler(CiTestCase):
         m_verify.return_value = True
         self.storage_config['lvm-part1']['preserve'] = True
         block_meta.lvm_partition_handler(self.storage_config['lvm-part1'],
-                                         self.storage_config, {})
+                                         self.storage_config, empty_context)
         self.assertEqual(0, self.m_distro.lsb_release.call_count)
         self.assertEqual(0, self.m_subp.call_count)
 
@@ -1606,7 +1618,7 @@ class TestLvmPartitionHandler(CiTestCase):
         self.m_lvm.get_lv_size_bytes.return_value = 1073741824.0
 
         block_meta.lvm_partition_handler(self.storage_config['lvm-part1'],
-                                         self.storage_config, {})
+                                         self.storage_config, empty_context)
         self.assertEqual([call('vg1')],
                          self.m_lvm.get_lvols_in_volgroup.call_args_list)
         self.assertEqual([call('lv1')],
@@ -1619,8 +1631,10 @@ class TestLvmPartitionHandler(CiTestCase):
         self.m_lvm.get_lvols_in_volgroup.return_value = []
 
         with self.assertRaises(RuntimeError):
-            block_meta.lvm_partition_handler(self.storage_config['lvm-part1'],
-                                             self.storage_config, {})
+            block_meta.lvm_partition_handler(
+                self.storage_config['lvm-part1'],
+                self.storage_config,
+                empty_context)
 
             self.assertEqual([call('vg1')],
                              self.m_lvm.get_lvols_in_volgroup.call_args_list)
@@ -1634,8 +1648,10 @@ class TestLvmPartitionHandler(CiTestCase):
         self.m_lvm.get_lv_size_bytes.return_value = 0.0
 
         with self.assertRaises(RuntimeError):
-            block_meta.lvm_partition_handler(self.storage_config['lvm-part1'],
-                                             self.storage_config, {})
+            block_meta.lvm_partition_handler(
+                self.storage_config['lvm-part1'],
+                self.storage_config,
+                empty_context)
             self.assertEqual([call('vg1')],
                              self.m_lvm.get_lvols_in_volgroup.call_args_list)
             self.assertEqual([call('lv1')],
@@ -1703,7 +1719,7 @@ class TestDmCryptHandler(CiTestCase):
         self.m_getpath.return_value = volume_path
 
         info = self.storage_config['dmcrypt0']
-        block_meta.dm_crypt_handler(info, self.storage_config, {})
+        block_meta.dm_crypt_handler(info, self.storage_config, empty_context)
         expected_calls = [
             call(['cryptsetup', '--cipher', self.cipher,
                   '--key-size', self.keysize,
@@ -1721,7 +1737,7 @@ class TestDmCryptHandler(CiTestCase):
         info = self.storage_config['dmcrypt0']
         del info['dm_name']
 
-        block_meta.dm_crypt_handler(info, self.storage_config, {})
+        block_meta.dm_crypt_handler(info, self.storage_config, empty_context)
         expected_calls = [
             call(['cryptsetup', '--cipher', self.cipher,
                   '--key-size', self.keysize,
@@ -1745,7 +1761,7 @@ class TestDmCryptHandler(CiTestCase):
 
         info = self.storage_config['dmcrypt0']
         volume_name = "%s:%s" % (volume_byid, info['dm_name'])
-        block_meta.dm_crypt_handler(info, self.storage_config, {})
+        block_meta.dm_crypt_handler(info, self.storage_config, empty_context)
         expected_calls = [
             call(['zkey', 'generate', '--xts', '--volume-type', 'luks2',
                   '--sector-size', '4096', '--name', info['dm_name'],
@@ -1780,7 +1796,7 @@ class TestDmCryptHandler(CiTestCase):
 
         info = self.storage_config['dmcrypt0']
         volume_name = "%s:%s" % (volume_byid, info['dm_name'])
-        block_meta.dm_crypt_handler(info, self.storage_config, {})
+        block_meta.dm_crypt_handler(info, self.storage_config, empty_context)
         expected_calls = [
             call(['zkey', 'generate', '--xts', '--volume-type', 'luks2',
                   '--sector-size', '4096', '--name', info['dm_name'],
@@ -1817,7 +1833,7 @@ class TestDmCryptHandler(CiTestCase):
 
         info = self.storage_config['dmcrypt0']
         volume_name = "%s:%s" % (volume_byid, info['dm_name'])
-        block_meta.dm_crypt_handler(info, self.storage_config, {})
+        block_meta.dm_crypt_handler(info, self.storage_config, empty_context)
         expected_calls = [
             call(['zkey', 'generate', '--xts', '--volume-type', 'luks2',
                   '--sector-size', '4096', '--name', info['dm_name'],
@@ -1844,7 +1860,7 @@ class TestDmCryptHandler(CiTestCase):
 
         info = self.storage_config['dmcrypt0']
         info['preserve'] = True
-        block_meta.dm_crypt_handler(info, self.storage_config, {})
+        block_meta.dm_crypt_handler(info, self.storage_config, empty_context)
 
         self.assertEqual(0, self.m_subp.call_count)
         self.assertEqual(len(util.load_file(self.crypttab).splitlines()), 1)
@@ -1865,7 +1881,7 @@ class TestDmCryptHandler(CiTestCase):
 
         info = self.storage_config['dmcrypt0']
         info['preserve'] = True
-        block_meta.dm_crypt_handler(info, self.storage_config, {})
+        block_meta.dm_crypt_handler(info, self.storage_config, empty_context)
         self.assertEqual(len(util.load_file(self.crypttab).splitlines()), 1)
 
     @patch('curtin.commands.block_meta.os.path.exists')
@@ -1877,7 +1893,8 @@ class TestDmCryptHandler(CiTestCase):
         info = self.storage_config['dmcrypt0']
         info['preserve'] = True
         with self.assertRaises(RuntimeError):
-            block_meta.dm_crypt_handler(info, self.storage_config, {})
+            block_meta.dm_crypt_handler(
+                info, self.storage_config, empty_context)
 
     @patch('curtin.commands.block_meta.os.path.exists')
     def test_dm_crypt_preserve_raises_exception_if_wrong_dev_used(self, m_ex):
@@ -1895,7 +1912,8 @@ class TestDmCryptHandler(CiTestCase):
         info = self.storage_config['dmcrypt0']
         info['preserve'] = True
         with self.assertRaises(RuntimeError):
-            block_meta.dm_crypt_handler(info, self.storage_config, {})
+            block_meta.dm_crypt_handler(
+                info, self.storage_config, empty_context)
 
 
 class TestRaidHandler(CiTestCase):
@@ -1993,7 +2011,7 @@ class TestRaidHandler(CiTestCase):
             self.storage_config['mddevice']['name'] = param
             try:
                 block_meta.raid_handler(self.storage_config['mddevice'],
-                                        self.storage_config, {})
+                                        self.storage_config, empty_context)
             except ValueError:
                 if param in ['bad/path']:
                     continue
@@ -2015,7 +2033,7 @@ class TestRaidHandler(CiTestCase):
         md_devname = '/dev/' + self.storage_config['mddevice']['name']
         self.m_getpath.side_effect = iter(devices)
         block_meta.raid_handler(self.storage_config['mddevice'],
-                                self.storage_config, {})
+                                self.storage_config, empty_context)
         self.assertEqual([call(md_devname, 5, devices, [], None, '', None)],
                          self.m_mdadm.mdadm_create.call_args_list)
 
@@ -2029,7 +2047,7 @@ class TestRaidHandler(CiTestCase):
         self.m_getpath.side_effect = iter(devices)
         self.storage_config['mddevice']['preserve'] = True
         block_meta.raid_handler(self.storage_config['mddevice'],
-                                self.storage_config, {})
+                                self.storage_config, empty_context)
         self.assertEqual(0, self.m_mdadm.mdadm_create.call_count)
         self.assertEqual(
             [call(md_devname, 5, devices, [], None)],
@@ -2046,7 +2064,7 @@ class TestRaidHandler(CiTestCase):
         del self.storage_config['mddevice']['devices']
         self.storage_config['mddevice']['container'] = self.random_string()
         block_meta.raid_handler(self.storage_config['mddevice'],
-                                self.storage_config, {})
+                                self.storage_config, empty_context)
         self.assertEqual(0, self.m_mdadm.mdadm_create.call_count)
         self.assertEqual(
             [call(md_devname, 5, [], [], devices[0])],
@@ -2062,7 +2080,7 @@ class TestRaidHandler(CiTestCase):
         self.m_mdadm.md_check.return_value = True
         self.storage_config['mddevice']['preserve'] = True
         block_meta.raid_handler(self.storage_config['mddevice'],
-                                self.storage_config, {})
+                                self.storage_config, empty_context)
         self.assertEqual(0, self.m_mdadm.mdadm_create.call_count)
         self.assertEqual([call(md_devname, 5, devices, [], None)],
                          self.m_mdadm.md_check.call_args_list)
@@ -2077,7 +2095,7 @@ class TestRaidHandler(CiTestCase):
         self.m_mdadm.md_check.side_effect = iter([ValueError(), None])
         self.storage_config['mddevice']['preserve'] = True
         block_meta.raid_handler(self.storage_config['mddevice'],
-                                self.storage_config, {})
+                                self.storage_config, empty_context)
         self.assertEqual(0, self.m_mdadm.mdadm_create.call_count)
         self.assertEqual([call(md_devname, 5, devices, [], None)] * 2,
                          self.m_mdadm.md_check.call_args_list)
@@ -2095,7 +2113,7 @@ class TestRaidHandler(CiTestCase):
         self.storage_config['mddevice']['preserve'] = True
         with self.assertRaises(ValueError):
             block_meta.raid_handler(self.storage_config['mddevice'],
-                                    self.storage_config, {})
+                                    self.storage_config, empty_context)
         self.assertEqual(0, self.m_mdadm.mdadm_create.call_count)
         self.assertEqual([call(md_devname, 5, devices, [], None)] * 2,
                          self.m_mdadm.md_check.call_args_list)
@@ -2188,7 +2206,7 @@ class TestBcacheHandler(CiTestCase):
         self.m_bcache.create_cache_device.return_value = cset_uuid
 
         block_meta.bcache_handler(self.storage_config['id_bcache0'],
-                                  self.storage_config, {})
+                                  self.storage_config, empty_context)
         self.assertEqual([call(caching_device)],
                          self.m_bcache.create_cache_device.call_args_list)
         self.assertEqual([
@@ -2311,7 +2329,8 @@ class TestPartitionHandler(CiTestCase):
         self.m_block.sys_block_path.return_value = 'sys/class/block/sda'
         self.m_block.get_blockdev_sector_size.return_value = (512, 512)
         m_ex_part.return_value = 'disk-sda-part-2'
-        block_meta.partition_handler(logical_part, self.storage_config, {})
+        block_meta.partition_handler(
+            logical_part, self.storage_config, empty_context)
         m_ex_part.assert_called_with('sda', self.storage_config)
 
     def test_part_handler_raise_exception_missing_extended_part(self):
@@ -2331,7 +2350,8 @@ class TestPartitionHandler(CiTestCase):
         self.m_block.sys_block_path.return_value = 'sys/class/block/sda'
         self.m_block.get_blockdev_sector_size.return_value = (512, 512)
         with self.assertRaises(RuntimeError):
-            block_meta.partition_handler(logical_part, self.storage_config, {})
+            block_meta.partition_handler(
+                logical_part, self.storage_config, empty_context)
 
     @patch('curtin.commands.block_meta.partition_verify_fdasd')
     def test_part_hander_reuse_vtoc(self, m_verify_fdasd):
@@ -2358,7 +2378,7 @@ class TestPartitionHandler(CiTestCase):
         m_verify_fdasd.return_value = True
         devpath = self.m_getpath.return_value = self.random_string()
 
-        block_meta.partition_handler(sconfig[1], oconfig, {})
+        block_meta.partition_handler(sconfig[1], oconfig, empty_context)
 
         m_verify_fdasd.assert_has_calls([call(devpath, 1, sconfig[1])])
 
@@ -2421,7 +2441,7 @@ class TestMultipathPartitionHandler(CiTestCase):
         m_part_info.return_value = (2048, 2048)
 
         part2 = self.storage_config['disk-sda-part-2']
-        block_meta.partition_handler(part2, self.storage_config, {})
+        block_meta.partition_handler(part2, self.storage_config, empty_context)
 
         expected_calls = [
             call(['sgdisk', '--new', '2:4096:4096', '--typecode=2:8300',
@@ -2450,7 +2470,7 @@ class TestMultipathPartitionHandler(CiTestCase):
         m_part_info.return_value = (2048, 2048)
 
         part2 = self.storage_config['disk-sda-part-2']
-        block_meta.partition_handler(part2, self.storage_config, {})
+        block_meta.partition_handler(part2, self.storage_config, empty_context)
 
         expected_calls = [
             call(['sgdisk', '--new', '2:4096:4096', '--typecode=2:8300',
