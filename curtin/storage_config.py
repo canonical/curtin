@@ -589,10 +589,11 @@ class BcacheParser(ProbertParser):
         backing_device = backing_data.get('blockdev')
         cache_device = _find_cache_device(backing_data, self.caching)
         cache_mode = _cache_mode(backing_data)
-        bcache_name = os.path.basename(_find_bcache_devname(backing_uuid,
-                                       backing_data, self.blockdev_data))
+        devname = _find_bcache_devname(backing_uuid,
+                                       backing_data, self.blockdev_data)
+        bcache_name = os.path.basename(devname)
         bcache_entry = {'type': 'bcache', 'id': 'disk-%s' % bcache_name,
-                        'name': bcache_name}
+                        'name': bcache_name, 'path': devname}
 
         if cache_mode:
             bcache_entry['cache_mode'] = cache_mode
@@ -911,6 +912,8 @@ class LvmParser(ProbertParser):
         return {'type': 'lvm_partition',
                 'id': 'lvm-partition-%s' % lv_config['name'],
                 'name': lv_config['name'],
+                'path': self.lookup_devname('/dev/{}/{}'.format(
+                    lv_config['volgroup'], lv_config['name'])),
                 'size': lv_config['size'],
                 'volgroup': 'lvm-volgroup-%s' % lv_config['volgroup']}
 
@@ -1020,6 +1023,7 @@ class DmcryptParser(ProbertParser):
 
         return {'type': 'dm_crypt',
                 'id': 'dmcrypt-%s' % crypt_name,
+                'path': bdev,
                 'volume': bdev_id,
                 'key': '',
                 'dm_name': crypt_name}
@@ -1058,6 +1062,7 @@ class RaidParser(ProbertParser):
             'type': 'raid',
             'id': self.blockdev_to_id(raid_data),
             'name': raidname,
+            'path': devname,
             'raidlevel': raid_data.get('raidlevel'),
             }
 

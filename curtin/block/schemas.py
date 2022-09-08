@@ -67,6 +67,7 @@ BCACHE = {
             'type': ['string'],
             'enum': ['writethrough', 'writeback', 'writearound', 'none'],
         },
+        'path': {'type': 'string', 'pattern': _path_dev},
     },
 }
 DASD = {
@@ -163,6 +164,7 @@ DM_CRYPT = {
         'volume': {'$ref': '#/definitions/ref_id'},
         'key': {'$ref': '#/definitions/id'},
         'keyfile': {'$ref': '#/definitions/id'},
+        'path': {'type': 'string', 'pattern': _path_dev},
         'preserve': {'$ref': '#/definitions/preserve'},
         'type': {'const': 'dm_crypt'},
     },
@@ -213,6 +215,7 @@ LVM_PARTITION = {
         'size': {'$ref': '#/definitions/size'},  # XXX: This is not used
         'type': {'const': 'lvm_partition'},
         'volgroup': {'$ref': '#/definitions/ref_id'},
+        'path': {'type': 'string', 'pattern': _path_dev},
     },
 }
 LVM_VOLGROUP = {
@@ -286,8 +289,7 @@ PARTITION = {
         'multipath': {'type': 'string'},
         # Permit path to device as output.
         # This value is ignored for input.
-        'path': {'type': 'string',
-                 'pattern': _path_dev},
+        'path': {'type': 'string', 'pattern': _path_dev},
         'name': {'$ref': '#/definitions/name'},
         'offset': {'$ref': '#/definitions/size'},  # XXX: This is not used
         'resize': {'type': 'boolean'},
@@ -335,6 +337,7 @@ RAID = {
         'name': {'$ref': '#/definitions/name'},
         'mdname': {'$ref': '#/definitions/name'},  # XXX: Docs need updating
         'metadata': {'type': ['string', 'number']},
+        'path': {'type': 'string', 'pattern': _path_dev},
         'preserve': {'$ref': '#/definitions/preserve'},
         'ptable': {'$ref': '#/definitions/ptable'},
         'wipe': {'$ref': '#/definitions/wipe'},

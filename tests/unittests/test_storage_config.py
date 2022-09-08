@@ -202,6 +202,7 @@ class TestBcacheParser(CiTestCase):
             'type': 'bcache',
             'id': 'disk-bcache0',
             'name': 'bcache0',
+            'path': '/dev/bcache0',
             'backing_device': 'partition-sda3',
             'cache_device': 'partition-nvme0n1p1',
             'cache_mode': 'writeback',
@@ -221,6 +222,7 @@ class TestBcacheParser(CiTestCase):
             'type': 'bcache',
             'id': 'disk-bcache0',
             'name': 'bcache0',
+            'path': '/dev/bcache0',
             'backing_device': 'partition-sda3',
             'cache_mode': 'writeback',
         }
@@ -674,6 +676,7 @@ class TestLvmParser(CiTestCase):
         expected_dict = {
             'type': 'lvm_partition',
             'name': 'my-storage',
+            'path': '/dev/dm-2',
             'id': 'lvm-partition-my-storage',
             'size': '1073741824B',
             'volgroup': 'lvm-volgroup-ubuntu-vg',
@@ -720,6 +723,7 @@ class TestRaidParser(CiTestCase):
             'type': 'raid',
             'id': 'raid-md0',
             'name': 'md0',
+            'path': '/dev/md0',
             'metadata': '1.2',
             'raidlevel': 'raid5',
             'devices': ['disk-vde', 'disk-vdf', 'disk-vdg'],
@@ -744,6 +748,7 @@ class TestRaidParser(CiTestCase):
             'type': 'raid',
             'id': 'raid-md127',
             'name': 'md127',
+            'path': '/dev/md127',
             'metadata': 'imsm',
             'raidlevel': 'container',
             'devices': ['disk-nvme0n1', 'disk-nvme1n1'],
@@ -758,6 +763,7 @@ class TestRaidParser(CiTestCase):
             'type': 'raid',
             'id': 'raid-md126',
             'name': 'md126',
+            'path': '/dev/md126',
             'raidlevel': 'raid0',
             'container': 'raid-md127',
             }
@@ -851,6 +857,7 @@ class TestDmCryptParser(CiTestCase):
             'type': 'dm_crypt',
             'id': 'dmcrypt-dmcrypt0',
             'dm_name': devname,
+            'path': '/dev/dm-2',
             'key': '',
             'volume': 'lvm-partition-lv3',
         }
@@ -1024,6 +1031,7 @@ class TestExtractStorageConfig(CiTestCase):
         self.assertEqual(1, len(raid_partitions))
         self.assertEqual({'id': 'raid-md1', 'type': 'raid', 'metadata': '1.2',
                           'raidlevel': 'raid1', 'name': 'md1',
+                          'path': '/dev/md1',
                           'devices': ['partition-vdb1', 'partition-vdc1'],
                           'spare_devices': []}, raids[0])
         self.assertEqual({

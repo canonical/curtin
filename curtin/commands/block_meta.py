@@ -851,6 +851,15 @@ def partition_verify_fdasd(disk_path, partnumber, info):
         raise RuntimeError("dasd partitions do not support flags")
 
 
+def check_passed_path(info, actual_path):
+    if 'path' not in info:
+        return
+    passed_path = info['path']
+    if os.path.realpath(passed_path) != os.path.realpath(actual_path):
+        LOG.warning("%s action %s specified path %s but path was %s" % (
+            info["type"], info, info['path'], actual_path))
+
+
 def partition_handler(info, storage_config, context):
     device = info.get('device')
     size = info.get('size')
@@ -866,6 +875,7 @@ def partition_handler(info, storage_config, context):
     partnumber = determine_partition_number(info.get('id'), storage_config)
     disk_kname = block.path_to_kname(disk)
     part_path = block.dev_path(block.partition_kname(disk_kname, partnumber))
+    check_passed_path(info, part_path)
     context.id_to_device[info['id']] = part_path
 
     # consider the disks logical sector size when calculating sectors
@@ -1431,6 +1441,7 @@ def lvm_partition_handler(info, storage_config, context):
     lvm.lvm_scan()
 
     lv_path = get_path_to_storage_volume(info['id'], storage_config)
+    check_passed_path(info, lv_path)
     context.id_to_device[info['id']] = lv_path
 
     wipe_mode = info.get('wipe', 'superblock')
@@ -1466,6 +1477,7 @@ def dm_crypt_handler(info, storage_config, context):
     if not dm_name:
         dm_name = info.get('id')
     dmcrypt_dev = os.path.join("/dev", "mapper", dm_name)
+    check_passed_path(info, dmcrypt_dev)
     context.id_to_device[info['id']] = dmcrypt_dev
     preserve = config.value_as_boolean(info.get('preserve'))
     if not volume:
@@ -1606,6 +1618,7 @@ def raid_handler(info, storage_config, context):
     raidlevel = info.get('raidlevel')
     spare_devices = info.get('spare_devices')
     md_devname = block.md_path(info.get('name'))
+    check_passed_path(info, md_devname)
     context.id_to_device[info['id']] = md_devname
     container = info.get('container')
     metadata = info.get('metadata')
@@ -1784,6 +1797,7 @@ def bcache_handler(info, storage_config, context):
         bcache_dev = bcache.create_backing_device(backing_device, cache_device,
                                                   cache_mode, cset_uuid)
         # Not sure what to do in the preserve case here.
+        check_passed_path(info, bcache_dev)
         context.id_to_device[info['id']] = bcache_dev
 
     if cache_mode and not backing_device:

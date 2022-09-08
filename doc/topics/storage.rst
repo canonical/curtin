@@ -72,6 +72,12 @@ commands include:
 - Zpool Command (``zpool``) **Experimental**
 - ZFS Command (``zfs``)) **Experimental**
 
+Any action that refers to a block device (so things like ``partition``
+and ``dm_crypt`` but not ``lvm_volgroup`` or ``mount``, for example)
+*can* specify a ``path`` key but aside from ``disk`` actions this is
+not used to locate the device. A warning will be emitted if the
+located device does not match the provided path though.
+
 Dasd Command
 ~~~~~~~~~~~~
 
