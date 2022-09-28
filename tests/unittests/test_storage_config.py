@@ -184,7 +184,7 @@ class TestBcacheParser(CiTestCase):
 
     def test_bcache_parse_tolerates_missing_blockdev_data(self):
         """ BcacheParser  ValueError on missing 'blockdev' dict."""
-        del(self.probe_data['blockdev'])
+        del self.probe_data['blockdev']
         b = BcacheParser(self.probe_data)
         (configs, errors) = b.parse()
         self.assertEqual([], configs)

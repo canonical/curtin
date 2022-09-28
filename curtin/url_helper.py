@@ -436,7 +436,7 @@ def _oauth_headers_oauth(url, consumer_key, token_key, token_secret,
     req = oauth.OAuthRequest(http_url=url, parameters=params)
     req.sign_request(
         oauth.OAuthSignatureMethod_PLAINTEXT(), consumer, token)
-    return(req.to_header())
+    return req.to_header()
 
 
 def _oauth_headers_oauthlib(url, consumer_key, token_key, token_secret,

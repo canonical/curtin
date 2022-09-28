@@ -129,7 +129,7 @@ def validate_config(config, sourcefile=None):
             except jsonschema.exceptions.ValidationError as f:
                 msg = "%s in %s\n%s" % (f.message, sourcefile,
                                         util.json_dumps(e.instance))
-                raise(ValueError(msg))
+                raise ValueError(msg)
         else:
             msg = "Unknown storage type: %s in %s" % (instance_type,
                                                       e.instance)

@@ -875,7 +875,7 @@ def get_paths(curtin_exe=None, lib=None, helpers=None):
     if helpers is None:
         helpers = _installed_file_path(_INSTALLED_HELPERS_PATH, cfile)
 
-    return({'curtin_exe': curtin_exe, 'lib': mydir, 'helpers': helpers})
+    return {'curtin_exe': curtin_exe, 'lib': mydir, 'helpers': helpers}
 
 
 def find_newer(src, files):

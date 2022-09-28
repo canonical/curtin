@@ -131,7 +131,7 @@ class TestSubp(CiTestCase):
     def printf_cmd(self, *args):
         # bash's printf supports \xaa.  So does /usr/bin/printf
         # but by using bash, we remove dependency on another program.
-        return(['bash', '-c', 'printf "$@"', 'printf'] + list(args))
+        return ['bash', '-c', 'printf "$@"', 'printf'] + list(args)
 
     def test_subp_handles_utf8(self):
         # The given bytes contain utf-8 accented characters as seen in e.g.
