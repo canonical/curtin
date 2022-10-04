@@ -390,6 +390,9 @@ The partition size can be specified with the ``size`` key. Sizes must be
 given with an appropriate SI unit, such as *B, kB, MB, GB, TB*, or using just
 the appropriate SI prefix, i.e. *B, k, M, G, T...*
 
+Curtin interprets size units in power-of-2 style.  This means that
+``1kB`` is the same as ``1k`` and ``1024``, and so on for all the prefixes.
+
 .. note::
 
   Curtin does not adjust or inspect size values.  If you specify a size that
