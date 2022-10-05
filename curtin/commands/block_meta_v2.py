@@ -314,15 +314,16 @@ def _find_part_info(sfdisk_info, offset):
 
 
 def _wipe_for_action(action):
+    # New partitions are wiped by default apart from extended partitions, where
+    # it would destroy the EBR.
+    if action.get('flag') == 'extended':
+        LOG.debug('skipping wipe of extended partition %s' % action['id'])
+        return None
     # If a wipe action is specified, do that.
     if 'wipe' in action:
         return action['wipe']
     # Existing partitions are left alone by default.
     if action.get('preserve', False):
-        return None
-    # New partitions are wiped by default apart from extended partitions, where
-    # it would destroy the EBR.
-    if action.get('flag') == 'extended':
         return None
     return 'superblock'
 

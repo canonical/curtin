@@ -385,7 +385,8 @@ class TestBlockMeta(IntegrationTestCase):
         # curtin adds 1MiB to the size of the extend partition per contained
         # logical partition, but only in v1 mode
         size = '97M' if version == 1 else '99M'
-        config.add_part(size=size, number=1, flag='extended')
+        config.add_part(size=size, number=1, flag='extended',
+                        wipe='superblock')
         config.add_part(size='10M', number=5, flag='logical')
         config.add_part(size='10M', number=6, flag='logical')
         self.run_bm(config.render())
