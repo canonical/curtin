@@ -69,22 +69,28 @@ class TestCurthooksInstallKernel(CiTestCase):
         kernel_package = self.kernel_cfg.get('kernel', {}).get('package', {})
         self.mock_get_flash_kernel_pkgs.return_value = 'u-boot-tools'
 
-        curthooks.install_kernel(self.kernel_cfg, self.target)
+        with patch.dict(os.environ, clear=True):
+            curthooks.install_kernel(self.kernel_cfg, self.target)
 
-        inst_calls = [
-            call(['u-boot-tools'], target=self.target),
-            call([kernel_package], target=self.target)]
+            env = {'FK_FORCE': 'yes', 'FK_FORCE_CONTAINER': 'yes'}
 
-        self.mock_instpkg.assert_has_calls(inst_calls)
+            inst_calls = [
+                call(['u-boot-tools'], target=self.target),
+                call([kernel_package], target=self.target, env=env)]
+
+            self.mock_instpkg.assert_has_calls(inst_calls)
 
     def test__installs_kernel_package(self):
         kernel_package = self.kernel_cfg.get('kernel', {}).get('package', {})
         self.mock_get_flash_kernel_pkgs.return_value = None
 
-        curthooks.install_kernel(self.kernel_cfg, self.target)
+        with patch.dict(os.environ, clear=True):
+            curthooks.install_kernel(self.kernel_cfg, self.target)
 
-        self.mock_instpkg.assert_called_with(
-            [kernel_package], target=self.target)
+            env = {'FK_FORCE': 'yes', 'FK_FORCE_CONTAINER': 'yes'}
+
+            self.mock_instpkg.assert_called_with(
+                [kernel_package], target=self.target, env=env)
 
 
 class TestEnableDisableUpdateInitramfs(CiTestCase):

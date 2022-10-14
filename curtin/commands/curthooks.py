@@ -352,6 +352,15 @@ def setup_kernel_img_conf(target):
 
 
 def install_kernel(cfg, target):
+    def install(pkg):
+        env = os.environ.copy()
+        # recent flash_kernel has checks to prevent it running in cases like
+        # containers or chroots, but we actually want that as curtin
+        # is mostly or always doing chroot installs.  LP: #1992990
+        env["FK_FORCE"] = "yes"
+        env["FK_FORCE_CONTAINER"] = "yes"
+        distro.install_packages([pkg], target=target, env=env)
+
     kernel_cfg = cfg.get('kernel', {'package': None,
                                     'fallback-package': "linux-generic",
                                     'mapping': {}})
@@ -367,13 +376,13 @@ def install_kernel(cfg, target):
 
     # Machines using flash-kernel may need additional dependencies installed
     # before running. Run those checks in the ephemeral environment so the
-    # target only has required packages installed.  See LP:1640519
+    # target only has required packages installed.  See LP: #1640519
     fk_packages = get_flash_kernel_pkgs()
     if fk_packages:
         distro.install_packages(fk_packages.split(), target=target)
 
     if kernel_package:
-        distro.install_packages([kernel_package], target=target)
+        install(kernel_package)
         return
 
     # uname[2] is kernel name (ie: 3.16.0-7-generic)
@@ -390,7 +399,7 @@ def install_kernel(cfg, target):
         LOG.warn("Couldn't detect kernel package to install for %s."
                  % kernel)
         if kernel_fallback is not None:
-            distro.install_packages([kernel_fallback], target=target)
+            install(kernel_fallback)
         return
 
     package = "linux-{flavor}{map_suffix}".format(
@@ -401,13 +410,13 @@ def install_kernel(cfg, target):
             LOG.debug("Kernel package '%s' already installed", package)
         else:
             LOG.debug("installing kernel package '%s'", package)
-            distro.install_packages([package], target=target)
+            install(package)
     else:
         if kernel_fallback is not None:
             LOG.info("Kernel package '%s' not available.  "
                      "Installing fallback package '%s'.",
                      package, kernel_fallback)
-            distro.install_packages([kernel_fallback], target=target)
+            install(kernel_fallback)
         else:
             LOG.warn("Kernel package '%s' not available and no fallback."
                      " System may not boot.", package)
