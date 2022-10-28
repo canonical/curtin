@@ -37,8 +37,6 @@ S0ORP6HXET3+jC8BMG4tBWCTK/XEZw==
 
 ADD_APT_REPO_MATCH = r"^[\w-]+:\w"
 
-TARGET = "/"
-
 
 def load_tfile(filename):
     """ load_tfile
@@ -83,15 +81,19 @@ class TestAptSourceConfig(CiTestCase):
     """
     def setUp(self):
         super(TestAptSourceConfig, self).setUp()
-        self.tmp = self.tmp_dir()
-        self.aptlistfile = os.path.join(self.tmp, "single-deb.list")
-        self.aptlistfile2 = os.path.join(self.tmp, "single-deb2.list")
-        self.aptlistfile3 = os.path.join(self.tmp, "single-deb3.list")
-        self.join = os.path.join
+        self.target = self.tmp_dir()
+        self.aptlistfile = "single-deb.list"
+        self.aptlistfile2 = "single-deb2.list"
+        self.aptlistfile3 = "single-deb3.list"
         self.matcher = re.compile(ADD_APT_REPO_MATCH).search
         self.add_patch('curtin.util.subp', 'm_subp')
         self.m_subp.return_value = ('s390x', '')
-        self.target = self.tmp_dir()
+
+    def _sources_filepath(self, filename):
+        # force the paths to be relative to the target
+        # let filename decide a different directory path if given a path
+        against_target = os.path.join('etc/apt/sources.list.d', filename)
+        return self.target + '/' + against_target
 
     @staticmethod
     def _add_apt_sources(*args, **kwargs):
@@ -109,27 +111,16 @@ class TestAptSourceConfig(CiTestCase):
         params['MIRROR'] = apt_config.get_default_mirrors(arch)["PRIMARY"]
         return params
 
-    def _myjoin(self, *args, **kwargs):
-        """ _myjoin - redir into writable tmpdir"""
-        if (args[0] == "/etc/apt/sources.list.d/" and
-                args[1] == "cloud_config_sources.list" and
-                len(args) == 2):
-            return self.join(self.tmp, args[0].lstrip("/"), args[1])
-        else:
-            return self.join(*args, **kwargs)
-
     def _apt_src_basic(self, filename, cfg):
         """ _apt_src_basic
         Test Fix deb source string, has to overwrite mirror conf in params
         """
         params = self._get_default_params()
 
-        self._add_apt_sources(cfg, TARGET, template_params=params,
+        self._add_apt_sources(cfg, self.target, template_params=params,
                               aa_repo_match=self.matcher)
 
-        self.assertTrue(os.path.isfile(filename))
-
-        contents = load_tfile(filename)
+        contents = load_tfile(self._sources_filepath(filename))
         self.assertTrue(re.search(r"%s %s %s %s\n" %
                                   ("deb", "http://test.ubuntu.com/ubuntu",
                                    "karmic-backports",
@@ -143,6 +134,16 @@ class TestAptSourceConfig(CiTestCase):
                                    ' karmic-backports'
                                    ' main universe multiverse restricted')}}
         self._apt_src_basic(self.aptlistfile, cfg)
+
+    def test_apt_src_fullpath(self):
+        """test_apt_src_fullpath - Test fix deb source string to full path"""
+        fullpath = '/my/unique/sources.list'
+        cfg = {
+            fullpath: {
+                'source': ('deb http://test.ubuntu.com/ubuntu'
+                           ' karmic-backports'
+                           ' main universe multiverse restricted')}}
+        self._apt_src_basic(fullpath, cfg)
 
     def test_apt_src_basic_tri(self):
         """test_apt_src_basic_tri - Test multiple fix deb source strings"""
@@ -161,13 +162,13 @@ class TestAptSourceConfig(CiTestCase):
         self._apt_src_basic(self.aptlistfile, cfg)
 
         # extra verify on two extra files of this test
-        contents = load_tfile(self.aptlistfile2)
+        contents = load_tfile(self._sources_filepath(self.aptlistfile2))
         self.assertTrue(re.search(r"%s %s %s %s\n" %
                                   ("deb", "http://test.ubuntu.com/ubuntu",
                                    "precise-backports",
                                    "main universe multiverse restricted"),
                                   contents, flags=re.IGNORECASE))
-        contents = load_tfile(self.aptlistfile3)
+        contents = load_tfile(self._sources_filepath(self.aptlistfile3))
         self.assertTrue(re.search(r"%s %s %s %s\n" %
                                   ("deb", "http://test.ubuntu.com/ubuntu",
                                    "lucid-backports",
@@ -179,12 +180,10 @@ class TestAptSourceConfig(CiTestCase):
         Test Autoreplacement of MIRROR and RELEASE in source specs
         """
         params = self._get_default_params()
-        self._add_apt_sources(cfg, TARGET, template_params=params,
+        self._add_apt_sources(cfg, self.target, template_params=params,
                               aa_repo_match=self.matcher)
 
-        self.assertTrue(os.path.isfile(filename))
-
-        contents = load_tfile(filename)
+        contents = load_tfile(self._sources_filepath(filename))
         self.assertTrue(re.search(r"%s %s %s %s\n" %
                                   ("deb", params['MIRROR'], params['RELEASE'],
                                    "multiverse"),
@@ -211,12 +210,12 @@ class TestAptSourceConfig(CiTestCase):
 
         # extra verify on two extra files of this test
         params = self._get_default_params()
-        contents = load_tfile(self.aptlistfile2)
+        contents = load_tfile(self._sources_filepath(self.aptlistfile2))
         self.assertTrue(re.search(r"%s %s %s %s\n" %
                                   ("deb", params['MIRROR'], params['RELEASE'],
                                    "main"),
                                   contents, flags=re.IGNORECASE))
-        contents = load_tfile(self.aptlistfile3)
+        contents = load_tfile(self._sources_filepath(self.aptlistfile3))
         self.assertTrue(re.search(r"%s %s %s %s\n" %
                                   ("deb", params['MIRROR'], params['RELEASE'],
                                    "universe"),
@@ -238,19 +237,17 @@ class TestAptSourceConfig(CiTestCase):
 
         with mock.patch("curtin.util.subp",
                         return_value=('fakekey 1234', '')) as mockobj:
-            self._add_apt_sources(cfg, TARGET, template_params=params,
+            self._add_apt_sources(cfg, self.target, template_params=params,
                                   aa_repo_match=self.matcher)
 
         # check if it added the right ammount of keys
         calls = []
         for _ in range(keynum):
             calls.append(call(['apt-key', 'add', '-'], data=b'fakekey 1234',
-                              target=TARGET))
+                              target=self.target))
         mockobj.assert_has_calls(calls, any_order=True)
 
-        self.assertTrue(os.path.isfile(filename))
-
-        contents = load_tfile(filename)
+        contents = load_tfile(self._sources_filepath(filename))
         self.assertTrue(re.search(r"%s %s %s %s\n" %
                                   ("deb",
                                    ('http://ppa.launchpad.net/smoser/'
@@ -289,14 +286,14 @@ class TestAptSourceConfig(CiTestCase):
                                    'keyid': "03683F77"}}
 
         self._apt_src_keyid(self.aptlistfile, cfg, 3)
-        contents = load_tfile(self.aptlistfile2)
+        contents = load_tfile(self._sources_filepath(self.aptlistfile2))
         self.assertTrue(re.search(r"%s %s %s %s\n" %
                                   ("deb",
                                    ('http://ppa.launchpad.net/smoser/'
                                     'cloud-init-test/ubuntu'),
                                    "xenial", "universe"),
                                   contents, flags=re.IGNORECASE))
-        contents = load_tfile(self.aptlistfile3)
+        contents = load_tfile(self._sources_filepath(self.aptlistfile3))
         self.assertTrue(re.search(r"%s %s %s %s\n" %
                                   ("deb",
                                    ('http://ppa.launchpad.net/smoser/'
@@ -315,15 +312,13 @@ class TestAptSourceConfig(CiTestCase):
                                   'key': "fakekey 4321"}}
 
         with mock.patch.object(util, 'subp') as mockobj:
-            self._add_apt_sources(cfg, TARGET, template_params=params,
+            self._add_apt_sources(cfg, self.target, template_params=params,
                                   aa_repo_match=self.matcher)
 
         mockobj.assert_any_call(['apt-key', 'add', '-'], data=b'fakekey 4321',
-                                target=TARGET)
+                                target=self.target)
 
-        self.assertTrue(os.path.isfile(self.aptlistfile))
-
-        contents = load_tfile(self.aptlistfile)
+        contents = load_tfile(self._sources_filepath(self.aptlistfile))
         self.assertTrue(re.search(r"%s %s %s %s\n" %
                                   ("deb",
                                    ('http://ppa.launchpad.net/smoser/'
@@ -338,14 +333,15 @@ class TestAptSourceConfig(CiTestCase):
         cfg = {self.aptlistfile: {'key': "fakekey 4242"}}
 
         with mock.patch.object(util, 'subp') as mockobj:
-            self._add_apt_sources(cfg, TARGET, template_params=params,
+            self._add_apt_sources(cfg, self.target, template_params=params,
                                   aa_repo_match=self.matcher)
 
         mockobj.assert_any_call(['apt-key', 'add', '-'], data=b'fakekey 4242',
-                                target=TARGET)
+                                target=self.target)
 
         # filename should be ignored on key only
-        self.assertFalse(os.path.isfile(self.aptlistfile))
+        self.assertFalse(os.path.isfile(
+            self._sources_filepath(self.aptlistfile)))
 
     @mock.patch(ChrootableTargetStr, new=PseudoChrootableTarget)
     def test_apt_src_keyidonly(self):
@@ -355,14 +351,15 @@ class TestAptSourceConfig(CiTestCase):
 
         with mock.patch.object(util, 'subp',
                                return_value=('fakekey 1212', '')) as mockobj:
-            self._add_apt_sources(cfg, TARGET, template_params=params,
+            self._add_apt_sources(cfg, self.target, template_params=params,
                                   aa_repo_match=self.matcher)
 
         mockobj.assert_any_call(['apt-key', 'add', '-'], data=b'fakekey 1212',
-                                target=TARGET)
+                                target=self.target)
 
         # filename should be ignored on key only
-        self.assertFalse(os.path.isfile(self.aptlistfile))
+        self.assertFalse(os.path.isfile(
+            self._sources_filepath(self.aptlistfile)))
 
     def apt_src_keyid_real(self, cfg, expectedkey):
         """apt_src_keyid_real
@@ -375,7 +372,7 @@ class TestAptSourceConfig(CiTestCase):
         with mock.patch.object(apt_config, 'add_apt_key_raw') as mockkey:
             with mock.patch.object(gpg, 'getkeybyid',
                                    return_value=expectedkey) as mockgetkey:
-                self._add_apt_sources(cfg, TARGET, template_params=params,
+                self._add_apt_sources(cfg, self.target, template_params=params,
                                       aa_repo_match=self.matcher)
 
         keycfg = cfg[self.aptlistfile]
@@ -383,10 +380,11 @@ class TestAptSourceConfig(CiTestCase):
                                       keycfg.get('keyserver',
                                                  'keyserver.ubuntu.com'),
                                       retries=(1, 2, 5, 10))
-        mockkey.assert_called_with(expectedkey, TARGET)
+        mockkey.assert_called_with(expectedkey, self.target)
 
         # filename should be ignored on key only
-        self.assertFalse(os.path.isfile(self.aptlistfile))
+        self.assertFalse(os.path.isfile(
+            self._sources_filepath(self.aptlistfile)))
 
     def test_apt_src_keyid_real(self):
         """test_apt_src_keyid_real - Test keyid including key add"""
@@ -422,15 +420,16 @@ class TestAptSourceConfig(CiTestCase):
         with mock.patch.object(gpg, 'getkeybyid',
                                return_value="fakekey") as mockgetkey:
             with mock.patch.object(apt_config, 'add_apt_key_raw') as mockadd:
-                self._add_apt_sources(cfg, TARGET, template_params=params,
+                self._add_apt_sources(cfg, self.target, template_params=params,
                                       aa_repo_match=self.matcher)
 
         mockgetkey.assert_called_with('03683F77', 'test.random.com',
                                       retries=(1, 2, 5, 10))
-        mockadd.assert_called_with('fakekey', TARGET)
+        mockadd.assert_called_with('fakekey', self.target)
 
         # filename should be ignored on key only
-        self.assertFalse(os.path.isfile(self.aptlistfile))
+        self.assertFalse(os.path.isfile(
+            self._sources_filepath(self.aptlistfile)))
 
     @mock.patch(ChrootableTargetStr, new=PseudoChrootableTarget)
     def test_apt_src_ppa(self):
@@ -439,14 +438,15 @@ class TestAptSourceConfig(CiTestCase):
         cfg = {self.aptlistfile: {'source': 'ppa:smoser/cloud-init-test'}}
 
         with mock.patch("curtin.util.subp") as mockobj:
-            self._add_apt_sources(cfg, TARGET, template_params=params,
+            self._add_apt_sources(cfg, self.target, template_params=params,
                                   aa_repo_match=self.matcher)
         mockobj.assert_any_call(['add-apt-repository',
                                  'ppa:smoser/cloud-init-test'],
-                                retries=(1, 2, 5, 10), target=TARGET)
+                                retries=(1, 2, 5, 10), target=self.target)
 
         # adding ppa should ignore filename (uses add-apt-repository)
-        self.assertFalse(os.path.isfile(self.aptlistfile))
+        self.assertFalse(os.path.isfile(
+            self._sources_filepath(self.aptlistfile)))
 
     @mock.patch(ChrootableTargetStr, new=PseudoChrootableTarget)
     def test_apt_src_ppa_tri(self):
@@ -457,25 +457,28 @@ class TestAptSourceConfig(CiTestCase):
                self.aptlistfile3: {'source': 'ppa:smoser/cloud-init-test3'}}
 
         with mock.patch("curtin.util.subp") as mockobj:
-            self._add_apt_sources(cfg, TARGET, template_params=params,
+            self._add_apt_sources(cfg, self.target, template_params=params,
                                   aa_repo_match=self.matcher)
         calls = [call(['add-apt-repository', 'ppa:smoser/cloud-init-test'],
-                      retries=(1, 2, 5, 10), target=TARGET),
+                      retries=(1, 2, 5, 10), target=self.target),
                  call(['add-apt-repository', 'ppa:smoser/cloud-init-test2'],
-                      retries=(1, 2, 5, 10), target=TARGET),
+                      retries=(1, 2, 5, 10), target=self.target),
                  call(['add-apt-repository', 'ppa:smoser/cloud-init-test3'],
-                      retries=(1, 2, 5, 10), target=TARGET)]
+                      retries=(1, 2, 5, 10), target=self.target)]
         mockobj.assert_has_calls(calls, any_order=True)
 
         # adding ppa should ignore all filenames (uses add-apt-repository)
-        self.assertFalse(os.path.isfile(self.aptlistfile))
-        self.assertFalse(os.path.isfile(self.aptlistfile2))
-        self.assertFalse(os.path.isfile(self.aptlistfile3))
+        self.assertFalse(os.path.isfile(
+            self._sources_filepath(self.aptlistfile)))
+        self.assertFalse(os.path.isfile(
+            self._sources_filepath(self.aptlistfile2)))
+        self.assertFalse(os.path.isfile(
+            self._sources_filepath(self.aptlistfile3)))
 
     @mock.patch("curtin.commands.apt_config.distro.get_architecture")
     def test_mir_apt_list_rename(self, m_get_architecture):
         """test_mir_apt_list_rename - Test find mirror and apt list renaming"""
-        pre = "/var/lib/apt/lists"
+        pre = os.path.join(self.target, "var/lib/apt/lists")
         # filenames are archive dependent
 
         arch = 's390x'
@@ -506,13 +509,13 @@ class TestAptSourceConfig(CiTestCase):
         with mock.patch.object(os, 'rename') as mockren:
             with mock.patch.object(glob, 'glob',
                                    return_value=[fromfn]):
-                apt_config.rename_apt_lists(mirrors, TARGET)
+                apt_config.rename_apt_lists(mirrors, self.target)
 
         mockren.assert_any_call(fromfn, tofn)
 
     @mock.patch("curtin.commands.apt_config.distro.get_architecture")
     def test_mir_apt_list_rename_non_slash(self, m_get_architecture):
-        target = os.path.join(self.tmp, "rename_non_slash")
+        target = os.path.join(self.target, "rename_non_slash")
         apt_lists_d = os.path.join(target, "./" + apt_config.APT_LISTS)
 
         m_get_architecture.return_value = 'amd64'
