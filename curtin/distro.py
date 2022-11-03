@@ -418,7 +418,7 @@ def install_packages(pkglist, osfamily=None, opts=None, target=None, env=None,
 
     install_cmd = installer_map.get(osfamily)
     if not install_cmd:
-        raise ValueError('No packge install command for distro: %s' %
+        raise ValueError('No package install command for distro: %s' %
                          osfamily)
 
     return install_cmd('install', args=pkglist, opts=opts, target=target,
