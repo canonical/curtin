@@ -391,20 +391,26 @@ def apply_preserve_sources_list(target):
         raise
 
 
-def add_apt_key_raw(key, target=None):
+def add_apt_key_raw(keyname, key, target=None):
     """
     actual adding of a key as defined in key argument
     to the system
     """
-    LOG.debug("Adding key:\n'%s'", key)
-    try:
-        util.subp(['apt-key', 'add', '-'], data=key.encode(), target=target)
-    except util.ProcessExecutionError:
-        LOG.exception("failed to add apt GPG Key to apt keyring")
-        raise
+    if '-----BEGIN PGP PUBLIC KEY BLOCK-----' in str(key):
+        keyfile_ext = 'asc'
+        omode = 'w'
+        key = key.rstrip()
+    else:
+        keyfile_ext = 'gpg'
+        omode = 'wb'
+
+    keyfile = f'/etc/apt/trusted.gpg.d/{keyname}.{keyfile_ext}'
+    target_keyfile = paths.target_path(target, keyfile)
+    util.write_file(target_keyfile, key, mode=0o644, omode=omode)
+    LOG.debug("Adding key to '%s':\n'%s'", target_keyfile, key)
 
 
-def add_apt_key(ent, target=None):
+def add_apt_key(keyname, ent, target=None):
     """
     Add key to the system as defined in ent (if any).
     Supports raw keys or keyid's
@@ -419,7 +425,7 @@ def add_apt_key(ent, target=None):
                                     retries=(1, 2, 5, 10))
 
     if 'key' in ent:
-        add_apt_key_raw(ent['key'], target)
+        add_apt_key_raw(keyname, ent['key'], target)
 
 
 def add_apt_sources(srcdict, target=None, template_params=None,
@@ -443,7 +449,10 @@ def add_apt_sources(srcdict, target=None, template_params=None,
         if 'filename' not in ent:
             ent['filename'] = filename
 
-        add_apt_key(ent, target)
+        # Derive a suggested key file name from the sources.list name.
+        # The filename may be a full path.
+        keyname = os.path.basename(ent['filename'])
+        add_apt_key(keyname, ent, target)
 
         if 'source' not in ent:
             continue
