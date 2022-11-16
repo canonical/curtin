@@ -35,6 +35,8 @@ for r in json.load(sys.stdin):
   print(r["dev"])
   break
 ')
+    # on bionic, ip -json route show doesn't produce json
+    [ -n "$dev" ] || dev=$(ip route show | grep ^default | awk '{print $5}')
     [ -n "$dev" ] || { error "failed to find ipv4 device"; return 1; }
     addr=$(ip addr show dev "$dev" |
         awk '$1 == "inet" {gsub(/\/.*/,"", $2); print $2; exit}')
