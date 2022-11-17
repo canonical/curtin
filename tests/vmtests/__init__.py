@@ -2412,17 +2412,22 @@ def boot_log_wrap(name, func, cmd, console_log, timeout, purpose):
 def get_lan_ip():
     (out, _) = util.subp(['ip', 'a'], capture=True)
     info = ip_a_to_dict(out)
-    (routes, _) = util.subp(['ip', '-json', 'route', 'show'], capture=True)
-    gwdevs = []
-    for route in json.loads(routes):
-        if route['dst'] == 'default':
-            gwdevs.append(route['dev'])
-    if len(gwdevs) > 0:
-        dev = gwdevs.pop()
-        addr = info[dev].get('inet4')[0].get('address')
-    else:
-        raise OSError('could not get local ip address')
-    return addr
+    try:
+        (routes, _) = util.subp(['ip', '-json', 'route', 'show'], capture=True)
+        gwdevs = []
+        for route in json.loads(routes):
+            if route['dst'] == 'default':
+                gwdevs.append(route['dev'])
+        if len(gwdevs) > 0:
+            dev = gwdevs.pop()
+            return info[dev].get('inet4')[0].get('address')
+    except json.decoder.JSONDecodeError:
+        # default via 10.247.8.1 dev eth0 onlink
+        for line in routes.split('\n'):
+            if "default" in line:
+                dev = line.split()[4]
+                return info[dev].get('inet4')[0].get('address')
+    raise OSError('could not get local ip address')
 
 
 def kernel_boot_cmdline_for_mac(mac):
