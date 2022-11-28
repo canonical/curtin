@@ -11,7 +11,7 @@ import sys
 from typing import Optional
 import yaml
 
-from curtin import block, udev, util
+from curtin import block, log, udev, util
 
 from curtin.commands.block_meta import _get_volume_fstype
 from curtin.commands.block_meta_v2 import ONE_MIB_BYTES
@@ -27,9 +27,11 @@ class IntegrationTestCase(CiTestCase):
 @contextlib.contextmanager
 def loop_dev(image, sector_size=512):
     dev = util.subp([
-        'losetup', '--show', '--find', '--partscan',
-        '--sector-size', str(sector_size), image,
+        'losetup',
+        '--show', '--find', '--sector-size', str(sector_size),
+        image,
         ], capture=True, decode='ignore')[0].strip()
+    util.subp(['partprobe', dev])
     try:
         udev.udevadm_trigger([dev])
         yield dev
@@ -196,6 +198,7 @@ class StorageConfigBuilder:
 class TestBlockMeta(IntegrationTestCase):
     def setUp(self):
         self.data = self.random_string()
+        log.basicConfig(verbosity=3)
 
     def assertPartitions(self, *args):
         with loop_dev(self.img) as dev:
