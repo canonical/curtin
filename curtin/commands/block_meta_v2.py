@@ -227,8 +227,14 @@ class GPTPartTable(SFDiskPartTable):
 
     def _headers(self):
         r = []
-        if self.first_lba is not None:
-            r.extend(['first-lba: ' + str(self.first_lba)])
+        first_lba = self.first_lba
+        if first_lba is None:
+            min_start = min(
+                [entry.start for entry in self.entries], default=2048)
+            if min_start < 2048:
+                first_lba = min_start
+        if first_lba is not None:
+            r.extend(['first-lba: ' + str(first_lba)])
         if self.last_lba is not None:
             r.extend(['last-lba: ' + str(self.last_lba)])
         if self.table_length is not None:

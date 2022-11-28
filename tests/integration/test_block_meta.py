@@ -353,6 +353,27 @@ class TestBlockMeta(IntegrationTestCase):
     def test_specified_offsets_msdos_v2(self):
         self._test_specified_offsets('msdos', 2)
 
+    def test_minimum_gpt_offset_v2(self):
+        # The default first-lba for a GPT is 2048 (i.e. one megabyte
+        # into the disk) but it is possible to create a GPT with a
+        # value as low as 34 and curtin shouldn't get in the way of
+        # you doing that.
+        psize = 20 << 20
+        offset = 34*512
+        img = self.tmp_path('image.img')
+        config = StorageConfigBuilder(version=2)
+        config.add_image(path=img, size='100M', ptable='gpt')
+        config.add_part(size=psize, number=1, offset=offset)
+        self.run_bm(config.render())
+
+        with loop_dev(img) as dev:
+            self.assertEqual(
+                summarize_partitions(dev), [
+                    PartData(number=1, offset=offset, size=psize),
+                ])
+        config.set_preserve()
+        self.run_bm(config.render())
+
     def _test_non_default_numbering(self, ptable, version):
         psize = 40 << 20
         img = self.tmp_path('image.img')
