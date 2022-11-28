@@ -41,7 +41,7 @@ def swap_main(args):
     swap.setup_swapfile(target=state['target'], fstab=state['fstab'],
                         swapfile=args.swapfile, size=size,
                         maxsize=args.maxsize, force=args.force)
-    sys.exit(2)
+    sys.exit(0)
 
 
 CMD_ARGUMENTS = (
