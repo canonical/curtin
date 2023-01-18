@@ -1000,7 +1000,10 @@ def get_efibootmgr(target=None):
         }
     """
     with ChrootableTarget(target=target) as in_chroot:
-        stdout, _ = in_chroot.subp(['efibootmgr', '-v'], capture=True)
+        if (os.path.exists('/sys/firmware/efi/efivars')):
+            stdout, _ = in_chroot.subp(['efibootmgr', '-v'], capture=True)
+        else:
+            stdout = ""
         output = parse_efibootmgr(stdout)
         return output
 
