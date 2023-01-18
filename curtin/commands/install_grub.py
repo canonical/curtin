@@ -371,7 +371,11 @@ def install_grub(devices, target, uefi=None, grubcfg=None):
 
     LOG.debug("installing grub to target=%s devices=%s [replace_defaults=%s]",
               target, devices, grubcfg.get('replace_default'))
-    update_nvram = config.value_as_boolean(grubcfg.get('update_nvram', True))
+    if util.is_efivars_writable():
+        update_nvram = config.value_as_boolean(
+                            grubcfg.get('update_nvram', True))
+    else:
+        update_nvram = False
     distroinfo = distro.get_distroinfo(target=target)
     target_arch = distro.get_architecture(target=target)
     rhel_ver = (distro.rpm_get_dist_id(target)
