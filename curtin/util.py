@@ -721,7 +721,7 @@ class ChrootableTarget(object):
             self.mounts = mounts
         else:
             self.mounts = ["/dev", "/proc", "/run", "/sys"]
-            if is_uefi_bootable():
+            if is_uefi_bootable() and is_efivars_writable():
                 self.mounts.append('/sys/firmware/efi/efivars')
         self.umounts = []
         self.disabled_daemons = False

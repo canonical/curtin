@@ -259,7 +259,9 @@ def get_grub_install_command(uefi, distroinfo, target):
 
 def gen_uefi_install_commands(grub_name, grub_target, grub_cmd, update_nvram,
                               distroinfo, devices, target):
-    install_cmds = [['efibootmgr', '-v']]
+    install_cmds = []
+    if util.is_efivars_writeable():
+        install_cmds.append(['efibootmgr', '-v'])
     post_cmds = []
     bootid = distroinfo.variant
     efidir = '/boot/efi'
