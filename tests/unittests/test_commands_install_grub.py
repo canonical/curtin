@@ -920,6 +920,7 @@ class TestInstallGrub(CiTestCase):
         self.add_patch(base + 'gen_install_commands', 'm_gen_install_commands')
         self.add_patch(base + 'util.subp', 'm_subp')
         self.add_patch(base + 'os.environ.copy', 'm_environ')
+        self.add_patch('curtin.util.is_efivars_writable', 'm_evivars_writable')
 
         self.distroinfo = distro.DistroInfo('ubuntu', 'debian')
         self.m_distro_get_distroinfo.return_value = self.distroinfo
@@ -927,6 +928,7 @@ class TestInstallGrub(CiTestCase):
         self.m_distro_get_architecture.return_value = 'amd64'
         self.m_platform_machine.return_value = 'amd64'
         self.m_environ.return_value = {}
+        self.m_evivars_writable.return_value = True
         self.env = {'DEBIAN_FRONTEND': 'noninteractive'}
         self.target = self.tmp_dir()
 
