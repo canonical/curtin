@@ -902,6 +902,42 @@ def set_unexecutable(fname, strict=False):
     return cur
 
 
+def set_mutable(filename):
+    """Remove immutable attribute"""
+    # Ignoring return value
+    try:
+        util.subp(['chattr', '-i', filename] )
+    except ProcessExecutionError:
+        pass
+
+
+def efi_set_variable(variable_name, vendor_guid, data):
+    """Set UEFI variable"""
+    filename = '/sys/firmware/efi/efivars/' + variable_name + '-' + vendor_guid
+    set_mutable(filename)
+    # attributes: NON_VOLATILE | BOOTSERVICE_ACCESS | RUNTIME_ACCESS
+    buf = b'\x07\x00\x00\x00' + data
+    try:
+        with open(filename, 'wb') as file:
+            file.write(buf)
+    except OSError:
+        return False
+    return True
+
+
+def is_efivars_writable():
+    """Check if EFI variables can be created"""
+    variable_name = 'dummy'
+    vendor_guid = '326689e8-0c62-4ed5-8892-51ae883a714a'
+    data = b'x'
+    # create variable
+    if not efi_set_variable(variable_name, vendor_guid, data):
+        return False
+        # delete variable
+    efi_set_variable(variable_name, vendor_guid, b'')
+    return True
+
+
 def is_uefi_bootable():
     return os.path.exists('/sys/firmware/efi') is True
 
