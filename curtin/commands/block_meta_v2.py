@@ -43,16 +43,15 @@ class PartTableEntry:
     bootable: bool = False
 
     def render(self):
-        r = f'{self.number}: '
+        r = '{}: '.format(self.number)
         for a in 'start', 'size', 'type', 'uuid':
             v = getattr(self, a)
             if v is not None:
-                r += f' {a}={v}'
+                r += ' {}={}'.format(a, v)
         if self.name is not None:
-            r += f' name="{self.name}"'
+            r += ' name="{}"'.format(self.name)
         if self.attrs:
-            v = ' '.join(self.attrs)
-            r += f' attrs="{v}"'
+            r += ' attrs="{}"'.format(' '.join(self.attrs))
         if self.bootable:
             r += ' bootable'
         return r
@@ -82,7 +81,7 @@ def align_down(size, block_size):
 def resize_ext(path, size):
     util.subp(['e2fsck', '-p', '-f', path])
     size_k = size // 1024
-    util.subp(['resize2fs', path, f'{size_k}k'])
+    util.subp(['resize2fs', path, '{}k'.format(size_k)])
 
 
 def resize_ntfs(path, size):
@@ -347,7 +346,7 @@ def _prepare_resize(storage_config, part_action, table, part_info):
     format_actions = select_configs(storage_config, type='format',
                                     volume=volume)
     if len(format_actions) > 1:
-        raise Exception(f'too many format actions for volume {volume}')
+        raise Exception('too many format actions for volume {}'.format(volume))
 
     if len(format_actions) == 1:
         if not format_actions[0].get('preserve'):

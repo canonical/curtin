@@ -404,7 +404,7 @@ def add_apt_key_raw(keyname, key, target=None):
         keyfile_ext = 'gpg'
         omode = 'wb'
 
-    keyfile = f'/etc/apt/trusted.gpg.d/{keyname}.{keyfile_ext}'
+    keyfile = '/etc/apt/trusted.gpg.d/{}.{}'.format(keyname, keyfile_ext)
     target_keyfile = paths.target_path(target, keyfile)
     util.write_file(target_keyfile, key, mode=0o644, omode=omode)
     LOG.debug("Adding key to '%s':\n'%s'", target_keyfile, key)
