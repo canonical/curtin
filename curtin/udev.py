@@ -129,4 +129,13 @@ def udevadm_info(path=None):
     return info
 
 
+def udev_all_block_device_properties():
+    import pyudev
+    props = []
+    c = pyudev.Context()
+    for device in c.list_devices(subsystem='block'):
+        props.append(dict(device.properties))
+    return props
+
+
 # vi: ts=4 expandtab syntax=python

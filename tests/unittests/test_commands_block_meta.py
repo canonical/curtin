@@ -35,6 +35,11 @@ class TestGetPathToStorageVolume(CiTestCase):
         self.add_patch(basepath + 'devsync', 'm_devsync')
         self.add_patch(basepath + 'util.subp', 'm_subp')
         self.add_patch(basepath + 'multipath.is_mpath_member', 'm_mp')
+        self.m_mp.return_value = False
+        self.add_patch(
+            basepath + 'multipath.get_mpath_id_from_device', 'm_get_mpath_id')
+        self.add_patch(
+            basepath + 'udev_all_block_device_properties', 'm_udev_all')
 
     def test_block_lookup_called_with_disk_wwn(self):
         volume = 'mydisk'
@@ -69,6 +74,7 @@ class TestGetPathToStorageVolume(CiTestCase):
         self.assertEqual(expected_calls, self.m_lookup.call_args_list)
 
     def test_fallback_to_path_when_lookup_wwn_serial_fail(self):
+        self.m_mp.return_value = False
         volume = 'mydisk'
         wwn = self.random_string()
         serial = self.random_string()
@@ -87,6 +93,7 @@ class TestGetPathToStorageVolume(CiTestCase):
         self.assertEqual(path, result)
 
     def test_block_lookup_not_called_with_wwn_or_serial_keys(self):
+        self.m_mp.return_value = False
         volume = 'mydisk'
         path = "/%s/%s" % (self.random_string(), self.random_string())
         cfg = {'id': volume, 'type': 'disk', 'path': path}
@@ -117,6 +124,237 @@ class TestGetPathToStorageVolume(CiTestCase):
         expected_calls = [call(wwn), call(serial)]
         self.assertEqual(expected_calls, self.m_lookup.call_args_list)
         self.m_exists.assert_has_calls([call(path)])
+
+    def test_v2_match_serial(self):
+        serial = self.random_string()
+        devname = self.random_string()
+        self.m_udev_all.return_value = [
+            {'DEVNAME': devname, 'ID_SERIAL': serial},
+            ]
+        disk_id = self.random_string()
+        cfg = {'id': disk_id, 'type': 'disk', 'serial': serial}
+        s_cfg = OrderedDict({disk_id: cfg})
+        s_cfg.version = 2
+        self.assertEqual(
+            devname,
+            block_meta.get_path_to_storage_volume(disk_id, s_cfg))
+
+    def test_v2_match_serial_short(self):
+        serial = self.random_string()
+        serial_short = self.random_string()
+        devname = self.random_string()
+        self.m_udev_all.return_value = [{
+                'DEVNAME': devname,
+                'ID_SERIAL': serial,
+                'ID_SERIAL_SHORT': serial_short,
+            }]
+        disk_id = self.random_string()
+        cfg = {'id': disk_id, 'type': 'disk', 'serial': serial_short}
+        s_cfg = OrderedDict({disk_id: cfg})
+        s_cfg.version = 2
+        self.assertEqual(
+            devname,
+            block_meta.get_path_to_storage_volume(disk_id, s_cfg))
+
+    def test_v2_match_serial_skips_partition(self):
+        serial = self.random_string()
+        devname = self.random_string()
+        self.m_udev_all.return_value = [
+            {'DEVNAME': devname, 'ID_SERIAL': serial},
+            {'DEVNAME': devname+'p1', 'ID_SERIAL': serial, 'PARTN': "1"},
+            ]
+        disk_id = self.random_string()
+        cfg = {'id': disk_id, 'type': 'disk', 'serial': serial}
+        s_cfg = OrderedDict({disk_id: cfg})
+        s_cfg.version = 2
+        self.assertEqual(
+            devname,
+            block_meta.get_path_to_storage_volume(disk_id, s_cfg))
+
+    def test_v2_match_serial_prefer_mpath(self):
+        serial = self.random_string()
+        devname1 = self.random_string()
+        devname2 = self.random_string()
+        devname_dm = self.random_string()
+        self.m_udev_all.return_value = [
+            {'DEVNAME': devname1, 'ID_SERIAL': serial},
+            {'DEVNAME': devname2, 'ID_SERIAL': serial},
+            {'DEVNAME': devname_dm, 'DM_SERIAL': serial},
+            ]
+        disk_id = self.random_string()
+        cfg = {'id': disk_id, 'type': 'disk', 'serial': serial}
+        s_cfg = OrderedDict({disk_id: cfg})
+        s_cfg.version = 2
+        self.assertEqual(
+            devname_dm,
+            block_meta.get_path_to_storage_volume(disk_id, s_cfg))
+
+    def test_v2_match_serial_mpath_skip_partition(self):
+        serial = self.random_string()
+        devname1 = self.random_string()
+        devname2 = self.random_string()
+        devname_dm = self.random_string()
+        self.m_udev_all.return_value = [
+            {'DEVNAME': devname1, 'ID_SERIAL': serial},
+            {'DEVNAME': devname2, 'ID_SERIAL': serial},
+            {'DEVNAME': devname_dm, 'DM_SERIAL': serial},
+            {'DEVNAME': devname_dm+'p1', 'DM_SERIAL': serial, 'DM_PART': '1'},
+            ]
+        disk_id = self.random_string()
+        cfg = {'id': disk_id, 'type': 'disk', 'serial': serial}
+        s_cfg = OrderedDict({disk_id: cfg})
+        s_cfg.version = 2
+        self.assertEqual(
+            devname_dm,
+            block_meta.get_path_to_storage_volume(disk_id, s_cfg))
+
+    def test_v2_match_wwn(self):
+        wwn = self.random_string()
+        devname = self.random_string()
+        self.m_udev_all.return_value = [
+            {'DEVNAME': devname, 'ID_WWN': wwn},
+            ]
+        disk_id = self.random_string()
+        cfg = {'id': disk_id, 'type': 'disk', 'wwn': wwn}
+        s_cfg = OrderedDict({disk_id: cfg})
+        s_cfg.version = 2
+        self.assertEqual(
+            devname,
+            block_meta.get_path_to_storage_volume(disk_id, s_cfg))
+
+    def test_v2_match_wwn_prefer_mpath(self):
+        wwn = self.random_string()
+        devname1 = self.random_string()
+        devname2 = self.random_string()
+        devname_dm = self.random_string()
+        self.m_udev_all.return_value = [
+            {'DEVNAME': devname1, 'ID_WWN': wwn},
+            {'DEVNAME': devname2, 'ID_WWN': wwn},
+            {'DEVNAME': devname_dm, 'DM_WWN': wwn},
+            ]
+        disk_id = self.random_string()
+        cfg = {'id': disk_id, 'type': 'disk', 'wwn': wwn}
+        s_cfg = OrderedDict({disk_id: cfg})
+        s_cfg.version = 2
+        self.assertEqual(
+            devname_dm,
+            block_meta.get_path_to_storage_volume(disk_id, s_cfg))
+
+    def test_v2_match_serial_and_wwn(self):
+        serial = self.random_string()
+        wwn = self.random_string()
+        devname = self.random_string()
+        self.m_udev_all.return_value = [
+            {'DEVNAME': devname, 'ID_SERIAL': serial, 'ID_WWN': wwn},
+            ]
+        disk_id = self.random_string()
+        cfg = {'id': disk_id, 'type': 'disk', 'serial': serial, 'wwn': wwn}
+        s_cfg = OrderedDict({disk_id: cfg})
+        s_cfg.version = 2
+        self.assertEqual(
+            devname,
+            block_meta.get_path_to_storage_volume(disk_id, s_cfg))
+
+    def test_v2_different_serial_same_wwn(self):
+        serial1 = self.random_string()
+        serial2 = self.random_string()
+        wwn = self.random_string()
+        devname1 = self.random_string()
+        devname2 = self.random_string()
+        self.m_udev_all.return_value = [
+            {'DEVNAME': devname1, 'ID_SERIAL': serial1, 'ID_WWN': wwn},
+            {'DEVNAME': devname2, 'ID_SERIAL': serial2, 'ID_WWN': wwn},
+            ]
+        disk_id = self.random_string()
+        cfg = {'id': disk_id, 'type': 'disk', 'serial': serial2, 'wwn': wwn}
+        s_cfg = OrderedDict({disk_id: cfg})
+        s_cfg.version = 2
+        self.assertEqual(
+            devname2,
+            block_meta.get_path_to_storage_volume(disk_id, s_cfg))
+
+    def test_v2_fails_duplicate_wwn(self):
+        serial1 = self.random_string()
+        serial2 = self.random_string()
+        wwn = self.random_string()
+        devname1 = self.random_string()
+        devname2 = self.random_string()
+        self.m_udev_all.return_value = [
+            {'DEVNAME': devname1, 'ID_SERIAL': serial1, 'ID_WWN': wwn},
+            {'DEVNAME': devname2, 'ID_SERIAL': serial2, 'ID_WWN': wwn},
+            ]
+        disk_id = self.random_string()
+        cfg = {'id': disk_id, 'type': 'disk', 'wwn': wwn}
+        s_cfg = OrderedDict({disk_id: cfg})
+        s_cfg.version = 2
+        with self.assertRaises(ValueError):
+            block_meta.get_path_to_storage_volume(disk_id, s_cfg)
+
+    def test_v2_match_path(self):
+        self.m_mp.return_value = False
+        devname = self.random_string()
+        self.m_udev_all.return_value = [
+            {'DEVNAME': devname},
+            ]
+        disk_id = self.random_string()
+        cfg = {'id': disk_id, 'type': 'disk', 'path': devname}
+        s_cfg = OrderedDict({disk_id: cfg})
+        s_cfg.version = 2
+        self.assertEqual(
+            devname,
+            block_meta.get_path_to_storage_volume(disk_id, s_cfg))
+
+    def test_v2_match_path_link(self):
+        self.m_mp.return_value = False
+        devname = self.random_string()
+        link1 = self.random_string()
+        link2 = self.random_string()
+        links = link1 + ' ' + link2
+        self.m_udev_all.return_value = [
+            {'DEVNAME': devname, 'DEVLINKS': links},
+            ]
+        disk_id = self.random_string()
+        cfg = {'id': disk_id, 'type': 'disk', 'path': link1}
+        s_cfg = OrderedDict({disk_id: cfg})
+        s_cfg.version = 2
+        self.assertEqual(
+            devname,
+            block_meta.get_path_to_storage_volume(disk_id, s_cfg))
+
+    def test_v2_match_path_prefers_multipath(self):
+        self.m_mp.return_value = True
+        self.m_get_mpath_id.return_value = 'mpatha'
+        devname1 = self.random_string()
+        devname2 = self.random_string()
+        self.m_udev_all.return_value = [
+            {'DEVNAME': devname1, 'DEVLINKS': ''},
+            {'DEVNAME': devname2, 'DEVLINKS': '/dev/mapper/mpatha'},
+            ]
+        disk_id = self.random_string()
+        cfg = {'id': disk_id, 'type': 'disk', 'path': devname1}
+        s_cfg = OrderedDict({disk_id: cfg})
+        s_cfg.version = 2
+        self.assertEqual(
+            devname2,
+            block_meta.get_path_to_storage_volume(disk_id, s_cfg))
+
+    def test_v2_match_serial_prefers_multipath(self):
+        self.m_mp.return_value = True
+        self.m_get_mpath_id.return_value = 'mpatha'
+        devname1 = self.random_string()
+        devname2 = self.random_string()
+        serial = self.random_string()
+        self.m_udev_all.return_value = [
+            {'DEVNAME': devname1, 'DEVLINKS': '', 'ID_SERIAL': serial},
+            {'DEVNAME': devname2, 'DEVLINKS': '/dev/mapper/mpatha'},
+            ]
+        disk_id = self.random_string()
+        cfg = {'id': disk_id, 'type': 'disk', 'serial': serial}
+        s_cfg = OrderedDict({disk_id: cfg})
+        s_cfg.version = 2
+        self.assertEqual(
+            devname2,
+            block_meta.get_path_to_storage_volume(disk_id, s_cfg))
 
 
 class TestBlockMetaSimple(CiTestCase):

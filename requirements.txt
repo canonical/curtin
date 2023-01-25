@@ -1,3 +1,4 @@
+pyudev
 pyyaml
 oauthlib
 # For validation of storate configuration format

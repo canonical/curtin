@@ -186,13 +186,14 @@ def find_mpath_partitions(mpath_id):
             if mp_id.startswith(mpath_id + '-'))
 
 
-def get_mpath_id_from_device(device):
+def get_mpath_id_from_device(device, info=None):
     # /dev/dm-X
-    if is_mpath_device(device) or is_mpath_partition(device):
+    if info is None:
         info = udev.udevadm_info(device)
+    if is_mpath_device(device, info) or is_mpath_partition(device, info):
         return info.get('DM_NAME')
     # /dev/sdX
-    if is_mpath_member(device):
+    if is_mpath_member(device, info):
         return find_mpath_id_by_path(device)
 
     return None

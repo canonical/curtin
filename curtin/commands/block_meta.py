@@ -13,8 +13,13 @@ from curtin.storage_config import (extract_storage_ordered_dict,
 
 
 from . import populate_one_subcmd
-from curtin.udev import (compose_udev_equality, udevadm_settle,
-                         udevadm_trigger, udevadm_info)
+from curtin.udev import (
+    compose_udev_equality,
+    udev_all_block_device_properties,
+    udevadm_info,
+    udevadm_settle,
+    udevadm_trigger,
+    )
 
 import glob
 import json
@@ -24,6 +29,7 @@ import string
 import sys
 import tempfile
 import time
+
 
 FstabData = namedtuple(
     "FstabData", ('spec', 'path', 'fstype', 'options', 'freq', 'passno',
@@ -429,6 +435,122 @@ def get_poolname(info, storage_config):
     return poolname
 
 
+def v1_get_path_to_disk(vol):
+    volume_path = None
+    for disk_key in ['wwn', 'serial', 'device_id', 'path']:
+        vol_value = vol.get(disk_key)
+        try:
+            if not vol_value:
+                continue
+            if disk_key in ['wwn', 'serial']:
+                volume_path = block.lookup_disk(vol_value)
+            elif disk_key == 'path':
+                if vol_value.startswith('iscsi:'):
+                    i = iscsi.ensure_disk_connected(vol_value)
+                    volume_path = os.path.realpath(i.devdisk_path)
+                else:
+                    # resolve any symlinks to the dev_kname so
+                    # sys/class/block access is valid.  ie, there are no
+                    # udev generated values in sysfs
+                    volume_path = os.path.realpath(vol_value)
+                # convert /dev/sdX to /dev/mapper/mpathX value
+                if multipath.is_mpath_member(volume_path):
+                    volume_path = '/dev/mapper/' + (
+                        multipath.get_mpath_id_from_device(volume_path))
+            elif disk_key == 'device_id':
+                dasd_device = dasd.DasdDevice(vol_value)
+                volume_path = dasd_device.devname
+        except ValueError:
+            continue
+        # verify path exists otherwise try the next key
+        if os.path.exists(volume_path):
+            break
+        else:
+            volume_path = None
+
+    if volume_path is None:
+        raise ValueError("Failed to find storage volume id='%s' config: %s"
+                         % (vol['id'], vol))
+
+    return volume_path
+
+
+def v2_get_path_to_disk(vol):
+    all_disks = []
+    link2dev = {}
+
+    for dev in udev_all_block_device_properties():
+        if 'DM_PART' in dev or 'PARTN' in dev:
+            continue
+        for link in dev.get('DEVLINKS', '').split():
+            link2dev[link] = dev
+        link2dev[dev['DEVNAME']] = dev
+        all_disks.append(dev)
+
+    def disks_matching(key, value):
+        return [dev for dev in all_disks if key in dev and dev[key] == value]
+
+    def disk_by_path(path):
+        return link2dev[path]
+
+    def disk_by_keys(val, *keys):
+        for key in keys:
+            devs = disks_matching(key, val)
+            if devs:
+                return devs
+        return []
+
+    cands = []
+
+    def add_cands(*devs):
+        new_devs = []
+        for dev in devs:
+            if multipath.is_mpath_member(dev['DEVNAME'], dev):
+                mpath_id = multipath.get_mpath_id_from_device(
+                    dev['DEVNAME'], dev)
+                dev = link2dev['/dev/mapper/' + mpath_id]
+            new_devs.append(dev)
+        cands.append(set([dev['DEVNAME'] for dev in new_devs]))
+
+    if 'wwn' in vol:
+        add_cands(*disk_by_keys(vol['wwn'], 'DM_WWN', 'ID_WWN'))
+    if 'serial' in vol:
+        add_cands(
+            *disk_by_keys(
+                vol['serial'], 'DM_SERIAL', 'ID_SERIAL', 'ID_SERIAL_SHORT'))
+    if 'device_id' in vol:
+        dasd_device = dasd.DasdDevice(vol['device_id'])
+        cands.append(set([dasd_device.devname]))
+        volume_path = dasd_device.devname
+        # verify path exists otherwise try the next key
+        if os.path.exists(volume_path):
+            cands.append(set([volume_path]))
+    if 'path' in vol:
+        path = vol['path']
+        if path.startswith('iscsi:'):
+            i = iscsi.ensure_disk_connected(path)
+            path = i.devdisk_path
+        dev = disk_by_path(path)
+        if dev is not None:
+            add_cands(dev)
+        else:
+            cands.append(set())
+
+    LOG.debug('found candidate disks %s', cands)
+
+    cands = set.intersection(*cands)
+
+    if len(cands) == 0:
+        raise ValueError("Failed to find storage volume id='%s' config: %s"
+                         % (vol['id'], vol))
+    if len(cands) > 1:
+        raise ValueError(
+            "Storage volume id='%s' config: %s identified multiple devices"
+            % (vol['id'], vol))
+
+    return cands.pop()
+
+
 def get_path_to_storage_volume(volume, storage_config):
     # Get path to block device for volume. Volume param should refer to id of
     # volume in storage config
@@ -455,41 +577,10 @@ def get_path_to_storage_volume(volume, storage_config):
     elif vol.get('type') == "disk":
         # Get path to block device for disk. Device_id param should refer
         # to id of device in storage config
-        volume_path = None
-        for disk_key in ['wwn', 'serial', 'device_id', 'path']:
-            vol_value = vol.get(disk_key)
-            try:
-                if not vol_value:
-                    continue
-                if disk_key in ['wwn', 'serial']:
-                    volume_path = block.lookup_disk(vol_value)
-                elif disk_key == 'path':
-                    if vol_value.startswith('iscsi:'):
-                        i = iscsi.ensure_disk_connected(vol_value)
-                        volume_path = os.path.realpath(i.devdisk_path)
-                    else:
-                        # resolve any symlinks to the dev_kname so
-                        # sys/class/block access is valid.  ie, there are no
-                        # udev generated values in sysfs
-                        volume_path = os.path.realpath(vol_value)
-                    # convert /dev/sdX to /dev/mapper/mpathX value
-                    if multipath.is_mpath_member(volume_path):
-                        volume_path = '/dev/mapper/' + (
-                            multipath.get_mpath_id_from_device(volume_path))
-                elif disk_key == 'device_id':
-                    dasd_device = dasd.DasdDevice(vol_value)
-                    volume_path = dasd_device.devname
-            except ValueError:
-                continue
-            # verify path exists otherwise try the next key
-            if os.path.exists(volume_path):
-                break
-            else:
-                volume_path = None
-
-        if volume_path is None:
-            raise ValueError("Failed to find storage volume id='%s' config: %s"
-                             % (vol['id'], vol))
+        if getattr(storage_config, 'version', 1) > 1:
+            volume_path = v2_get_path_to_disk(vol)
+        else:
+            volume_path = v1_get_path_to_disk(vol)
 
     elif vol.get('type') == "lvm_partition":
         # For lvm partitions, a directory in /dev/ should be present with the
@@ -2067,8 +2158,8 @@ def meta_custom(args):
 
     storage_config_dict = extract_storage_ordered_dict(cfg)
 
-    version = cfg['storage']['version']
-    if version > 1:
+    storage_config_dict.version = cfg['storage']['version']
+    if storage_config_dict.version > 1:
         from curtin.commands.block_meta_v2 import (
             disk_handler_v2,
             partition_handler_v2,

@@ -7,7 +7,7 @@ storage:
       - id: sda
         type: disk
         ptable: msdos
-        serial: 'IPR-0 1234567890'
+        serial: 'IPR-0_1234567890'
         name: mpath_a
         wipe: superblock
         grub_device: true
