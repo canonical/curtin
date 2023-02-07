@@ -1097,9 +1097,11 @@ def partition_handler(info, storage_config, context):
                 partition_type = flag
             else:
                 partition_type = "primary"
-            cmd = ["parted", disk, "--script", "mkpart", partition_type,
-                   "%ss" % offset_sectors, "%ss" % str(offset_sectors +
-                                                       length_sectors)]
+            cmd = ["parted", disk, "--script", "mkpart", partition_type]
+            if flag == 'swap':
+                cmd.append("linux-swap")
+            cmd.append("%ss" % offset_sectors)
+            cmd.append("%ss" % (offset_sectors + length_sectors))
             if flag == 'boot':
                 cmd.extend(['set', str(partnumber), 'boot', 'on'])
 

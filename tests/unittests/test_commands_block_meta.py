@@ -654,6 +654,62 @@ class TestBlockMeta(CiTestCase):
                    'mkpart', 'primary', '2048s', '1001471s',
                    'set', '1', 'boot', 'on'], capture=True)])
 
+    def test_partition_handler_creates_swap(self):
+        """ Create a swap partition if the flag has requested as much """
+        self.config = {
+            'storage': {
+                'version': 1,
+                'config': [
+                    {'grub_device': True,
+                     'id': 'sda',
+                     'name': 'sda',
+                     'path': '/wark/xxx',
+                     'ptable': 'msdos',
+                     'type': 'disk',
+                     'wipe': 'superblock'},
+                    {'device': 'sda',
+                     'flag': 'swap',
+                     'id': 'sda-part1',
+                     'name': 'sda-part1',
+                     'number': 1,
+                     'offset': '4194304B',
+                     'size': '511705088B',
+                     'type': 'partition',
+                     'wipe': 'superblock'},
+                    {'id': 'sda1-root',
+                     'type': 'format',
+                     'fstype': 'swap',
+                     'volume': 'sda-part1'},
+                ],
+            }
+        }
+        self.storage_config = (
+            block_meta.extract_storage_ordered_dict(self.config))
+
+        disk_info = self.storage_config.get('sda')
+        part_info = self.storage_config.get('sda-part1')
+        disk_kname = disk_info.get('path')
+        part_kname = disk_kname + '1'
+        self.mock_getpath.side_effect = iter([
+            disk_kname,
+            part_kname,
+        ])
+        self.mock_block_get_part_table_type.return_value = 'dos'
+        kname = 'xxx'
+        self.mock_block_path_to_kname.return_value = kname
+        self.mock_block_sys_block_path.return_value = '/sys/class/block/xxx'
+        self.mock_block_sector_size.return_value = (512, 512)
+
+        block_meta.partition_handler(
+            part_info, self.storage_config, empty_context)
+        part_offset = 2048 * 512
+        self.mock_block_zero_file.assert_called_with(disk_kname, [part_offset],
+                                                     exclusive=False)
+        self.mock_subp.assert_has_calls(
+            [call(['parted', disk_kname, '--script',
+                   'mkpart', 'primary', 'linux-swap', '2048s', '1001471s',
+                   ], capture=True)])
+
     @patch('curtin.util.write_file')
     def test_mount_handler_defaults(self, mock_write_file):
         """Test mount_handler has defaults to 'defaults' for mount options"""

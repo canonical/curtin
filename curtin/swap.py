@@ -113,7 +113,7 @@ def setup_swapfile(target, fstab=None, swapfile=None, size=None, maxsize=None,
         size = suggested_swapsize(fsys=target, maxsize=maxsize)
 
     if size == 0:
-        LOG.debug("Not creating swap: suggested size was 0")
+        LOG.debug("Not creating swapfile: suggested size was 0")
         return
 
     if swapfile is None:
@@ -130,7 +130,7 @@ def setup_swapfile(target, fstab=None, swapfile=None, size=None, maxsize=None,
         if force:
             LOG.warning('swapfile may not work: %s', err)
         else:
-            LOG.debug('Not creating swap: %s', err)
+            LOG.debug('Not creating swapfile: %s', err)
             return
 
     allocate_cmd = 'fallocate -l "${2}M" "$1"'
@@ -142,7 +142,7 @@ def setup_swapfile(target, fstab=None, swapfile=None, size=None, maxsize=None,
         allocate_cmd = 'dd if=/dev/zero "of=$1" bs=1M "count=$2"'
 
     mbsize = str(int(size / (2 ** 20)))
-    msg = "creating swap file '%s' of %sMB" % (swapfile, mbsize)
+    msg = "creating swapfile '%s' of %sMB" % (swapfile, mbsize)
     fpath = os.path.sep.join([target, swapfile])
     try:
         util.ensure_dir(os.path.dirname(fpath))
