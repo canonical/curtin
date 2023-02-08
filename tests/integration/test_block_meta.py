@@ -106,18 +106,6 @@ def _get_filesystem_size(dev, part_action, fstype='ext4'):
     return _get_fs_sizers[fstype](dev, part_action)
 
 
-def _get_extended_partition_size(dev, num):
-    # sysfs reports extended partitions as having 1K size
-    # sfdisk seems to have a better idea
-    ptable_json = util.subp(['sfdisk', '-J', dev], capture=True)[0]
-    ptable = json.loads(ptable_json)
-
-    nodename = f'{dev}p{num}'
-    partitions = ptable['partitiontable']['partitions']
-    partition = [part for part in partitions if part['node'] == nodename][0]
-    return partition['size'] * 512
-
-
 def _get_disk_label_id(dev):
     ptable_json = util.subp(['sfdisk', '-J', dev], capture=True)[0]
     ptable = json.loads(ptable_json)
@@ -128,16 +116,28 @@ def _get_disk_label_id(dev):
 def summarize_partitions(dev):
     parts = []
     ptable_json = util.subp(['sfdisk', '-J', dev], capture=True)[0]
-    ptable = json.loads(ptable_json)
-    partitions = ptable['partitiontable']['partitions']
-    for d in block.sysfs_partition_data(dev):
-        nodename = f'/dev/{d[0]}'
-        partition = [part for part in partitions
-                     if part['node'] == nodename][0]
-        ptype = partition['type']
-        boot = partition.get('bootable', False)
-        # We don't care about the kname
-        pd = PartData(*d[1:], partition_type=ptype, boot=boot)
+    ptable = json.loads(ptable_json)['partitiontable']
+    sectorsize = ptable['sectorsize']
+    assert dev == ptable['device']
+    sysfs_data = block.sysfs_partition_data(dev)
+    for part in ptable['partitions']:
+        node = part['node']
+        (unused, s_number, s_offset, s_size) = [
+                entry for entry in sysfs_data
+                if '/dev/' + entry[0] == node][0]
+        assert node.startswith(f'{dev}p')
+        number = int(node[len(dev) + 1:])
+        ptype = part['type']
+        offset = part['start'] * sectorsize
+        size = part['size'] * sectorsize
+        boot = part.get('bootable', False)
+        assert s_number == number
+        assert s_offset == offset
+        if ptype not in ('5', 'f'):  # extended sizes known to be bad in sysfs
+            assert s_size == size
+        pd = PartData(
+                number=number, offset=offset, size=size,
+                boot=boot, partition_type=ptype)
         pd.assertFieldsAreNotNone()
         parts.append(pd)
     return sorted(parts)
@@ -418,14 +418,11 @@ class TestBlockMeta(IntegrationTestCase):
         with loop_dev(img) as dev:
             self.assertEqual(
                 summarize_partitions(dev), [
-                    # extended partitions get a strange size in sysfs
-                    PartData(number=1, offset=1 << 20,  size=1 << 10),
+                    PartData(number=1, offset=1 << 20,  size=99 << 20),
                     PartData(number=5, offset=2 << 20,  size=10 << 20),
-                    # part 5 takes us to 12 MiB offset, curtin leaves a 1 MiB
-                    # gap.
+                    # part 5 goes to 12 MiB offset, curtin leaves a 1 MiB gap.
                     PartData(number=6, offset=13 << 20, size=10 << 20),
                 ])
-            self.assertEqual(99 << 20, _get_extended_partition_size(dev, 1))
 
             p1kname = block.partition_kname(block.path_to_kname(dev), 1)
             self.assertTrue(block.is_extended_partition('/dev/' + p1kname))
@@ -487,11 +484,10 @@ class TestBlockMeta(IntegrationTestCase):
         with loop_dev(img) as dev:
             self.assertEqual(
                 summarize_partitions(dev), [
-                    PartData(number=1, offset=1 << 20,           size=1 << 10),
-                    PartData(number=5, offset=(2 << 20),         size=psize),
+                    PartData(number=1, offset=1 << 20, size=90 << 20),
+                    PartData(number=5, offset=(2 << 20), size=psize),
                     PartData(number=6, offset=(3 << 20) + psize, size=psize),
                 ])
-            self.assertEqual(90 << 20, _get_extended_partition_size(dev, 1))
 
         config = StorageConfigBuilder(version=2)
         config.add_image(path=img, size='100M', ptable='msdos', preserve=True)
@@ -504,10 +500,9 @@ class TestBlockMeta(IntegrationTestCase):
         with loop_dev(img) as dev:
             self.assertEqual(
                 summarize_partitions(dev), [
-                    PartData(number=1, offset=1 << 20,           size=1 << 10),
+                    PartData(number=1, offset=1 << 20, size=90 << 20),
                     PartData(number=5, offset=(3 << 20) + psize, size=psize),
                 ])
-            self.assertEqual(90 << 20, _get_extended_partition_size(dev, 1))
 
     def _test_wiping(self, ptable):
         # Test wiping behaviour.
@@ -674,14 +669,11 @@ class TestBlockMeta(IntegrationTestCase):
             self.create_data(dev, p6)
             self.assertEqual(
                 summarize_partitions(dev), [
-                    # extended partitions get a strange size in sysfs
-                    PartData(number=1, offset=1 << 20,  size=1 << 10),
+                    PartData(number=1, offset=1 << 20,  size=50 << 20),
                     PartData(number=5, offset=2 << 20,  size=10 << 20),
-                    # part 5 takes us to 12 MiB offset, curtin leaves a 1 MiB
-                    # gap.
+                    # part 5 goes to 12 MiB offset, curtin leaves a 1 MiB gap.
                     PartData(number=6, offset=13 << 20, size=10 << 20),
                 ])
-            self.assertEqual(50 << 20, _get_extended_partition_size(dev, 1))
 
         config.set_preserve()
         p6['resize'] = True
@@ -692,11 +684,10 @@ class TestBlockMeta(IntegrationTestCase):
             self.check_data(dev, p6)
             self.assertEqual(
                 summarize_partitions(dev), [
-                    PartData(number=1, offset=1 << 20,  size=1 << 10),
+                    PartData(number=1, offset=1 << 20,  size=50 << 20),
                     PartData(number=5, offset=2 << 20,  size=10 << 20),
                     PartData(number=6, offset=13 << 20, size=20 << 20),
                 ])
-            self.assertEqual(50 << 20, _get_extended_partition_size(dev, 1))
 
     def test_resize_extended(self):
         img = self.tmp_path('image.img')
@@ -711,11 +702,9 @@ class TestBlockMeta(IntegrationTestCase):
         with loop_dev(img) as dev:
             self.assertEqual(
                 summarize_partitions(dev), [
-                    # extended partitions get a strange size in sysfs
-                    PartData(number=1, offset=1 << 20,  size=1 << 10),
-                    PartData(number=5, offset=2 << 20,  size=49 << 20),
+                    PartData(number=1, offset=1 << 20, size=50 << 20),
+                    PartData(number=5, offset=2 << 20, size=49 << 20),
                 ])
-            self.assertEqual(50 << 20, _get_extended_partition_size(dev, 1))
 
         config.set_preserve()
         p1['resize'] = True
@@ -727,10 +716,9 @@ class TestBlockMeta(IntegrationTestCase):
         with loop_dev(img) as dev:
             self.assertEqual(
                 summarize_partitions(dev), [
-                    PartData(number=1, offset=1 << 20,  size=1 << 10),
+                    PartData(number=1, offset=1 << 20,  size=99 << 20),
                     PartData(number=5, offset=2 << 20,  size=98 << 20),
                 ])
-            self.assertEqual(99 << 20, _get_extended_partition_size(dev, 1))
 
     def test_split(self):
         img = self.tmp_path('image.img')
@@ -876,12 +864,11 @@ class TestBlockMeta(IntegrationTestCase):
             self.create_data(dev, p5)
             self.assertEqual(
                 summarize_partitions(dev), [
-                    PartData(number=1, offset=1 << 20, size=9 << 20),
-                    PartData(number=2, offset=10 << 20, size=1 << 10),
+                    PartData(number=1, offset=1 << 20,  size=9 << 20),
+                    PartData(number=2, offset=10 << 20, size=89 << 20),
                     PartData(number=5, offset=11 << 20, size=36 << 20),
                     PartData(number=6, offset=49 << 20, size=50 << 20),
                 ])
-            self.assertEqual(89 << 20, _get_extended_partition_size(dev, 2))
             self.assertEqual(9 << 20, _get_filesystem_size(dev, p1))
             self.assertEqual(36 << 20, _get_filesystem_size(dev, p5))
             self.assertEqual(50 << 20, _get_filesystem_size(dev, p6))
@@ -904,12 +891,11 @@ class TestBlockMeta(IntegrationTestCase):
             self.check_data(dev, p5)
             self.assertEqual(
                 summarize_partitions(dev), [
-                    PartData(number=1, offset=1 << 20, size=9 << 20),
-                    PartData(number=2, offset=10 << 20, size=1 << 10),
-                    PartData(number=5, offset=11 << 20, size=136 << 20),
+                    PartData(number=1, offset=1 << 20,   size=9 << 20),
+                    PartData(number=2, offset=10 << 20,  size=189 << 20),
+                    PartData(number=5, offset=11 << 20,  size=136 << 20),
                     PartData(number=6, offset=149 << 20, size=50 << 20),
                 ])
-            self.assertEqual(189 << 20, _get_extended_partition_size(dev, 2))
             self.assertEqual(9 << 20, _get_filesystem_size(dev, p1))
             self.assertEqual(136 << 20, _get_filesystem_size(dev, p5))
             self.assertEqual(50 << 20, _get_filesystem_size(dev, p6))
