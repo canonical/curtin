@@ -75,6 +75,14 @@ def detect_required_packages_mapping(osfamily=DISTROS.debian):
             'openvswitch': ['openvswitch-switch'],
             'vlan': [],
             'vlans': []},
+        DISTROS.suse: {
+            'bond': [],
+            'bonds': [],
+            'bridge': ['bridge-utils'],
+            'bridges': ['bridge-utils'],
+            'openvswitch': ['openvswitch-switch'],
+            'vlan': ['vlan'],
+            'vlans': ['vlan']},
     }
     if osfamily not in distro_mapping:
         raise ValueError('No net package mapping for distro: %s' % osfamily)

@@ -370,6 +370,34 @@ class TestYumInstall(CiTestCase):
         m_subp.assert_has_calls(expected_calls)
 
 
+class TestZypperInstall(CiTestCase):
+
+    @mock.patch.object(util.ChrootableTarget, "__enter__", new=lambda a: a)
+    @mock.patch('curtin.util.subp')
+    def test_zypper_install(self, m_subp):
+        pkglist = ['foobar', 'wark']
+        target = 'mytarget'
+        expected_calls = [
+            mock.call(['zypper', '--non-interactive',
+                       '--non-interactive-include-reboot-patches',
+                       '--quiet', 'install'] + pkglist, env=None,
+                      target=paths.target_path(target))
+        ]
+
+        m_subp.reset_mock()
+        self.assertFalse(m_subp.called)
+        distro.run_zypper_command('install', pkglist, target=target)
+        m_subp.assert_has_calls(expected_calls)
+
+        # call zypper through install_packages; expect the same calls
+        # so clear m_subp's call stack.
+        m_subp.reset_mock()
+        self.assertFalse(m_subp.called)
+        osfamily = distro.DISTROS.suse
+        distro.install_packages(pkglist, osfamily=osfamily, target=target)
+        m_subp.assert_has_calls(expected_calls)
+
+
 class TestSystemUpgrade(CiTestCase):
 
     @mock.patch.object(util.ChrootableTarget, "__enter__", new=lambda a: a)
@@ -469,6 +497,35 @@ class TestSystemUpgrade(CiTestCase):
         m_apt_update.assert_has_calls(apt_update_calls)
         m_subp.assert_has_calls(expected_calls)
 
+    @mock.patch.object(util.ChrootableTarget, "__enter__", new=lambda a: a)
+    @mock.patch('curtin.util.subp')
+    def test_system_upgrade_suse(self, m_subp):
+        """system_upgrade osfamily=suse
+        calls run_zypper_command mode=upgrade"""
+        osfamily = distro.DISTROS.suse
+        target = 'mytarget'
+        expected_calls = [
+            mock.call(['zypper', '--non-interactive',
+                       '--non-interactive-include-reboot-patches', '--quiet',
+                       'refresh'], env=None,
+                      target=paths.target_path(target)),
+            mock.call(['zypper', '--non-interactive',
+                       '--non-interactive-include-reboot-patches', '--quiet',
+                       'update'], env=None,
+                      target=paths.target_path(target)),
+            mock.call(['zypper', '--non-interactive',
+                       '--non-interactive-include-reboot-patches', '--quiet',
+                       'purge-kernels'], env=None,
+                      target=paths.target_path(target)),
+        ]
+
+        # call system_upgrade via osfamily; note that we expect the same calls
+        # but to prevent a false positive we clear m_subp's call stack.
+        m_subp.reset_mock()
+        self.assertFalse(m_subp.called)
+        distro.system_upgrade(target=target, osfamily=osfamily)
+        m_subp.assert_has_calls(expected_calls)
+
 
 class TestHasPkgAvailable(CiTestCase):
 
@@ -519,6 +576,18 @@ class TestHasPkgAvailable(CiTestCase):
         self.assertEqual(pkg == self.package, result)
         m_subp.assert_has_calls([mock.call('list', opts=['--cacheonly'])])
 
+    @mock.patch.object(util.ChrootableTarget, "__enter__", new=lambda a: a)
+    @mock.patch('curtin.distro.subp')
+    def test_has_pkg_available_suse_returns_false_not_avail(self, m_subp):
+        osfamily = distro.DISTROS.suse
+        m_subp.return_value = ('No matching items found.', '')
+        result = distro.has_pkg_available(self.package, self.target, osfamily)
+        self.assertEqual(False, result)
+        m_subp.assert_has_calls([mock.call(['zypper', '--quiet', 'search',
+                                            '--match-exact', self.package],
+                                capture=True,
+                                target=self.target)])
+
 
 class TestGetArchitecture(CiTestCase):
 
@@ -556,6 +625,15 @@ class TestGetArchitecture(CiTestCase):
 
     def test_redhat_osfamily_calls_rpm_get_arch(self):
         osfamily = distro.DISTROS.redhat
+        expected_result = self.m_rpm_get_arch.return_value
+        result = distro.get_architecture(target=self.target, osfamily=osfamily)
+        self.assertEqual(expected_result, result)
+        self.assertEqual([mock.call(target=self.target)],
+                         self.m_rpm_get_arch.call_args_list)
+        self.assertEqual(0, self.m_dpkg_get_arch.call_count)
+
+    def test_suse_osfamily_calls_rpm_get_arch(self):
+        osfamily = distro.DISTROS.suse
         expected_result = self.m_rpm_get_arch.return_value
         result = distro.get_architecture(target=self.target, osfamily=osfamily)
         self.assertEqual(expected_result, result)

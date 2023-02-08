@@ -1038,6 +1038,7 @@ def detect_and_handle_multipath(cfg, target, osfamily=DISTROS.debian):
     DEFAULT_MULTIPATH_PACKAGES = {
         DISTROS.debian: ['multipath-tools-boot'],
         DISTROS.redhat: ['device-mapper-multipath'],
+        DISTROS.suse: ['multipath-tools'],
     }
     if osfamily not in DEFAULT_MULTIPATH_PACKAGES:
         raise ValueError(
@@ -1154,7 +1155,7 @@ def detect_and_handle_multipath(cfg, target, osfamily=DISTROS.debian):
             grub_cfg = os.path.sep.join(
                 [target, '/etc/default/grub.d/50-curtin-multipath.cfg'])
             omode = 'w'
-        elif osfamily == DISTROS.redhat:
+        elif osfamily in [DISTROS.redhat, DISTROS.suse]:
             grub_cfg = os.path.sep.join([target, '/etc/default/grub'])
             omode = 'a'
         else:
@@ -1199,7 +1200,7 @@ def detect_and_handle_multipath(cfg, target, osfamily=DISTROS.debian):
         # Initrams needs to be updated to include /etc/multipath.cfg
         # and /etc/multipath/bindings files.
         update_initramfs(target, all_kernels=True)
-    elif osfamily == DISTROS.redhat:
+    elif osfamily in [DISTROS.redhat, DISTROS.suse]:
         # Write out initramfs/dracut config for multipath
         dracut_conf_multipath = os.path.sep.join(
             [target, '/etc/dracut.conf.d/10-curtin-multipath.conf'])
@@ -1308,6 +1309,12 @@ def install_missing_packages(cfg, target, osfamily=DISTROS.debian):
             # SecureBoot support
             if distro.has_pkg_available("shim-signed"):
                 uefi_pkgs.append("shim-signed")
+        elif osfamily == DISTROS.suse:
+            uefi_pkgs.extend(['grub2', 'grub2-branding-SLE'])
+            arch = distro.get_architecture()
+            if arch == 'amd64':
+                arch = 'x86_64'
+            uefi_pkgs.append('grub2-%s-efi' % arch)
         else:
             raise ValueError('Unknown grub2 package list for distro: %s' %
                              osfamily)
@@ -1752,6 +1759,14 @@ def builtin_curthooks(cfg, target, state):
             reporting_enabled=True, level="INFO",
             description="setting up swap"):
         add_swap(cfg, target, state.get('fstab'))
+
+    if osfamily == DISTROS.suse:
+        # set cloud-init maas datasource for SuSE images
+        if cfg.get('cloudconfig'):
+            handle_cloudconfig(
+                cfg['cloudconfig'],
+                base_dir=paths.target_path(target,
+                                           'etc/cloud/cloud.cfg.d'))
 
     if osfamily == DISTROS.redhat:
         # set cloud-init maas datasource for centos images

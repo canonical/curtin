@@ -830,6 +830,121 @@ class TestGenUefiInstallCommands(CiTestCase):
                 grub_name, grub_target, grub_cmd, update_nvram, distroinfo,
                 devices, self.target))
 
+    def test_suse_install(self):
+        self.m_os_release.return_value = {'ID': 'suse'}
+        distroinfo = install_grub.distro.get_distroinfo()
+        grub_name = 'grub2-efi-x64'
+        grub_target = 'x86_64-efi'
+        grub_cmd = 'grub2-install'
+        update_nvram = True
+        devices = ['/dev/disk-a-part1']
+        disk = '/dev/disk-a'
+        part = '1'
+        self.m_get_disk_part.return_value = (disk, part)
+
+        expected_install = [
+            ['efibootmgr', '-v'],
+            [grub_cmd, '--target=%s' % grub_target,
+             '--efi-directory=/boot/efi',
+             '--bootloader-id=suse', '--recheck'],
+        ]
+        expected_post = [
+            ['grub2-mkconfig', '-o', '/boot/grub2/grub.cfg'],
+            ['efibootmgr', '-v']
+        ]
+        self.assertEqual(
+            (expected_install, expected_post),
+            install_grub.gen_uefi_install_commands(
+                grub_name, grub_target, grub_cmd, update_nvram, distroinfo,
+                devices, self.target))
+
+    def test_suse_install_existing(self):
+        # simulate existing bootloaders already installed in target system
+        # by touching the files grub would have installed, including shim
+        def _enable_loaders(bootid):
+            efi_path = 'boot/efi/EFI'
+            target_efi_path = os.path.join(self.target, efi_path)
+            loaders = [
+                os.path.join(target_efi_path, bootid, 'shimx64.efi'),
+                os.path.join(target_efi_path, 'BOOT', 'BOOTX64.EFI'),
+                os.path.join(target_efi_path, bootid, 'grubx64.efi'),
+            ]
+            for loader in loaders:
+                util.ensure_dir(os.path.dirname(loader))
+                with open(loader, 'w+') as fh:
+                    fh.write('\n')
+
+        self.m_os_release.return_value = {'ID': 'suse'}
+        distroinfo = install_grub.distro.get_distroinfo()
+        _enable_loaders("suse")
+        grub_name = 'grub2-efi-x64'
+        grub_target = 'x86_64-efi'
+        grub_cmd = 'grub2-install'
+        update_nvram = True
+        devices = ['/dev/disk-a-part1']
+        disk = '/dev/disk-a'
+        part = '1'
+        self.m_get_disk_part.return_value = (disk, part)
+
+        expected_loader = '/EFI/suse/shimx64.efi'
+        expected_install = [
+            ['efibootmgr', '-v'],
+            ['efibootmgr', '--create', '--write-signature',
+             '--label', 'suse', '--disk', disk, '--part', part,
+             '--loader', expected_loader],
+        ]
+        expected_post = [
+            ['grub2-mkconfig', '-o', '/boot/efi/EFI/suse/grub.cfg'],
+            ['efibootmgr', '-v']
+        ]
+
+        self.assertEqual(
+            (expected_install, expected_post),
+            install_grub.gen_uefi_install_commands(
+                grub_name, grub_target, grub_cmd, update_nvram, distroinfo,
+                devices, self.target))
+
+    def test_suse_install_existing_no_nvram(self):
+        # verify grub install command is not executed if update_nvram is False
+        # on suse.
+        def _enable_loaders(bootid):
+            efi_path = 'boot/efi/EFI'
+            target_efi_path = os.path.join(self.target, efi_path)
+            loaders = [
+                os.path.join(target_efi_path, bootid, 'shimx64.efi'),
+                os.path.join(target_efi_path, 'BOOT', 'BOOTX64.EFI'),
+                os.path.join(target_efi_path, bootid, 'grubx64.efi'),
+            ]
+            for loader in loaders:
+                util.write_file(loader, content="")
+
+        self.m_os_release.return_value = {'ID': 'suse'}
+        distroinfo = install_grub.distro.get_distroinfo()
+        bootid = distroinfo.variant
+        _enable_loaders(bootid)
+        grub_name = 'grub2-efi-x64'
+        grub_target = 'x86_64-efi'
+        grub_cmd = 'grub2-install'
+        update_nvram = False
+        devices = ['/dev/disk-a-part1']
+        disk = '/dev/disk-a'
+        part = '1'
+        self.m_get_disk_part.return_value = (disk, part)
+
+        expected_install = [
+            ['efibootmgr', '-v'],
+        ]
+        expected_post = [
+            ['grub2-mkconfig', '-o', '/boot/efi/EFI/%s/grub.cfg' % bootid],
+            ['efibootmgr', '-v']
+        ]
+
+        self.assertEqual(
+            (expected_install, expected_post),
+            install_grub.gen_uefi_install_commands(
+                grub_name, grub_target, grub_cmd, update_nvram, distroinfo,
+                devices, self.target))
+
 
 class TestGenInstallCommands(CiTestCase):
 

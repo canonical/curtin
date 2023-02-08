@@ -379,6 +379,26 @@ def rpm_get_dist_id(target=None):
     return dist.rstrip()
 
 
+def run_zypper_command(mode, args=None, opts=None, env=None, target=None,
+                       execute=True, allow_daemons=False):
+    defopts = ['--non-interactive', '--non-interactive-include-reboot-patches',
+               '--quiet']
+
+    if args is None:
+        args = []
+
+    if opts is None:
+        opts = []
+
+    cmd = ['zypper']
+    cmd += defopts + opts + [mode] + args
+    if not execute:
+        return env, cmd
+
+    with ChrootableTarget(target, allow_daemons=allow_daemons) as inchroot:
+        return inchroot.subp(cmd, env=env)
+
+
 def system_upgrade(opts=None, target=None, env=None, allow_daemons=False,
                    osfamily=None):
     LOG.debug("Upgrading system in %s", target)
@@ -391,6 +411,8 @@ def system_upgrade(opts=None, target=None, env=None, allow_daemons=False,
                          'subcommands': ('dist-upgrade', 'autoremove')},
         DISTROS.redhat: {'function': run_yum_command,
                          'subcommands': ('upgrade',)},
+        DISTROS.suse: {'function': run_zypper_command,
+                       'subcommands': ('refresh', 'update', 'purge-kernels',)},
     }
     if osfamily not in distro_cfg:
         raise ValueError('Distro "%s" does not have system_upgrade support',
@@ -414,6 +436,7 @@ def install_packages(pkglist, osfamily=None, opts=None, target=None, env=None,
     installer_map = {
         DISTROS.debian: run_apt_command,
         DISTROS.redhat: run_yum_command,
+        DISTROS.suse: run_zypper_command,
     }
 
     install_cmd = installer_map.get(osfamily)
@@ -429,9 +452,14 @@ def has_pkg_available(pkg, target=None, osfamily=None):
     if not osfamily:
         osfamily = get_osfamily(target=target)
 
-    if osfamily not in [DISTROS.debian, DISTROS.redhat]:
+    if osfamily not in [DISTROS.debian, DISTROS.redhat, DISTROS.suse]:
         raise ValueError('has_pkg_available: unsupported distro family: %s',
                          osfamily)
+
+    if osfamily == DISTROS.suse:
+        out, _ = subp(['zypper', '--quiet', 'search',
+                       '--match-exact', pkg], capture=True, target=target)
+        return 'No matching items found.' not in out
 
     if osfamily == DISTROS.debian:
         out, _ = subp(['apt-cache', 'pkgnames'], capture=True, target=target)
@@ -603,7 +631,7 @@ def get_architecture(target=None, osfamily=None):
     if osfamily == DISTROS.debian:
         return dpkg_get_architecture(target=target)
 
-    if osfamily == DISTROS.redhat:
+    if osfamily in [DISTROS.redhat, DISTROS.suse]:
         return rpm_get_architecture(target=target)
 
     raise ValueError("Unhandled osfamily=%s" % osfamily)

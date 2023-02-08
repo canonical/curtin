@@ -94,6 +94,25 @@ def detect_required_packages_mapping(osfamily=DISTROS.debian):
             'zfs': [],
             'zpool': [],
         },
+        DISTROS.suse: {
+            'bcache': ['bcache-tools'],
+            'btrfs': ['btrfsprogs'],
+            'dm_crypt': ['cryptsetup'],
+            'ext2': ['e2fsprogs'],
+            'ext3': ['e2fsprogs'],
+            'ext4': ['e2fsprogs'],
+            'jfs': ['jfsutils'],
+            'iscsi': [],
+            'lvm_partition': ['lvm2'],
+            'lvm_volgroup': ['lvm2'],
+            'ntfs': [],
+            'raid': ['mdadm'],
+            'reiserfs': [],
+            'xfs': ['xfsprogs'],
+            'zfsroot': [],
+            'zfs': [],
+            'zpool': [],
+        },
     }
     if osfamily not in distro_mapping:
         raise ValueError('No block package mapping for distro: %s' % osfamily)

@@ -479,6 +479,22 @@ class TestInstallMissingPkgs(CiTestCase):
                 expected_pkgs, target=target, osfamily=self.distro_family)
 
     @patch.object(events, 'ReportEventStack')
+    def test_install_packages_on_uefi_amd64_sles(self, mock_events):
+        arch = 'amd64'
+        self.mock_arch.return_value = arch
+        self.mock_machine.return_value = 'x86_64'
+        expected_pkgs = ['efibootmgr', 'grub2', 'grub2-branding-SLE',
+                         'grub2-x86_64-efi']
+        self.mock_uefi.return_value = True
+        self.mock_haspkg.return_value = True
+        target = "not-a-real-target"
+        cfg = {}
+        curthooks.install_missing_packages(
+            cfg, target=target, osfamily=distro.DISTROS.suse)
+        self.mock_install_packages.assert_called_with(
+                expected_pkgs, target=target, osfamily=distro.DISTROS.suse)
+
+    @patch.object(events, 'ReportEventStack')
     def test_install_packages_on_uefi_amd64_centos(self, mock_events):
         arch = 'amd64'
         self.mock_arch.return_value = arch

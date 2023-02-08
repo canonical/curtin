@@ -250,7 +250,7 @@ def get_grub_install_command(uefi, distroinfo, target):
         # prefer grub-multi-install if present
         if uefi and os.path.exists(target_path(target, GRUB_MULTI_INSTALL)):
             grub_install_cmd = GRUB_MULTI_INSTALL
-    elif distroinfo.family == distro.DISTROS.redhat:
+    elif distroinfo.family in [distro.DISTROS.redhat, distro.DISTROS.suse]:
         grub_install_cmd = 'grub2-install'
 
     LOG.debug('Using grub install command: %s', grub_install_cmd)
@@ -289,6 +289,23 @@ def gen_uefi_install_commands(grub_name, grub_target, grub_cmd, update_nvram,
                               '/boot/efi/EFI/%s/grub.cfg' % bootid])
         else:
             post_cmds.append(['grub2-mkconfig', '-o', '/boot/grub2/grub.cfg'])
+    elif distroinfo.family == distro.DISTROS.suse:
+        bootid = 'suse'
+        grub_cfg = '/boot/grub2/grub.cfg'
+        loader = find_efi_loader(target, bootid)
+        if loader:
+            grub_cmd = None
+            grub_cfg = '/boot/efi/EFI/%s/grub.cfg' % bootid
+            if update_nvram:
+                efi_disk, efi_part_num = get_efi_disk_part(devices)
+                # Add entry to the EFI boot menu
+                install_cmds.append(['efibootmgr', '--create',
+                                     '--write-signature', '--label', bootid,
+                                     '--disk', efi_disk,
+                                     '--part', efi_part_num,
+                                     '--loader',
+                                     efi_loader_esp_path(loader)])
+        post_cmds.append(['grub2-mkconfig', '-o', grub_cfg])
     else:
         raise ValueError("Unsupported os family for grub "
                          "install: %s" % distroinfo.family)
@@ -315,6 +332,8 @@ def gen_install_commands(grub_name, grub_cmd, distroinfo, devices,
     if distroinfo.family == distro.DISTROS.debian:
         install_cmds.append(['dpkg-reconfigure', grub_name])
         install_cmds.append(['update-grub'])
+    elif distroinfo.family == distro.DISTROS.suse:
+        post_cmds.append(['grub2-mkconfig', '-o', '/boot/grub2/grub.cfg'])
     elif distroinfo.family == distro.DISTROS.redhat:
         if rhel_ver in ["7", "8", "9"]:
             post_cmds.append(
