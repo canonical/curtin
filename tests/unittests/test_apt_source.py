@@ -678,6 +678,38 @@ Pin-Priority: -1
 
         mockobj.assert_called_with("preferencesfn", expected_content)
 
+    def test_translate_old_apt_features(self):
+        self.assertEqual(apt_config.translate_old_apt_features({}), {})
+
+        self.assertEqual(
+                apt_config.translate_old_apt_features({
+                    "debconf_selections": "foo"}),
+                {"apt": {"debconf_selections": "foo"}}
+        )
+
+        self.assertEqual(
+                apt_config.translate_old_apt_features({
+                    "apt_proxy": {"http_proxy": "http://proxy:3128"}}),
+                {"apt": {
+                    "proxy": {"http_proxy": "http://proxy:3128"},
+                }}
+        )
+
+    def test_translate_old_apt_features_conflicts(self):
+        with self.assertRaisesRegex(ValueError, 'mutually exclusive'):
+            apt_config.translate_old_apt_features({
+                "debconf_selections": "foo",
+                "apt": {
+                    "debconf_selections": "bar",
+                }})
+
+        with self.assertRaisesRegex(ValueError, 'mutually exclusive'):
+            apt_config.translate_old_apt_features({
+                "apt_proxy": {"http_proxy": "http://proxy:3128"},
+                "apt": {
+                    "proxy": {"http_proxy": "http://proxy:3128"},
+                }})
+
     def test_mirror(self):
         """test_mirror - Test defining a mirror"""
         pmir = "http://us.archive.ubuntu.com/ubuntu/"

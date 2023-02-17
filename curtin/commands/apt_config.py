@@ -6,6 +6,7 @@ Handle the setup of apt related tasks like proxies, mirrors, repositories.
 """
 
 import argparse
+import collections
 import glob
 import os
 import re
@@ -685,12 +686,10 @@ def apt_command(args):
     sys.exit(0)
 
 
-def translate_old_apt_features(cfg):
+def translate_old_apt_features(old_cfg):
     """translate the few old apt related features into the new config format"""
-    predef_apt_cfg = cfg.get("apt")
-    if predef_apt_cfg is None:
-        cfg['apt'] = {}
-        predef_apt_cfg = cfg.get("apt")
+    cfg = collections.defaultdict(dict, old_cfg)
+    predef_apt_cfg = cfg.get("apt", {})
 
     if cfg.get('apt_proxy') is not None:
         if predef_apt_cfg.get('proxy') is not None:
@@ -747,7 +746,7 @@ def translate_old_apt_features(cfg):
                  cfg.get('apt'))
         del cfg['debconf_selections']
 
-    return cfg
+    return dict(cfg)
 
 
 CMD_ARGUMENTS = (

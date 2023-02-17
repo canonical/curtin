@@ -2268,4 +2268,37 @@ class TestUefiFindGrubDeviceIds(CiTestCase):
                              self._sconfig(cfg)))
 
 
+class TestDoAptConfig(CiTestCase):
+    def setUp(self):
+        super(TestDoAptConfig, self).setUp()
+        self.handle_apt_sym = 'curtin.commands.curthooks.apt_config.handle_apt'
+
+    def test_no_apt_config(self):
+        with patch(self.handle_apt_sym) as m_handle_apt:
+            curthooks.do_apt_config({}, target="/")
+        m_handle_apt.assert_not_called()
+
+    def test_apt_config_none(self):
+        with patch(self.handle_apt_sym) as m_handle_apt:
+            curthooks.do_apt_config({"apt": None}, target="/")
+        m_handle_apt.assert_not_called()
+
+    def test_apt_config_dict(self):
+        with patch(self.handle_apt_sym) as m_handle_apt:
+            curthooks.do_apt_config({"apt": {}}, target="/")
+        m_handle_apt.assert_called()
+
+    def test_with_apt_config(self):
+        with patch(self.handle_apt_sym) as m_handle_apt:
+            curthooks.do_apt_config(
+                    {"apt": {"proxy": {"http_proxy": "http://proxy:3128"}}},
+                    target="/")
+        m_handle_apt.assert_called_once()
+
+    def test_with_debconf_selections(self):
+        # debconf_selections are translated to apt config
+        with patch(self.handle_apt_sym) as m_handle_apt:
+            curthooks.do_apt_config({"debconf_selections": "foo"}, target="/")
+        m_handle_apt.assert_called_once()
+
 # vi: ts=4 expandtab syntax=python
