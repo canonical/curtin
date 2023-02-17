@@ -701,7 +701,7 @@ def translate_old_apt_features(old_cfg):
 
         cfg['apt']['proxy'] = cfg.get('apt_proxy')
         LOG.debug("Transferred %s into new format: %s", cfg.get('apt_proxy'),
-                  cfg.get('apte'))
+                  cfg.get('apt'))
         del cfg['apt_proxy']
 
     if cfg.get('apt_mirrors') is not None:
