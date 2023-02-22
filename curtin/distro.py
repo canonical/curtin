@@ -300,12 +300,43 @@ def run_apt_command(mode, args=None, opts=None, env=None, target=None,
         return env, cmd
 
     apt_update(target, env=env, comment=' '.join(cmd))
-    with ChrootableTarget(target, allow_daemons=allow_daemons) as inchroot:
-        cmd_rv = inchroot.subp(cmd, env=env)
-        if clean and mode in ['dist-upgrade', 'install', 'upgrade']:
-            inchroot.subp(['apt-get', 'clean'])
+    if mode in ['dist-upgrade', 'install', 'upgrade']:
+        cmd_rv = apt_install(mode, args, opts=opts, env=env, target=target,
+                             allow_daemons=allow_daemons)
+        if clean:
+            with ChrootableTarget(
+                    target, allow_daemons=allow_daemons) as inchroot:
+                inchroot.subp(['apt-get', 'clean'])
+        return cmd_rv
 
-    return cmd_rv
+    with ChrootableTarget(target, allow_daemons=allow_daemons) as inchroot:
+        return inchroot.subp(cmd, env=env)
+
+
+def apt_install(mode, packages=None, opts=None, env=None, target=None,
+                allow_daemons=False):
+    """ Install or upgrade a set or all the packages using apt-get. """
+    defopts = ['--quiet', '--assume-yes',
+               '--option=Dpkg::options::=--force-unsafe-io',
+               '--option=Dpkg::Options::=--force-confold']
+    if packages is None:
+        packages = []
+
+    if opts is None:
+        opts = []
+
+    if mode not in ['install', 'upgrade', 'dist-upgrade']:
+        raise ValueError(
+            'Unsupported mode "%s" for apt package install/upgrade' % mode)
+
+    # download first, then install/upgrade from cache
+    cmd = ['apt-get'] + defopts + opts + [mode]
+    dl_opts = ['--download-only']
+    inst_opts = ['--no-download']
+
+    with ChrootableTarget(target, allow_daemons=allow_daemons) as inchroot:
+        inchroot.subp(cmd + dl_opts + packages, env=env)
+        return inchroot.subp(cmd + inst_opts + packages, env=env)
 
 
 def run_yum_command(mode, args=None, opts=None, env=None, target=None,

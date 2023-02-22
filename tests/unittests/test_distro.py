@@ -297,34 +297,81 @@ class TestDistroIdentity(CiTestCase):
 class TestAptInstall(CiTestCase):
     @mock.patch.object(util.ChrootableTarget, "__enter__", new=lambda a: a)
     @mock.patch.dict(os.environ, clear=True)
+    @mock.patch.object(distro, 'apt_install')
     @mock.patch.object(distro, 'apt_update')
     @mock.patch('curtin.util.subp')
-    def test_run_apt_command(self, m_subp, m_apt_update):
+    def test_run_apt_command(self, m_subp, m_apt_update, m_apt_install):
         # install with defaults
         expected_env = {'DEBIAN_FRONTEND': 'noninteractive'}
         expected_calls = [
-            mock.call(['apt-get', '--quiet', '--assume-yes',
-                       '--option=Dpkg::options::=--force-unsafe-io',
-                       '--option=Dpkg::Options::=--force-confold',
-                       'install', 'foobar', 'wark'],
-                      env=expected_env, target=paths.target_path('mytarget')),
-            mock.call(['apt-get', 'clean'],
-                      target=paths.target_path('mytarget')),
+            mock.call('install', ['foobar', 'wark'],
+                      opts=[], env=expected_env, target=None,
+                      allow_daemons=False)
         ]
 
-        distro.run_apt_command('install', ['foobar', 'wark'],
-                               target='mytarget')
+        distro.run_apt_command('install', ['foobar', 'wark'])
         m_apt_update.assert_called_once()
-        m_subp.assert_has_calls(expected_calls)
+        m_apt_install.assert_has_calls(expected_calls)
+        m_subp.assert_called_once_with(['apt-get', 'clean'], target='/')
 
         m_subp.reset_mock()
+        m_apt_install.reset_mock()
         m_apt_update.reset_mock()
 
         # no clean option
-        distro.run_apt_command('install', ['foobar', 'wark'],
-                               target='mytarget', clean=False)
+        distro.run_apt_command('install', ['foobar', 'wark'], clean=False)
         m_apt_update.assert_called_once()
         m_subp.assert_has_calls(expected_calls[:-1])
+
+    @mock.patch.object(util.ChrootableTarget, "__enter__", new=lambda a: a)
+    @mock.patch('curtin.util.subp')
+    def test_apt_install(self, m_subp):
+        cmd_prefix = [
+            'apt-get', '--quiet', '--assume-yes',
+            '--option=Dpkg::options::=--force-unsafe-io',
+            '--option=Dpkg::Options::=--force-confold',
+        ]
+
+        expected_calls = [
+            mock.call(cmd_prefix + ['install', '--download-only']
+                                 + ['foobar', 'wark'],
+                      env=None, target='/'),
+            mock.call(cmd_prefix + ['install', '--no-download']
+                                 + ['foobar', 'wark'],
+                      env=None, target='/'),
+        ]
+
+        distro.apt_install('install', packages=['foobar', 'wark'])
+        m_subp.assert_has_calls(expected_calls)
+
+        expected_calls = [
+            mock.call(cmd_prefix + ['upgrade', '--download-only'],
+                      env=None, target='/'),
+            mock.call(cmd_prefix + ['upgrade', '--no-download'],
+                      env=None, target='/'),
+        ]
+
+        m_subp.reset_mock()
+        distro.apt_install('upgrade')
+        m_subp.assert_has_calls(expected_calls)
+
+        expected_calls = [
+            mock.call(cmd_prefix + ['dist-upgrade', '--download-only'],
+                      env=None, target='/'),
+            mock.call(cmd_prefix + ['dist-upgrade', '--no-download'],
+                      env=None, target='/'),
+        ]
+
+        m_subp.reset_mock()
+        distro.apt_install('dist-upgrade')
+        m_subp.assert_has_calls(expected_calls)
+
+    @mock.patch.object(util.ChrootableTarget, "__enter__", new=lambda a: a)
+    @mock.patch('curtin.util.subp')
+    def test_apt_install_invalid_mode(self, m_subp):
+        with self.assertRaisesRegex(ValueError, 'Unsupported mode.*'):
+            distro.apt_install('update')
+        m_subp.assert_not_called()
 
 
 class TestYumInstall(CiTestCase):
@@ -516,9 +563,12 @@ class TestSystemUpgrade(CiTestCase):
             '--option=Dpkg::options::=--force-unsafe-io',
             '--option=Dpkg::Options::=--force-confold']
         apt_cmd = apt_base + ['dist-upgrade'] + pkglist
+        dl_apt_cmd = apt_base + ['dist-upgrade', '--download-only'] + pkglist
+        inst_apt_cmd = apt_base + ['dist-upgrade', '--no-download'] + pkglist
         auto_remove = apt_base + ['autoremove']
         expected_calls = [
-            mock.call(apt_cmd, env=env, target=paths.target_path(target)),
+            mock.call(dl_apt_cmd, env=env, target=paths.target_path(target)),
+            mock.call(inst_apt_cmd, env=env, target=paths.target_path(target)),
             mock.call(['apt-get', 'clean'], target=paths.target_path(target)),
             mock.call(auto_remove, env=env, target=paths.target_path(target)),
         ]
