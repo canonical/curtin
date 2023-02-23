@@ -306,7 +306,8 @@ class TestAptInstall(CiTestCase):
         expected_calls = [
             mock.call('install', ['foobar', 'wark'],
                       opts=[], env=expected_env, target=None,
-                      allow_daemons=False, download_retries=None)
+                      allow_daemons=False, download_retries=None,
+                      download_only=False, no_download=False)
         ]
 
         distro.run_apt_command('install', ['foobar', 'wark'])
@@ -366,11 +367,31 @@ class TestAptInstall(CiTestCase):
         distro.apt_install('dist-upgrade')
         m_subp.assert_has_calls(expected_calls)
 
+        expected_dl_cmd = cmd_prefix + ['install', '--download-only', 'git']
+        expected_inst_cmd = cmd_prefix + ['install', '--no-download', 'git']
+
+        m_subp.reset_mock()
+        distro.apt_install('install', ['git'], download_only=True)
+        m_subp.assert_called_once_with(expected_dl_cmd, env=None, target='/',
+                                       retries=None)
+
+        m_subp.reset_mock()
+        distro.apt_install('install', ['git'], no_download=True)
+        m_subp.assert_called_once_with(expected_inst_cmd, env=None, target='/')
+
     @mock.patch.object(util.ChrootableTarget, "__enter__", new=lambda a: a)
     @mock.patch('curtin.util.subp')
     def test_apt_install_invalid_mode(self, m_subp):
         with self.assertRaisesRegex(ValueError, 'Unsupported mode.*'):
             distro.apt_install('update')
+        m_subp.assert_not_called()
+
+    @mock.patch.object(util.ChrootableTarget, "__enter__", new=lambda a: a)
+    @mock.patch('curtin.util.subp')
+    def test_apt_install_conflict(self, m_subp):
+        with self.assertRaisesRegex(ValueError, '.*incompatible.*'):
+            distro.apt_install('install', ['git'],
+                               download_only=True, no_download=True)
         m_subp.assert_not_called()
 
 
