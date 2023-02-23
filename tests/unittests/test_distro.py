@@ -2,6 +2,7 @@
 
 from unittest import skipIf
 import mock
+import os
 import sys
 
 from curtin import distro
@@ -291,6 +292,39 @@ class TestDistroIdentity(CiTestCase):
             self.mock_os_path.return_value = exists
             self.assertEqual(exists, distro.is_rhel())
             self.mock_os_path.assert_called_with('/etc/redhat-release')
+
+
+class TestAptInstall(CiTestCase):
+    @mock.patch.object(util.ChrootableTarget, "__enter__", new=lambda a: a)
+    @mock.patch.dict(os.environ, clear=True)
+    @mock.patch.object(distro, 'apt_update')
+    @mock.patch('curtin.util.subp')
+    def test_run_apt_command(self, m_subp, m_apt_update):
+        # install with defaults
+        expected_env = {'DEBIAN_FRONTEND': 'noninteractive'}
+        expected_calls = [
+            mock.call(['apt-get', '--quiet', '--assume-yes',
+                       '--option=Dpkg::options::=--force-unsafe-io',
+                       '--option=Dpkg::Options::=--force-confold',
+                       'install', 'foobar', 'wark'],
+                      env=expected_env, target=paths.target_path('mytarget')),
+            mock.call(['apt-get', 'clean'],
+                      target=paths.target_path('mytarget')),
+        ]
+
+        distro.run_apt_command('install', ['foobar', 'wark'],
+                               target='mytarget')
+        m_apt_update.assert_called_once()
+        m_subp.assert_has_calls(expected_calls)
+
+        m_subp.reset_mock()
+        m_apt_update.reset_mock()
+
+        # no clean option
+        distro.run_apt_command('install', ['foobar', 'wark'],
+                               target='mytarget', clean=False)
+        m_apt_update.assert_called_once()
+        m_subp.assert_has_calls(expected_calls[:-1])
 
 
 class TestYumInstall(CiTestCase):
