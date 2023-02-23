@@ -6,6 +6,7 @@ import re
 import shutil
 import tempfile
 import textwrap
+from typing import Optional, Sequence
 
 from .paths import target_path
 from .util import (
@@ -276,7 +277,8 @@ def apt_update(target=None, env=None, force=False, comment=None,
 
 
 def run_apt_command(mode, args=None, opts=None, env=None, target=None,
-                    execute=True, allow_daemons=False, clean=True):
+                    execute=True, allow_daemons=False, clean=True,
+                    download_retries: Optional[Sequence[int]] = None):
     defopts = ['--quiet', '--assume-yes',
                '--option=Dpkg::options::=--force-unsafe-io',
                '--option=Dpkg::Options::=--force-confold']
@@ -302,7 +304,8 @@ def run_apt_command(mode, args=None, opts=None, env=None, target=None,
     apt_update(target, env=env, comment=' '.join(cmd))
     if mode in ['dist-upgrade', 'install', 'upgrade']:
         cmd_rv = apt_install(mode, args, opts=opts, env=env, target=target,
-                             allow_daemons=allow_daemons)
+                             allow_daemons=allow_daemons,
+                             download_retries=download_retries)
         if clean:
             with ChrootableTarget(
                     target, allow_daemons=allow_daemons) as inchroot:
@@ -314,7 +317,8 @@ def run_apt_command(mode, args=None, opts=None, env=None, target=None,
 
 
 def apt_install(mode, packages=None, opts=None, env=None, target=None,
-                allow_daemons=False):
+                allow_daemons=False,
+                download_retries: Optional[Sequence[int]] = None):
     """ Install or upgrade a set or all the packages using apt-get. """
     defopts = ['--quiet', '--assume-yes',
                '--option=Dpkg::options::=--force-unsafe-io',
@@ -335,12 +339,14 @@ def apt_install(mode, packages=None, opts=None, env=None, target=None,
     inst_opts = ['--no-download']
 
     with ChrootableTarget(target, allow_daemons=allow_daemons) as inchroot:
-        inchroot.subp(cmd + dl_opts + packages, env=env)
+        inchroot.subp(cmd + dl_opts + packages, env=env,
+                      retries=download_retries)
         return inchroot.subp(cmd + inst_opts + packages, env=env)
 
 
 def run_yum_command(mode, args=None, opts=None, env=None, target=None,
-                    execute=True, allow_daemons=False):
+                    execute=True, allow_daemons=False,
+                    download_retries: Optional[Sequence[int]] = None):
     defopts = ['--assumeyes', '--quiet']
 
     if args is None:
@@ -361,14 +367,16 @@ def run_yum_command(mode, args=None, opts=None, env=None, target=None,
 
     if mode in ["install", "update", "upgrade"]:
         return yum_install(mode, args, opts=opts, env=env, target=target,
-                           allow_daemons=allow_daemons)
+                           allow_daemons=allow_daemons,
+                           download_retries=download_retries)
 
     with ChrootableTarget(target, allow_daemons=allow_daemons) as inchroot:
         return inchroot.subp(cmd, env=env)
 
 
 def yum_install(mode, packages=None, opts=None, env=None, target=None,
-                allow_daemons=False):
+                allow_daemons=False,
+                download_retries: Optional[Sequence[int]] = None):
 
     defopts = ['--assumeyes', '--quiet']
 
@@ -377,6 +385,9 @@ def yum_install(mode, packages=None, opts=None, env=None, target=None,
 
     if opts is None:
         opts = []
+
+    if download_retries is None:
+        download_retries = [1] * 10
 
     if mode not in ['install', 'update', 'upgrade']:
         raise ValueError(
@@ -396,7 +407,7 @@ def yum_install(mode, packages=None, opts=None, env=None, target=None,
     # rpm requires /dev /sys and /proc be mounted, use ChrootableTarget
     with ChrootableTarget(target, allow_daemons=allow_daemons) as inchroot:
         inchroot.subp(cmd + dl_opts + packages,
-                      env=env, retries=[1] * 10)
+                      env=env, retries=download_retries)
         return inchroot.subp(cmd + inst_opts + packages, env=env)
 
 
@@ -411,7 +422,8 @@ def rpm_get_dist_id(target=None):
 
 
 def run_zypper_command(mode, args=None, opts=None, env=None, target=None,
-                       execute=True, allow_daemons=False):
+                       execute=True, allow_daemons=False,
+                       download_retries: Optional[Sequence[int]] = None):
     defopts = ['--non-interactive', '--non-interactive-include-reboot-patches',
                '--quiet']
 
@@ -426,12 +438,15 @@ def run_zypper_command(mode, args=None, opts=None, env=None, target=None,
     if not execute:
         return env, cmd
 
+    # TODO add support for retried downloads.
+
     with ChrootableTarget(target, allow_daemons=allow_daemons) as inchroot:
         return inchroot.subp(cmd, env=env)
 
 
 def system_upgrade(opts=None, target=None, env=None, allow_daemons=False,
-                   osfamily=None):
+                   osfamily=None,
+                   download_retries: Optional[Sequence[int]] = None):
     LOG.debug("Upgrading system in %s", target)
 
     if not osfamily:
@@ -452,12 +467,14 @@ def system_upgrade(opts=None, target=None, env=None, allow_daemons=False,
     for mode in distro_cfg[osfamily]['subcommands']:
         ret = distro_cfg[osfamily]['function'](
                 mode, opts=opts, target=target,
-                env=env, allow_daemons=allow_daemons)
+                env=env, allow_daemons=allow_daemons,
+                download_retries=download_retries)
     return ret
 
 
 def install_packages(pkglist, osfamily=None, opts=None, target=None, env=None,
-                     allow_daemons=False):
+                     allow_daemons=False,
+                     download_retries: Optional[Sequence[int]] = None):
     if isinstance(pkglist, str):
         pkglist = [pkglist]
 
@@ -476,7 +493,8 @@ def install_packages(pkglist, osfamily=None, opts=None, target=None, env=None,
                          osfamily)
 
     return install_cmd('install', args=pkglist, opts=opts, target=target,
-                       env=env, allow_daemons=allow_daemons)
+                       env=env, allow_daemons=allow_daemons,
+                       download_retries=download_retries)
 
 
 def has_pkg_available(pkg, target=None, osfamily=None):

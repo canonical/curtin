@@ -306,7 +306,7 @@ class TestAptInstall(CiTestCase):
         expected_calls = [
             mock.call('install', ['foobar', 'wark'],
                       opts=[], env=expected_env, target=None,
-                      allow_daemons=False)
+                      allow_daemons=False, download_retries=None)
         ]
 
         distro.run_apt_command('install', ['foobar', 'wark'])
@@ -335,7 +335,7 @@ class TestAptInstall(CiTestCase):
         expected_calls = [
             mock.call(cmd_prefix + ['install', '--download-only']
                                  + ['foobar', 'wark'],
-                      env=None, target='/'),
+                      env=None, retries=None, target='/'),
             mock.call(cmd_prefix + ['install', '--no-download']
                                  + ['foobar', 'wark'],
                       env=None, target='/'),
@@ -346,7 +346,7 @@ class TestAptInstall(CiTestCase):
 
         expected_calls = [
             mock.call(cmd_prefix + ['upgrade', '--download-only'],
-                      env=None, target='/'),
+                      env=None, retries=None, target='/'),
             mock.call(cmd_prefix + ['upgrade', '--no-download'],
                       env=None, target='/'),
         ]
@@ -357,7 +357,7 @@ class TestAptInstall(CiTestCase):
 
         expected_calls = [
             mock.call(cmd_prefix + ['dist-upgrade', '--download-only'],
-                      env=None, target='/'),
+                      env=None, retries=None, target='/'),
             mock.call(cmd_prefix + ['dist-upgrade', '--no-download'],
                       env=None, target='/'),
         ]
@@ -567,7 +567,8 @@ class TestSystemUpgrade(CiTestCase):
         inst_apt_cmd = apt_base + ['dist-upgrade', '--no-download'] + pkglist
         auto_remove = apt_base + ['autoremove']
         expected_calls = [
-            mock.call(dl_apt_cmd, env=env, target=paths.target_path(target)),
+            mock.call(dl_apt_cmd, env=env, retries=None,
+                      target=paths.target_path(target)),
             mock.call(inst_apt_cmd, env=env, target=paths.target_path(target)),
             mock.call(['apt-get', 'clean'], target=paths.target_path(target)),
             mock.call(auto_remove, env=env, target=paths.target_path(target)),

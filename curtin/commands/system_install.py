@@ -19,7 +19,8 @@ def system_install_pkgs_main(args):
     try:
         distro.install_packages(
             pkglist=args.packages, target=args.target,
-            allow_daemons=args.allow_daemons)
+            allow_daemons=args.allow_daemons,
+            download_retries=args.download_retry_after)
     except util.ProcessExecutionError as e:
         LOG.warn("system install failed for %s: %s" % (args.packages, e))
         exit_code = e.exit_code
@@ -36,6 +37,11 @@ CMD_ARGUMENTS = (
                 'default is env[TARGET_MOUNT_POINT]'),
        'action': 'store', 'metavar': 'TARGET',
        'default': os.environ.get('TARGET_MOUNT_POINT')}),
+     (('--download-retry-after',),
+      {'help': ('when a download fails, wait N seconds and try again.'
+                ' can be specified multiple times.'
+                ' not supported on SUSE distro family.'),
+       'action': 'append', 'nargs': '*'}),
      ('packages',
       {'help': 'the list of packages to install',
        'metavar': 'PACKAGES', 'action': 'store', 'nargs': '+'}),
