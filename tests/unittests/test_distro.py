@@ -307,7 +307,7 @@ class TestAptInstall(CiTestCase):
             mock.call('install', ['foobar', 'wark'],
                       opts=[], env=expected_env, target=None,
                       allow_daemons=False, download_retries=None,
-                      download_only=False, no_download=False)
+                      download_only=False, assume_downloaded=False)
         ]
 
         distro.run_apt_command('install', ['foobar', 'wark'])
@@ -336,8 +336,8 @@ class TestAptInstall(CiTestCase):
         expected_calls = [
             mock.call(cmd_prefix + ['install', '--download-only']
                                  + ['foobar', 'wark'],
-                      env=None, retries=None, target='/'),
-            mock.call(cmd_prefix + ['install', '--no-download']
+                      env=None, target='/', retries=None),
+            mock.call(cmd_prefix + ['install']
                                  + ['foobar', 'wark'],
                       env=None, target='/'),
         ]
@@ -347,8 +347,8 @@ class TestAptInstall(CiTestCase):
 
         expected_calls = [
             mock.call(cmd_prefix + ['upgrade', '--download-only'],
-                      env=None, retries=None, target='/'),
-            mock.call(cmd_prefix + ['upgrade', '--no-download'],
+                      env=None, target='/', retries=None),
+            mock.call(cmd_prefix + ['upgrade'],
                       env=None, target='/'),
         ]
 
@@ -358,8 +358,8 @@ class TestAptInstall(CiTestCase):
 
         expected_calls = [
             mock.call(cmd_prefix + ['dist-upgrade', '--download-only'],
-                      env=None, retries=None, target='/'),
-            mock.call(cmd_prefix + ['dist-upgrade', '--no-download'],
+                      env=None, target='/', retries=None),
+            mock.call(cmd_prefix + ['dist-upgrade'],
                       env=None, target='/'),
         ]
 
@@ -368,7 +368,7 @@ class TestAptInstall(CiTestCase):
         m_subp.assert_has_calls(expected_calls)
 
         expected_dl_cmd = cmd_prefix + ['install', '--download-only', 'git']
-        expected_inst_cmd = cmd_prefix + ['install', '--no-download', 'git']
+        expected_inst_cmd = cmd_prefix + ['install', 'git']
 
         m_subp.reset_mock()
         distro.apt_install('install', ['git'], download_only=True)
@@ -376,7 +376,7 @@ class TestAptInstall(CiTestCase):
                                        retries=None)
 
         m_subp.reset_mock()
-        distro.apt_install('install', ['git'], no_download=True)
+        distro.apt_install('install', ['git'], assume_downloaded=True)
         m_subp.assert_called_once_with(expected_inst_cmd, env=None, target='/')
 
     @mock.patch.object(util.ChrootableTarget, "__enter__", new=lambda a: a)
@@ -391,7 +391,7 @@ class TestAptInstall(CiTestCase):
     def test_apt_install_conflict(self, m_subp):
         with self.assertRaisesRegex(ValueError, '.*incompatible.*'):
             distro.apt_install('install', ['git'],
-                               download_only=True, no_download=True)
+                               download_only=True, assume_downloaded=True)
         m_subp.assert_not_called()
 
 
@@ -585,7 +585,7 @@ class TestSystemUpgrade(CiTestCase):
             '--option=Dpkg::Options::=--force-confold']
         apt_cmd = apt_base + ['dist-upgrade'] + pkglist
         dl_apt_cmd = apt_base + ['dist-upgrade', '--download-only'] + pkglist
-        inst_apt_cmd = apt_base + ['dist-upgrade', '--no-download'] + pkglist
+        inst_apt_cmd = apt_base + ['dist-upgrade'] + pkglist
         auto_remove = apt_base + ['autoremove']
         expected_calls = [
             mock.call(dl_apt_cmd, env=env, retries=None,

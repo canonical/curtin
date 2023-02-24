@@ -21,7 +21,8 @@ def system_install_pkgs_main(args):
             pkglist=args.packages, target=args.target,
             allow_daemons=args.allow_daemons,
             download_retries=args.download_retry_after,
-            download_only=args.download_only, no_download=args.no_download)
+            download_only=args.download_only,
+            assume_downloaded=args.assume_downloaded)
     except util.ProcessExecutionError as e:
         LOG.warn("system install failed for %s: %s" % (args.packages, e))
         exit_code = e.exit_code
@@ -30,7 +31,7 @@ def system_install_pkgs_main(args):
 
 
 MUTUALLY_EXCLUSIVE_DOWNLOAD_OPTIONS = (
-    ((('--no-download',),
+    ((('--assume-downloaded',),
       {'help': ('assume packages to install have already been downloaded.'
                 ' not supported on SUSE distro family.'),
        'action': 'store_true'}),

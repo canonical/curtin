@@ -279,7 +279,7 @@ def apt_update(target=None, env=None, force=False, comment=None,
 def run_apt_command(mode, args=None, opts=None, env=None, target=None,
                     execute=True, allow_daemons=False, clean=True,
                     download_retries: Optional[Sequence[int]] = None,
-                    download_only=False, no_download=False):
+                    download_only=False, assume_downloaded=False):
     defopts = ['--quiet', '--assume-yes',
                '--option=Dpkg::options::=--force-unsafe-io',
                '--option=Dpkg::Options::=--force-confold']
@@ -302,14 +302,14 @@ def run_apt_command(mode, args=None, opts=None, env=None, target=None,
     if not execute:
         return env, cmd
 
-    if not no_download:
+    if not assume_downloaded:
         apt_update(target, env=env, comment=' '.join(cmd))
     if mode in ['dist-upgrade', 'install', 'upgrade']:
         cmd_rv = apt_install(mode, args, opts=opts, env=env, target=target,
                              allow_daemons=allow_daemons,
                              download_retries=download_retries,
                              download_only=download_only,
-                             no_download=no_download)
+                             assume_downloaded=assume_downloaded)
         if clean and not download_only:
             with ChrootableTarget(
                     target, allow_daemons=allow_daemons) as inchroot:
@@ -323,7 +323,7 @@ def run_apt_command(mode, args=None, opts=None, env=None, target=None,
 def apt_install(mode, packages=None, opts=None, env=None, target=None,
                 allow_daemons=False,
                 download_retries: Optional[Sequence[int]] = None,
-                download_only=False, no_download=False):
+                download_only=False, assume_downloaded=False):
     """ Install or upgrade a set or all the packages using apt-get. """
     defopts = ['--quiet', '--assume-yes',
                '--option=Dpkg::options::=--force-unsafe-io',
@@ -338,17 +338,21 @@ def apt_install(mode, packages=None, opts=None, env=None, target=None,
         raise ValueError(
             'Unsupported mode "%s" for apt package install/upgrade' % mode)
 
-    if download_only and no_download:
+    if download_only and assume_downloaded:
         raise ValueError(
-            'download-only and no-download options are incompatible')
+            'download-only and assume-downloaded options are incompatible')
 
     # download first, then install/upgrade from cache
     cmd = ['apt-get'] + defopts + opts + [mode]
     dl_opts = ['--download-only']
-    inst_opts = ['--no-download']
+    # NOTE: it would feel natural to use --no-download here but sadly apt-get
+    # can fail with "Internal Error, Pathname to install is not absolute [...]"
+    # when packages were retrieved from the cdrom and not downloaded from the
+    # Internet.
+    inst_opts = []
 
     with ChrootableTarget(target, allow_daemons=allow_daemons) as inchroot:
-        if not no_download:
+        if not assume_downloaded:
             cmd_rv = inchroot.subp(cmd + dl_opts + packages, env=env,
                                    retries=download_retries)
         if not download_only:
@@ -360,7 +364,7 @@ def apt_install(mode, packages=None, opts=None, env=None, target=None,
 def run_yum_command(mode, args=None, opts=None, env=None, target=None,
                     execute=True, allow_daemons=False,
                     download_retries: Optional[Sequence[int]] = None,
-                    download_only=False, no_download=False):
+                    download_only=False, assume_downloaded=False):
     defopts = ['--assumeyes', '--quiet']
 
     if args is None:
@@ -384,7 +388,7 @@ def run_yum_command(mode, args=None, opts=None, env=None, target=None,
                            allow_daemons=allow_daemons,
                            download_retries=download_retries,
                            download_only=download_only,
-                           no_download=no_download)
+                           assume_downloaded=assume_downloaded)
 
     with ChrootableTarget(target, allow_daemons=allow_daemons) as inchroot:
         return inchroot.subp(cmd, env=env)
@@ -393,7 +397,7 @@ def run_yum_command(mode, args=None, opts=None, env=None, target=None,
 def yum_install(mode, packages=None, opts=None, env=None, target=None,
                 allow_daemons=False,
                 download_retries: Optional[Sequence[int]] = None,
-                download_only=False, no_download=False):
+                download_only=False, assume_downloaded=False):
 
     defopts = ['--assumeyes', '--quiet']
 
@@ -410,9 +414,9 @@ def yum_install(mode, packages=None, opts=None, env=None, target=None,
         raise ValueError(
             'Unsupported mode "%s" for yum package install/upgrade' % mode)
 
-    if download_only and no_download:
+    if download_only and assume_downloaded:
         raise ValueError(
-            'download-only and no-download options are incompatible')
+            'download-only and assume-downloaded options are incompatible')
 
     # dnf is a drop in replacement for yum. On newer RH based systems yum
     # is just a sym link to dnf.
@@ -427,7 +431,7 @@ def yum_install(mode, packages=None, opts=None, env=None, target=None,
 
     # rpm requires /dev /sys and /proc be mounted, use ChrootableTarget
     with ChrootableTarget(target, allow_daemons=allow_daemons) as inchroot:
-        if not no_download:
+        if not assume_downloaded:
             cmd_rv = inchroot.subp(cmd + dl_opts + packages,
                                    env=env, retries=download_retries)
         if not download_only:
@@ -449,7 +453,7 @@ def rpm_get_dist_id(target=None):
 def run_zypper_command(mode, args=None, opts=None, env=None, target=None,
                        execute=True, allow_daemons=False,
                        download_retries: Optional[Sequence[int]] = None,
-                       download_only=False, no_download=False):
+                       download_only=False, assume_downloaded=False):
     defopts = ['--non-interactive', '--non-interactive-include-reboot-patches',
                '--quiet']
 
@@ -501,7 +505,7 @@ def system_upgrade(opts=None, target=None, env=None, allow_daemons=False,
 def install_packages(pkglist, osfamily=None, opts=None, target=None, env=None,
                      allow_daemons=False,
                      download_retries: Optional[Sequence[int]] = None,
-                     download_only=False, no_download=False):
+                     download_only=False, assume_downloaded=False):
     if isinstance(pkglist, str):
         pkglist = [pkglist]
 
@@ -522,7 +526,8 @@ def install_packages(pkglist, osfamily=None, opts=None, target=None, env=None,
     return install_cmd('install', args=pkglist, opts=opts, target=target,
                        env=env, allow_daemons=allow_daemons,
                        download_retries=download_retries,
-                       download_only=download_only, no_download=no_download)
+                       download_only=download_only,
+                       assume_downloaded=assume_downloaded)
 
 
 def has_pkg_available(pkg, target=None, osfamily=None):
