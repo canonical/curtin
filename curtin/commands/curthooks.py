@@ -89,7 +89,7 @@ UEFI_BOOT_ENTRY_IS_NETWORK = r'.*(Network|PXE|NIC|Ethernet|LAN|IP4|IP6)+.*'
 
 
 def do_apt_config(cfg, target):
-    cfg = apt_config.translate_old_apt_features(cfg)
+    apt_config.translate_old_apt_features(cfg)
     apt_cfg = cfg.get("apt")
     if apt_cfg is not None:
         LOG.info("curthooks handling apt to target %s with config %s",

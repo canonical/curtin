@@ -679,20 +679,32 @@ Pin-Priority: -1
         mockobj.assert_called_with("preferencesfn", expected_content)
 
     def test_translate_old_apt_features(self):
-        self.assertEqual(apt_config.translate_old_apt_features({}), {})
+        cfg = {}
+        apt_config.translate_old_apt_features(cfg)
+        self.assertEqual(cfg, {})
 
-        self.assertEqual(
-                apt_config.translate_old_apt_features({
-                    "debconf_selections": "foo"}),
-                {"apt": {"debconf_selections": "foo"}}
+        cfg = {"debconf_selections": "foo"}
+        apt_config.translate_old_apt_features(cfg)
+        self.assertEqual(cfg, {"apt": {"debconf_selections": "foo"}})
+
+        cfg = {"apt_proxy": {"http_proxy": "http://proxy:3128"}}
+        apt_config.translate_old_apt_features(cfg)
+        self.assertEqual(cfg, {
+            "apt": {
+                "proxy": {"http_proxy": "http://proxy:3128"},
+            }}
         )
 
-        self.assertEqual(
-                apt_config.translate_old_apt_features({
-                    "apt_proxy": {"http_proxy": "http://proxy:3128"}}),
-                {"apt": {
-                    "proxy": {"http_proxy": "http://proxy:3128"},
-                }}
+        cfg = {
+            "apt": {"debconf_selections": "foo"},
+            "apt_proxy": {"http_proxy": "http://proxy:3128"},
+        }
+        apt_config.translate_old_apt_features(cfg)
+        self.assertEqual(cfg, {
+            "apt": {
+                "proxy": {"http_proxy": "http://proxy:3128"},
+                "debconf_selections": "foo",
+            }}
         )
 
     def test_translate_old_apt_features_conflicts(self):

@@ -6,7 +6,6 @@ Handle the setup of apt related tasks like proxies, mirrors, repositories.
 """
 
 import argparse
-import collections
 import glob
 import os
 import re
@@ -686,9 +685,9 @@ def apt_command(args):
     sys.exit(0)
 
 
-def translate_old_apt_features(old_cfg):
-    """translate the few old apt related features into the new config format"""
-    cfg = collections.defaultdict(dict, old_cfg)
+def translate_old_apt_features(cfg):
+    """translate the few old apt related features into the new config format ;
+    by mutating the cfg object. """
     predef_apt_cfg = cfg.get("apt", {})
 
     if cfg.get('apt_proxy') is not None:
@@ -699,6 +698,7 @@ def translate_old_apt_features(old_cfg):
             LOG.error(msg)
             raise ValueError(msg)
 
+        cfg.setdefault('apt', {})
         cfg['apt']['proxy'] = cfg.get('apt_proxy')
         LOG.debug("Transferred %s into new format: %s", cfg.get('apt_proxy'),
                   cfg.get('apt'))
@@ -713,6 +713,7 @@ def translate_old_apt_features(old_cfg):
             raise ValueError(msg)
 
         old = cfg.get('apt_mirrors')
+        cfg.setdefault('apt', {})
         cfg['apt']['primary'] = [{"arches": ["default"],
                                   "uri": old.get('ubuntu_archive')}]
         cfg['apt']['security'] = [{"arches": ["default"],
@@ -729,6 +730,7 @@ def translate_old_apt_features(old_cfg):
                        "are mutually exclusive")
                 LOG.error(msg)
                 raise ValueError(msg)
+        cfg.setdefault('apt', {})
         cfg['apt']['preserve_sources_list'] = False
 
     if cfg.get('debconf_selections') is not None:
@@ -740,13 +742,12 @@ def translate_old_apt_features(old_cfg):
             raise ValueError(msg)
 
         selsets = cfg.get('debconf_selections')
+        cfg.setdefault('apt', {})
         cfg['apt']['debconf_selections'] = selsets
         LOG.info("Transferred %s into new format: %s",
                  cfg.get('debconf_selections'),
                  cfg.get('apt'))
         del cfg['debconf_selections']
-
-    return dict(cfg)
 
 
 CMD_ARGUMENTS = (
