@@ -601,14 +601,8 @@ def apply_apt_proxy_config(cfg, proxy_fname, config_fname):
         LOG.debug("write apt proxy info to %s", proxy_fname)
         util.write_file(proxy_fname, '\n'.join(proxies) + '\n')
     elif os.path.isfile(proxy_fname):
-        # When $ curtin apt-config is called with no proxy set, it makes
-        # sense to remove the proxy file (if present). Having said that,
-        # this code is also called automatically at the curthooks stage with an
-        # empty configuration. Since the installation of external packages and
-        # execution of unattended-upgrades (which happen after executing the
-        # curthooks) need to use the proxy if specified, we must not let the
-        # curthooks remove the proxy file.
-        pass
+        util.del_file(proxy_fname)
+        LOG.debug("no apt proxy configured, removed %s", proxy_fname)
 
     if cfg.get('conf', None):
         LOG.debug("write apt config info to %s", config_fname)
