@@ -1119,6 +1119,15 @@ class MountParser(ProbertParser):
         # no floppy, no cdrom
         if self.blockdev_data[source]['MAJOR'] in ["11", "2"]:
             return {}
+        # When using ventoy, if any mount is found for /cdrom, it will not be a
+        # block device with major number 11 but a dev/mapper device named
+        # "ventoy".
+        # See https://bugs.launchpad.net/bugs/2012722
+        # TODO: ideally, we should not rely on the value of the DM_NAME
+        # attribute. Other image loading systems will have a different value.
+        if self.blockdev_data[source].get("DM_NAME") == "ventoy":
+            LOG.warn("ignoring mount for device %s", source)
+            return {}
 
         source_id = self.blockdev_to_id(self.blockdev_data[source])
         return {'type': 'mount',

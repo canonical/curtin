@@ -8,6 +8,7 @@ from curtin.storage_config import (BcacheParser, BlockdevParser, DasdParser,
                                    DmcryptParser, FilesystemParser, LvmParser,
                                    RaidParser, MountParser, ZfsParser)
 from curtin.storage_config import ptable_uuid_to_flag_entry, select_configs
+from curtin.storage_config import LOG as SCLogger
 from curtin import util
 
 
@@ -906,6 +907,17 @@ class TestMountParser(CiTestCase):
         self.assertEqual(4, len(configs))
         self.assertEqual(0, len(errors))
 
+    @skipUnlessJsonSchema()
+    def test_mount_ignore_ventoy(self):
+        probe_data = _get_data('probert_storage_ventoy.json')
+        mountp = MountParser(probe_data)
+        with self.assertLogs(SCLogger, level='WARN') as warn:
+            configs, errors = mountp.parse()
+        self.assertEqual(0, len(configs))
+        self.assertEqual(0, len(errors))
+        self.assertIn('ignoring mount for device /dev/dm-1',
+                      [record.getMessage() for record in warn.records])
+
 
 class TestZfsParser(CiTestCase):
 
@@ -1137,6 +1149,19 @@ class TestExtractStorageConfig(CiTestCase):
         }
         self.assertEqual(1, len(bitlocker))
         self.assertEqual(expected_dict, bitlocker[0])
+
+    @skipUnlessJsonSchema()
+    def test_booted_using_ventoy(self):
+        # Make sure we ignore the ventoy DM device and partitions
+        self.probe_data = _get_data('probert_storage_ventoy.json')
+        extracted = storage_config.extract_storage_config(self.probe_data)
+        config = extracted['storage']['config']
+        for disk in [cfg for cfg in config if cfg['type'] == 'disk']:
+            self.assertNotEqual(disk['path'], '/dev/mapper/ventoy')
+            self.assertNotEqual(disk['path'], '/dev/dm-1')
+        for part in [cfg for cfg in config if cfg['type'] == 'partition']:
+            self.assertFalse(
+                    part['path'].startswith('/dev/mapper/ventoy-part'))
 
 
 class TestSelectConfigs(CiTestCase):
