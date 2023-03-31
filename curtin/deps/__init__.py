@@ -30,6 +30,7 @@ REQUIRED_EXECUTABLES = [
     ('mkfs.vfat', 'dosfstools'),
     ('mkfs.btrfs', '^btrfs-(progs|tools)$'),
     ('mkfs.ext4', 'e2fsprogs'),
+    ('mkfs.f2fs', 'f2fs-tools'),
     ('mkfs.xfs', 'xfsprogs'),
     ('partprobe', 'parted'),
     ('sgdisk', 'gdisk'),

@@ -536,7 +536,7 @@ Format Command
 The format command makes filesystems on a volume. The filesystem type and
 target volume can be specified, as well as a few other options.
 
-**fstype**: ext4, ext3, fat32, fat16, swap, xfs, zfsroot
+**fstype**: ext4, ext3, f2fs, fat32, fat16, swap, xfs, zfsroot
 
 .. note::
 

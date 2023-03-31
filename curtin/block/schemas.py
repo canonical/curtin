@@ -4,9 +4,9 @@ _uuid_pattern = (
     r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}')
 _path_dev = r'^/dev/[^/]+(/[^/]+)*$'
 _path_nondev = r'(^/$|^(/[^/]+)+$)'
-_fstypes = ['btrfs', 'ext2', 'ext3', 'ext4', 'fat', 'fat12', 'fat16', 'fat32',
-            'iso9660', 'vfat', 'jfs', 'ntfs', 'reiserfs', 'swap', 'xfs',
-            'zfsroot']
+_fstypes = ['btrfs', 'ext2', 'ext3', 'ext4', 'f2fs', 'fat', 'fat12', 'fat16',
+            'fat32', 'iso9660', 'vfat', 'jfs', 'ntfs', 'reiserfs', 'swap',
+            'xfs', 'zfsroot']
 _ptable_unsupported = 'unsupported'
 _ptables = ['dos', 'gpt', 'msdos', 'vtoc']
 _ptables_valid = _ptables + [_ptable_unsupported]

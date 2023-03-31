@@ -16,6 +16,7 @@ mkfs_commands = {
     "ext2": "mkfs.ext2",
     "ext3": "mkfs.ext3",
     "ext4": "mkfs.ext4",
+    "f2fs": "mkfs.f2fs",
     "fat": "mkfs.vfat",
     "fat12": "mkfs.vfat",
     "fat16": "mkfs.vfat",
@@ -41,6 +42,7 @@ specific_to_family = {
 label_length_limits = {
     "btrfs": 256,
     "ext": 16,
+    "f2fs": 512,  # https://docs.kernel.org/filesystems/f2fs.html
     "fat": 11,
     "jfs": 16,  # see jfs_tune manpage
     "ntfs": 32,
@@ -54,6 +56,7 @@ family_flag_mappings = {
     # flag with no parameter
     "force": {"btrfs": "--force",
               "ext": "-F",
+              "f2fs": "-f",
               "fat": "-I",
               "jfs": "-q",
               "ntfs": "--force",
@@ -62,6 +65,7 @@ family_flag_mappings = {
               "xfs": "-f"},
     "label": {"btrfs": ("--label", "{label}"),
               "ext": ("-L", "{label}"),
+              "f2fs": ("-l", "{label}"),
               "fat": ("-n", "{label}"),
               "jfs": ("-L", "{label}"),
               "ntfs": ("--label", "{label}"),
@@ -70,18 +74,21 @@ family_flag_mappings = {
               "xfs": ("-L", "{label}")},
     # flag with no parameter, N.B: this isn't used/exposed
     "quiet": {"ext": "-q",
+              "f2fs": "-q",
               "ntfs": "-q",
               "reiserfs": "-q",
               "xfs": "--quiet"},
     "sectorsize": {
         "btrfs": ("--sectorsize", "{sectorsize}",),
         "ext": ("-b", "{sectorsize}"),
+        "f2fs": ("-w", "{sectorsize}"),
         "fat": ("-S", "{sectorsize}"),
         "ntfs": ("--sector-size", "{sectorsize}"),
         "reiserfs": ("--block-size", "{sectorsize}"),
         "xfs": ("-s", "{sectorsize}")},
     "uuid": {"btrfs": ("--uuid", "{uuid}"),
              "ext": ("-U", "{uuid}"),
+             "f2fs": ("-U", "{uuid}"),
              "reiserfs": ("--uuid", "{uuid}"),
              "swap": ("--uuid", "{uuid}"),
              "xfs": ("-m", "uuid={uuid}")},

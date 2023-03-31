@@ -72,6 +72,12 @@ class TestBlockMkfs(CiTestCase):
                           ["-U", self.test_uuid]] + extra_options
         self._run_mkfs_with_config(conf, "mkfs.ext4", expected_flags)
 
+    def test_mkfs_f2fs(self):
+        conf = self._get_config("f2fs")
+        expected_flags = [["-l", "format1"], "-f",
+                          ["-U", self.test_uuid]]
+        self._run_mkfs_with_config(conf, "mkfs.f2fs", expected_flags)
+
     def test_mkfs_btrfs(self):
         conf = self._get_config("btrfs")
         expected_flags = [["--label", "format1"], "--force",
