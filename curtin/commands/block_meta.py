@@ -513,7 +513,8 @@ def v2_get_path_to_disk(vol):
         cands.append(set([dev['DEVNAME'] for dev in new_devs]))
 
     if 'wwn' in vol:
-        add_cands(*disk_by_keys(vol['wwn'], 'DM_WWN', 'ID_WWN'))
+        add_cands(*disk_by_keys(vol['wwn'],
+                                'DM_WWN', 'ID_WWN_WITH_EXTENSION', 'ID_WWN'))
     if 'serial' in vol:
         add_cands(
             *disk_by_keys(

@@ -222,6 +222,23 @@ class TestGetPathToStorageVolume(CiTestCase):
             devname,
             block_meta.get_path_to_storage_volume(disk_id, s_cfg))
 
+    def test_v2_match_wwn_with_extension(self):
+        wwn = self.random_string()
+        extension = self.random_string()
+        devname = self.random_string()
+        self.m_udev_all.return_value = [
+            {'DEVNAME': devname,
+             'ID_WWN': wwn,
+             'ID_WWN_WITH_EXTENSION': wwn + extension},
+            ]
+        disk_id = self.random_string()
+        cfg = {'id': disk_id, 'type': 'disk', 'wwn': wwn + extension}
+        s_cfg = OrderedDict({disk_id: cfg})
+        s_cfg.version = 2
+        self.assertEqual(
+            devname,
+            block_meta.get_path_to_storage_volume(disk_id, s_cfg))
+
     def test_v2_match_wwn_prefer_mpath(self):
         wwn = self.random_string()
         devname1 = self.random_string()
