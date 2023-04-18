@@ -631,6 +631,33 @@ class TestBlockMeta(IntegrationTestCase):
                 ])
             self.check_fssize(dev, p1, fstype, end)
 
+    def test_multi_resize(self):
+        img = self.tmp_path('image.img')
+        config = StorageConfigBuilder(version=2)
+        config.add_image(path=img, size='200M', ptable='gpt')
+
+        def size_to(size):
+            p1['size'] = size
+            self.run_bm(config.render())
+            with loop_dev(img) as dev:
+                self.assertEqual('ntfs', _get_volume_fstype(f'{dev}p1'))
+                self.create_data(dev, p1)
+                self.assertEqual(
+                    summarize_partitions(dev), [
+                        PartData(number=1, offset=1 << 20, size=size),
+                    ])
+                self.check_fssize(dev, p1, 'ntfs', size)
+
+        p1 = config.add_part(size=180 << 20, offset=1 << 20, number=1,
+                             fstype='ntfs')
+        size_to(180 << 20)
+
+        config.set_preserve()
+        p1['resize'] = True
+
+        size_to(160 << 20)
+        size_to(140 << 20)
+
     def test_resize_up_ext2(self):
         self._do_test_resize(40, 80, 'ext2')
 
