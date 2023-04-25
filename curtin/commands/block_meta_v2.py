@@ -248,12 +248,24 @@ class DOSPartTable(SFDiskPartTable):
     label = 'dos'
     _extended = None
 
+    @staticmethod
+    def is_logical(action) -> bool:
+        flag = action.get('flag', None)
+        if flag == 'logical':
+            return True
+        # In some scenarios, a swap partition can be in the extended
+        # partition. When it does, the flag is set to 'swap'.
+        # In some other scenarios, a bootable partition can also be in the
+        # extended partition. This is not a supported use-case but is
+        # yet another scenario where flag is not set to 'logical'.
+        return action.get('number', 0) > 4
+
     def add(self, action):
         flag = action.get('flag', None)
         start = action.get('offset', None)
         if start is not None:
             start = self.bytes2sectors(start)
-        if flag == 'logical':
+        if self.is_logical(action):
             if self._extended is None:
                 raise Exception("logical partition without extended partition")
             prev = None

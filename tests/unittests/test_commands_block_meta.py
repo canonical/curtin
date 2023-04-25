@@ -3259,6 +3259,20 @@ label: dos
             f'name="{name}" attrs="{attrs}"'
         self.assertEqual(expected, pte.render())
 
+    def test_v2_dos_is_logical(self):
+        action = {"flag": "logical"}
+        self.assertTrue(block_meta_v2.DOSPartTable.is_logical(action))
+        action = {"flag": "logical", "number": 5}
+        self.assertTrue(block_meta_v2.DOSPartTable.is_logical(action))
+        action = {"flag": "swap", "number": 2}
+        self.assertFalse(block_meta_v2.DOSPartTable.is_logical(action))
+        action = {"flag": "swap", "number": 5}
+        self.assertTrue(block_meta_v2.DOSPartTable.is_logical(action))
+        action = {"flag": "boot", "number": 5}
+        self.assertTrue(block_meta_v2.DOSPartTable.is_logical(action))
+        action = {"flag": "swap"}
+        self.assertFalse(block_meta_v2.DOSPartTable.is_logical(action))
+
 
 class TestPartitionNeedsResize(CiTestCase):
 
