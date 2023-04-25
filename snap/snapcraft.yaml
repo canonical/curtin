@@ -16,6 +16,7 @@ apps:
     environment:
       PYTHON: $SNAP/usr/bin/python3.10
       PY3OR2_PYTHON: $SNAP/usr/bin/python3.10
+      PYTHONPATH: $SNAP/lib/python3.10/site-packages
 
 parts:
   curtin:
