@@ -13,6 +13,8 @@ description: |
 apps:
   curtin:
     command: bin/curtin
+    environment:
+      PYTHON: $SNAP/usr/bin/python3.10
 
 parts:
   curtin:
@@ -68,6 +70,7 @@ parts:
       - python3-urwid
       - python3-yaml
       - python3-yarl
+      - python3.10-minimal
 
     build-attributes:
       - enable-patchelf
