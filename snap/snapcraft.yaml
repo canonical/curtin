@@ -11,60 +11,63 @@ description: |
     unceremonious.
 
 apps:
-    curtin:
-        command: bin/curtin
+  curtin:
+    command: bin/curtin
 
 parts:
-    curtin:
-        plugin: nil
+  curtin:
+    plugin: nil
 
-        source: .
-        source-type: git
+    source: .
+    source-type: git
 
-        override-pull: |
-            craftctl default
-            PACKAGED_VERSION="$(git describe --long --abbrev=9 --match=[0-9][0-9]*)"
-            sed -e "s,@@PACKAGED_VERSION@@,$PACKAGED_VERSION,g" -i curtin/version.py
-        override-build: &pyinstall |
-            # We install without dependencies because all dependencies come from
-            # archive packages.
-            # XXX: On core22, running `pip3 install --prefix xxx` does not do the
-            # right thing. The package ends up installed in xxx/local and the modules
-            # get installed to dist-packages instead of site-packages.
-            # See https://discuss.python.org/t/18240
-            # As a workaround, we use a fake user install to get the package
-            # installed in the expected place.
-            PYTHONUSERBASE="$CRAFT_PART_INSTALL" pip3 install --user --no-dependencies .
+    override-pull: |
+      craftctl default
+      PACKAGED_VERSION="$(git describe --long --abbrev=9 --match=[0-9][0-9]*)"
+      sed -e "s,@@PACKAGED_VERSION@@,$PACKAGED_VERSION,g" -i curtin/version.py
+    override-build: &pyinstall |
+      # We install without dependencies because all dependencies come from
+      # archive packages.
+      # XXX: On core22, running `pip3 install --prefix xxx` does not do the
+      # right thing. The package ends up installed in xxx/local and the modules
+      # get installed to dist-packages instead of site-packages.
+      # See https://discuss.python.org/t/18240
+      # As a workaround, we use a fake user install to get the package
+      # installed in the expected place.
+      PYTHONUSERBASE="$CRAFT_PART_INSTALL" pip3 install --user --no-dependencies .
 
-        build-packages:
-            - python3-pip
+    build-packages:
+      - python3-pip
 
-        organize:
-            lib/python*/site-packages/usr/lib/curtin: usr/lib/
+    organize:
+      lib/python*/site-packages/usr/lib/curtin: usr/lib/
 
-        stage-packages:
-            - cloud-init
-            - iso-codes
-            - libpython3-stdlib
-            - libpython3.10-minimal
-            - libpython3.10-stdlib
-            - libsystemd0
-            - lsb-release
-            - ntfs-3g
-            - python3-aiohttp
-            - python3-apport
-            - python3-attr
-            - python3-bson
-            - python3-jsonschema
-            - python3-minimal
-            - python3-oauthlib
-            - python3-pkg-resources
-            - python3-pyroute2
-            - python3-pyrsistent
-            - python3-pyudev
-            - python3-requests
-            - python3-requests-unixsocket
-            - python3-systemd
-            - python3-urwid
-            - python3-yaml
-            - python3-yarl
+    stage-packages:
+      - cloud-init
+      - iso-codes
+      - libpython3-stdlib
+      - libpython3.10-minimal
+      - libpython3.10-stdlib
+      - libsystemd0
+      - lsb-release
+      - ntfs-3g
+      - python3-aiohttp
+      - python3-apport
+      - python3-attr
+      - python3-bson
+      - python3-jsonschema
+      - python3-minimal
+      - python3-oauthlib
+      - python3-pkg-resources
+      - python3-pyroute2
+      - python3-pyrsistent
+      - python3-pyudev
+      - python3-requests
+      - python3-requests-unixsocket
+      - python3-systemd
+      - python3-urwid
+      - python3-yaml
+      - python3-yarl
+
+    build-attributes:
+      - enable-patchelf
