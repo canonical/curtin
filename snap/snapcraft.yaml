@@ -17,6 +17,7 @@ apps:
       PYTHON: $SNAP/usr/bin/python3.10
       PY3OR2_PYTHON: $SNAP/usr/bin/python3.10
       PYTHONPATH: $SNAP/lib/python3.10/site-packages
+      PATH: $SNAP/usr/bin:$SNAP/bin:$SNAP/sbin:$PATH
 
 parts:
   curtin:
@@ -54,6 +55,7 @@ parts:
       - libpython3.10-stdlib
       - libsystemd0
       - lsb-release
+      - mount
       - ntfs-3g
       - python3-aiohttp
       - python3-apport
@@ -73,6 +75,8 @@ parts:
       - python3-yaml
       - python3-yarl
       - python3.10-minimal
+      - parted
+      - fdisk
 
     build-attributes:
       - enable-patchelf
