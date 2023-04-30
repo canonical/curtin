@@ -13,6 +13,7 @@ from curtin.block import lvm
 from curtin.block import multipath
 from curtin.log import LOG
 from curtin.udev import udevadm_settle, udevadm_info
+from curtin.util import NotExclusiveError
 from curtin import storage_config
 
 
@@ -1159,7 +1160,7 @@ def exclusive_open(path, exclusive=True):
             # python2 leaves fd open if there os.fdopen fails
             if fd_needs_closing and sys.version_info.major == 2:
                 os.close(fd)
-    except OSError:
+    except OSError as exc:
         LOG.error("Failed to exclusively open path: %s", path)
         holders = get_holders(path)
         LOG.error('Device holders with exclusive access: %s', holders)
@@ -1167,7 +1168,10 @@ def exclusive_open(path, exclusive=True):
         LOG.error('Device mounts: %s', mount_points)
         fusers = util.fuser_mount(path)
         LOG.error('Possible users of %s:\n%s', path, fusers)
-        raise
+        if exclusive and exc.errno == errno.EBUSY:
+            raise NotExclusiveError from exc
+        else:
+            raise
 
 
 def wipe_file(path, reader=None, buflen=4 * 1024 * 1024, exclusive=True):
@@ -1233,8 +1237,9 @@ def quick_zero(path, partitions=True, exclusive=True):
         quick_zero(pt, partitions=False)
 
     LOG.debug("wiping 1M on %s at offsets %s", path, offsets)
-    return zero_file_at_offsets(path, offsets, buflen=buflen, count=count,
-                                exclusive=exclusive)
+    util.not_exclusive_retry(
+            zero_file_at_offsets,
+            path, offsets, buflen=buflen, count=count, exclusive=exclusive)
 
 
 def zero_file_at_offsets(path, offsets, buflen=1024, count=1024, strict=False,

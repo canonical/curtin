@@ -1158,4 +1158,43 @@ class TestSanitizeSource(CiTestCase):
         self.assertEqual(expected, result)
 
 
+class TestNotExclusiveRetry(CiTestCase):
+    @mock.patch('curtin.util.time.sleep')
+    def test_not_exclusive_retry_success(self, sleep):
+        f = mock.Mock(return_value='success')
+
+        self.assertEqual(util.not_exclusive_retry(f, 1, 2, 3), 'success')
+        sleep.assert_not_called()
+
+    @mock.patch('curtin.util.time.sleep')
+    def test_not_exclusive_retry_failed(self, sleep):
+        f = mock.Mock(side_effect=OSError)
+
+        with self.assertRaises(OSError):
+            util.not_exclusive_retry(f, 1, 2, 3)
+        sleep.assert_not_called()
+
+    @mock.patch('curtin.util.time.sleep')
+    def test_not_exclusive_retry_not_exclusive_once_then_success(self, sleep):
+        f = mock.Mock(side_effect=[util.NotExclusiveError, 'success'])
+
+        self.assertEqual(util.not_exclusive_retry(f, 1, 2, 3), 'success')
+        sleep.assert_called_once()
+
+    @mock.patch('curtin.util.time.sleep')
+    def test_not_exclusive_retry_not_exclusive_twice(self, sleep):
+        f = mock.Mock(side_effect=[util.NotExclusiveError] * 2)
+
+        with self.assertRaises(util.NotExclusiveError):
+            util.not_exclusive_retry(f, 1, 2, 3)
+        sleep.assert_called_once()
+
+    @mock.patch('curtin.util.time.sleep')
+    def test_not_exclusive_retry_not_exclusive_once_then_error(self, sleep):
+        f = mock.Mock(side_effect=[util.NotExclusiveError, OSError])
+
+        with self.assertRaises(OSError):
+            util.not_exclusive_retry(f, 1, 2, 3)
+        sleep.assert_called_once()
+
 # vi: ts=4 expandtab syntax=python

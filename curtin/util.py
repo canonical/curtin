@@ -2,7 +2,7 @@
 
 import argparse
 import collections
-from contextlib import contextmanager
+from contextlib import contextmanager, suppress
 import errno
 import json
 import os
@@ -60,6 +60,11 @@ _DNS_REDIRECT_IP = None
 
 # matcher used in template rendering functions
 BASIC_MATCHER = re.compile(r'\$\{([A-Za-z0-9_.]+)\}|\$([A-Za-z0-9_.]+)')
+
+
+class NotExclusiveError(OSError):
+    ''' Exception to raise when an exclusive open (i.e, O_EXCL) fails with
+    EBUSY '''
 
 
 def _subp(args, data=None, rcs=None, env=None, capture=False,
@@ -1322,5 +1327,12 @@ def uses_systemd():
         _USES_SYSTEMD = os.path.isdir('/run/systemd/system')
 
     return _USES_SYSTEMD
+
+
+def not_exclusive_retry(fun, *args, **kwargs):
+    with suppress(NotExclusiveError):
+        return fun(*args, **kwargs)
+    time.sleep(1)
+    return fun(*args, **kwargs)
 
 # vi: ts=4 expandtab syntax=python
