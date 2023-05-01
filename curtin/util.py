@@ -726,7 +726,7 @@ class ChrootableTarget(object):
             self.mounts = mounts
         else:
             self.mounts = ["/dev", "/proc", "/run", "/sys"]
-            if is_uefi_bootable():
+            if is_uefi_bootable() and is_efivars_writable():
                 self.mounts.append('/sys/firmware/efi/efivars')
         self.umounts = []
         self.disabled_daemons = False
@@ -907,6 +907,42 @@ def set_unexecutable(fname, strict=False):
     return cur
 
 
+def set_mutable(filename):
+    """Remove immutable attribute"""
+    # Ignoring return value
+    try:
+        util.subp(['chattr', '-i', filename] )
+    except ProcessExecutionError:
+        pass
+
+
+def efi_set_variable(variable_name, vendor_guid, data):
+    """Set UEFI variable"""
+    filename = '/sys/firmware/efi/efivars/' + variable_name + '-' + vendor_guid
+    set_mutable(filename)
+    # attributes: NON_VOLATILE | BOOTSERVICE_ACCESS | RUNTIME_ACCESS
+    buf = b'\x07\x00\x00\x00' + data
+    try:
+        with open(filename, 'wb') as file:
+            file.write(buf)
+    except OSError:
+        return False
+    return True
+
+
+def is_efivars_writable():
+    """Check if EFI variables can be created"""
+    variable_name = 'dummy'
+    vendor_guid = '326689e8-0c62-4ed5-8892-51ae883a714a'
+    data = b'x'
+    # create variable
+    if not efi_set_variable(variable_name, vendor_guid, data):
+        return False
+        # delete variable
+    efi_set_variable(variable_name, vendor_guid, b'')
+    return True
+
+
 def is_uefi_bootable():
     return os.path.exists('/sys/firmware/efi') is True
 
@@ -969,7 +1005,10 @@ def get_efibootmgr(target=None):
         }
     """
     with ChrootableTarget(target=target) as in_chroot:
-        stdout, _ = in_chroot.subp(['efibootmgr', '-v'], capture=True)
+        if (os.path.exists('/sys/firmware/efi/efivars')):
+            stdout, _ = in_chroot.subp(['efibootmgr', '-v'], capture=True)
+        else:
+            stdout = ""
         output = parse_efibootmgr(stdout)
         return output
 

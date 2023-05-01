@@ -813,7 +813,11 @@ def setup_grub(cfg, target, osfamily=DISTROS.debian, variant=None):
     else:
         instdevs = ["none"]
 
-    update_nvram = grubcfg.get('update_nvram', True)
+    if util.is_efivars_writable():
+        update_nvram = grubcfg.get('update_nvram', True)
+    else:
+        update_nvram = False
+
     if uefi_bootable and update_nvram:
         efi_orig_output = util.get_efibootmgr(target)
         uefi_remove_old_loaders(grubcfg, target)
