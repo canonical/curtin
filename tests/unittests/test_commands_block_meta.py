@@ -25,6 +25,34 @@ def random_uuid():
 empty_context = block_meta.BlockMetaContext({})
 
 
+class TestToUTF8HexNotation(CiTestCase):
+    def test_alpha(self):
+        self.assertEqual(
+                block_meta_v2.to_utf8_hex_notation("HelloWorld"), "HelloWorld")
+
+    def test_alphanum(self):
+        self.assertEqual(
+                block_meta_v2.to_utf8_hex_notation("Hello1234"), "Hello1234")
+
+    def test_alnum_space(self):
+        self.assertEqual(
+                block_meta_v2.to_utf8_hex_notation("Hello 1234"),
+                "Hello\\x201234")
+
+    def test_with_accent(self):
+        # '\xe9'.isalpha(), which is equivalent to 'é'.isalpha(), is True
+        # because 'é' is considered a letter according to the unicode standard.
+        # b'\xe9'.isalpha(), on the other hand, is False.
+        self.assertEqual(
+                block_meta_v2.to_utf8_hex_notation("réservée"),
+                "r\\xc3\\xa9serv\\xc3\\xa9e")
+
+    def test_hangul(self):
+        self.assertEqual(
+                block_meta_v2.to_utf8_hex_notation("리눅스"),
+                '\\xeb\\xa6\\xac\\xeb\\x88\\x85\\xec\\x8a\\xa4')
+
+
 class TestGetPathToStorageVolume(CiTestCase):
 
     def setUp(self):
@@ -3050,14 +3078,20 @@ label: gpt
         table.add(dict(number=1, offset=1 << 20, size=9 << 20, flag='boot',
                        partition_name=name))
         type_id = "C12A7328-F81F-11D2-BA4B-00A0C93EC93B"
+        to_hex = block_meta_v2.to_utf8_hex_notation
         expected = f'''\
 label: gpt
 
-1:  start=2048 size=18432 type={type_id} name="{name}"'''
+1:  start=2048 size=18432 type={type_id} name="{to_hex(name)}"'''
         self.assertEqual(expected, table.render())
 
-    def test_gpt_name_spaces(self):
-        name = self.random_string() + " " + self.random_string()
+    def test_gpt_name_free_text(self):
+        name = 'my "분할" réservée'
+        expected_name = ''.join([
+            'my',
+            '\\x20\\x22\\xeb\\xb6\\x84\\xed\\x95\\xa0\\x22',
+            '\\x20r\\xc3\\xa9serv\\xc3\\xa9e',
+        ])
         table = block_meta_v2.GPTPartTable(512)
         table.add(dict(number=1, offset=1 << 20, size=9 << 20, flag='boot',
                        partition_name=name))
@@ -3065,7 +3099,7 @@ label: gpt
         expected = f'''\
 label: gpt
 
-1:  start=2048 size=18432 type={type_id} name="{name}"'''
+1:  start=2048 size=18432 type={type_id} name="{expected_name}"'''
         self.assertEqual(expected, table.render())
 
     def test_gpt_attrs_none(self):
@@ -3255,8 +3289,9 @@ label: dos
                 number=1, start=2, size=3, type='04', bootable=False,
                 uuid=None, name=None, attrs=None)
         pte.preserve({'uuid': uuid, 'name': name, 'attrs': attrs})
+        to_hex = block_meta_v2.to_utf8_hex_notation
         expected = f'1:  start=2 size=3 type=04 uuid={uuid} ' + \
-            f'name="{name}" attrs="{attrs}"'
+            f'name="{to_hex(name)}" attrs="{attrs}"'
         self.assertEqual(expected, pte.render())
 
     def test_v2_dos_is_logical(self):

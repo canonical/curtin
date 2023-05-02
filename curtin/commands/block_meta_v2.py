@@ -26,6 +26,23 @@ from curtin.storage_config import (
 from curtin.udev import udevadm_settle
 
 
+def to_utf8_hex_notation(string: str) -> str:
+    ''' Convert a string into a valid ASCII string where all characters outside
+    the alphanumerical range (according to bytes.isalnum()) are translated to
+    their corresponding \\x notation. E.g.:
+        to_utf8_hex_notation("hello") => "hello"
+        to_utf8_hex_notation("réservée") => "r\\xc3\\xa9serv\\xc3\\xa9e"
+        to_utf8_hex_notation("sp ace") => "sp\\x20ace"
+    '''
+    result = ''
+    for c in bytearray(string, 'utf-8'):
+        if bytes([c]).isalnum():
+            result += bytes([c]).decode()
+        else:
+            result += f'\\x{c:02x}'
+    return result
+
+
 @attr.s(auto_attribs=True)
 class PartTableEntry:
     # The order listed here matches the order sfdisk represents these fields
@@ -49,7 +66,11 @@ class PartTableEntry:
             if v is not None:
                 r += ' {}={}'.format(a, v)
         if self.name is not None:
-            r += ' name="{}"'.format(self.name)
+            # Partition names are basically free-text fields. Injecting some
+            # characters such as '"', '\' and '\n' will result in lots of
+            # trouble.  Fortunately, sfdisk supports \x notation, so we can
+            # rely on it.
+            r += ' name="{}"'.format(to_utf8_hex_notation(self.name))
         if self.attrs:
             r += ' attrs="{}"'.format(' '.join(self.attrs))
         if self.bootable:
