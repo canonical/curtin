@@ -131,11 +131,25 @@ def udevadm_info(path=None):
 
 def udev_all_block_device_properties():
     import pyudev
-    props = []
+    devices_props = []
     c = pyudev.Context()
     for device in c.list_devices(subsystem='block'):
-        props.append(dict(device.properties))
-    return props
+        # When dereferencing device[prop], pyudev calls bytes.decode(), which
+        # can fail if the value is invalid utf-8. We don't want a single
+        # invalid value to completely prevent probing. So we iterate
+        # over each value manually and ignore those which are invalid.  We know
+        # that PARTNAME is subject to failures when accents and other special
+        # characters are used in a GPT partition name.
+        # See LP: 2017862
+        props = {}
+        for prop in device.properties:
+            try:
+                props[prop] = device.properties[prop]
+            except UnicodeDecodeError:
+                LOG.warning('ignoring property %s because it is not valid'
+                            ' utf-8', prop)
+        devices_props.append(props)
+    return devices_props
 
 
 # vi: ts=4 expandtab syntax=python

@@ -152,8 +152,8 @@ class CiTestCase(TestCase):
         return os.path.normpath(
             os.path.abspath(os.path.sep.join((_dir, path))))
 
-    @classmethod
-    def random_string(cls, length=8):
+    @staticmethod
+    def random_string(length=8):
         """ return a random lowercase string with default length of 8"""
         return ''.join(
             random.choice(string.ascii_lowercase) for _ in range(length))

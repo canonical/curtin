@@ -1084,9 +1084,13 @@ class TestBlockMeta(IntegrationTestCase):
             actual_name = sfdisk_info['partitions'][0]['name']
         self.assertEqual(name, actual_name)
 
-    def test_gpt_name_persistent(self):
+    @parameterized.expand([
+        ('random', CiTestCase.random_string(),),
+        # "écrasé" means "overwritten"
+        ('unicode', "'name' must not be écrasé/덮어쓴!"),
+    ])
+    def test_gpt_name_persistent(self, title, name):
         self.img = self.tmp_path('image.img')
-        name = self.random_string()
         config = StorageConfigBuilder(version=2)
         config.add_image(path=self.img, size='20M', ptable='gpt')
         p1 = config.add_part(number=1, offset=1 << 20, size=18 << 20,
