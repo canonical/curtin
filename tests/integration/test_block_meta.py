@@ -7,6 +7,7 @@ import json
 import os
 from parameterized import parameterized
 import re
+import subprocess
 import sys
 from typing import Optional
 import yaml
@@ -168,8 +169,11 @@ class StorageConfigBuilder:
 
     def add_image(self, *, path, size, create=False, **kw):
         if create:
-            with open(path, "wb") as f:
-                f.write(b"\0" * int(util.human2bytes(size)))
+            subprocess.run([
+                'dd',
+                'if=/dev/zero', f'of={path}',
+                'bs=1', f'count={size}',
+            ])
         action = self._add(type='image', path=path, size=size, **kw)
         self.cur_image = action['id']
         return action
