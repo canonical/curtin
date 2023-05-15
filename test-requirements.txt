@@ -1,3 +1,6 @@
+pip
+wheel
+virtualenv
 jsonschema
 mock
 nose
