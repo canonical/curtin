@@ -1,8 +1,10 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
 
-import threading
-import socketserver
 from http.server import SimpleHTTPRequestHandler
+import socketserver
+import threading
+import os
+
 from tests.vmtests.image_sync import IMAGE_DIR
 
 
@@ -12,7 +14,17 @@ class ThreadedTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
 
 class ImageHTTPRequestHandler(SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
-        super().__init__(*args, directory=IMAGE_DIR, **kwargs)
+        try:
+            super().__init__(*args, directory=IMAGE_DIR, **kwargs)
+        except TypeError:
+            # SimpleHTTPRequestHandler in python < 3.7 doesn't take a directory
+            # arg, fake it.
+            curdir = os.getcwd()
+            os.chdir(IMAGE_DIR)
+            try:
+                super().__init__(*args, **kwargs)
+            finally:
+                os.chdir(curdir)
 
 
 class ImageServer:
