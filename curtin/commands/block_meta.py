@@ -861,17 +861,28 @@ def calc_dm_partition_info(partition_kname):
 
 
 def calc_partition_info(partition_kname, logical_block_size_bytes):
+    p_size_sec = 0
+    p_start_sec = 0
     if partition_kname.startswith('dm-'):
         p_start, p_size = calc_dm_partition_info(partition_kname)
     else:
         pdir = block.sys_block_path(partition_kname)
         p_size = int(util.load_file(os.path.join(pdir, "size")))
         p_start = int(util.load_file(os.path.join(pdir, "start")))
+        if p_size == 0 or p_start == 0:
+            # if sysfs reported a 0, let's try sfdisk
+            sfdisk_info = block.sfdisk_info(partition_kname)
+            part_path = block.kname_to_path(partition_kname)
+            part_info = block.get_partition_sfdisk_info(part_path, sfdisk_info)
+            p_size_sec = part_info['size']
+            p_start_sec = part_info['start']
 
     # NB: sys/block/X/{size,start} and dmsetup output are both always
     # in 512b sectors
-    p_size_sec = p_size * 512 // logical_block_size_bytes
-    p_start_sec = p_start * 512 // logical_block_size_bytes
+    if p_size_sec == 0:
+        p_size_sec = p_size * 512 // logical_block_size_bytes
+    if p_start_sec == 0:
+        p_start_sec = p_start * 512 // logical_block_size_bytes
 
     LOG.debug("calc_partition_info: %s size_sectors=%s start_sectors=%s",
               partition_kname, p_size_sec, p_start_sec)
