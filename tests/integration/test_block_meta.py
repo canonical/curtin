@@ -11,6 +11,7 @@ import re
 import stat
 import sys
 from typing import Optional
+import tempfile
 from unittest import skipIf
 import yaml
 
@@ -268,7 +269,37 @@ class TestBlockMeta(IntegrationTestCase):
             '-c', config_path, 'block-meta', '--testmode', 'custom',
             *args,
             ]
-        util.subp(cmd, env=cmd_env, **kwargs)
+
+        # Set debug=True to halt the integration test and run curtin manually,
+        # with the integration tests having setup the environment for you.
+        # To see the script name run with "pytest-3 -s", or look at fp.name.
+        if not kwargs.pop('debug', False):
+            util.subp(cmd, env=cmd_env, **kwargs)
+            return
+
+        env = cmd_env.copy()
+        env.update(PYTHONPATH=os.getcwd())
+        import pprint
+        pp = pprint.PrettyPrinter(indent=4)
+        code = '''\
+#!/usr/bin/python3
+import subprocess
+cmd = {cmd}
+env = {env}
+subprocess.run(cmd, env=env)
+'''.format(cmd=pp.pformat(cmd), env=pp.pformat(env))
+
+        opts = dict(mode='w', delete=False, suffix='.py')
+        with tempfile.NamedTemporaryFile(**opts) as fp:
+            fp.write(code)
+        try:
+            os.chmod(fp.name, 0o700)
+            print('\nThe integration test is paused.')
+            print('Use script {} to run curtin manually.'.format(fp.name))
+            import pdb
+            pdb.set_trace()
+        finally:
+            os.unlink(fp.name)
 
     def _test_default_offsets(self, ptable, version, sector_size=512):
         psize = 40 << 20
