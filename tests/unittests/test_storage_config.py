@@ -1170,7 +1170,10 @@ class TestSelectConfigs(CiTestCase):
         id1 = {'a': 1, 'c': 3}
         sc = {'id0': id0, 'id1': id1}
 
-        self.assertEqual([id0, id1], select_configs(sc, a=1))
+        actual = select_configs(sc, a=1)
+        self.assertEqual(2, len(actual))
+        self.assertIn(id0, actual)
+        self.assertIn(id1, actual)
 
     def test_not_found(self):
         id0 = {'a': 1, 'b': 2}
