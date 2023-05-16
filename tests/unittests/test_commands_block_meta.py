@@ -3038,10 +3038,10 @@ label: gpt
         table = block_meta_v2.GPTPartTable(512)
         table.add(dict(number=1, offset=1 << 20, size=9 << 20,
                        flag='boot', partition_type=ptype))
-        expected = f'''\
+        expected = '''\
 label: gpt
 
-1:  start=2048 size=18432 type={ptype}'''
+1:  start=2048 size=18432 type={}'''.format(ptype)
         self.assertEqual(expected, table.render())
 
     def test_gpt_name(self):
@@ -3050,10 +3050,10 @@ label: gpt
         table.add(dict(number=1, offset=1 << 20, size=9 << 20, flag='boot',
                        partition_name=name))
         type_id = "C12A7328-F81F-11D2-BA4B-00A0C93EC93B"
-        expected = f'''\
+        expected = '''\
 label: gpt
 
-1:  start=2048 size=18432 type={type_id} name="{name}"'''
+1:  start=2048 size=18432 type={} name="{}"'''.format(type_id, name)
         self.assertEqual(expected, table.render())
 
     def test_gpt_name_spaces(self):
@@ -3062,10 +3062,10 @@ label: gpt
         table.add(dict(number=1, offset=1 << 20, size=9 << 20, flag='boot',
                        partition_name=name))
         type_id = "C12A7328-F81F-11D2-BA4B-00A0C93EC93B"
-        expected = f'''\
+        expected = '''\
 label: gpt
 
-1:  start=2048 size=18432 type={type_id} name="{name}"'''
+1:  start=2048 size=18432 type={} name="{}"'''.format(type_id, name)
         self.assertEqual(expected, table.render())
 
     def test_gpt_attrs_none(self):
@@ -3073,10 +3073,10 @@ label: gpt
         table.add(dict(number=1, offset=1 << 20, size=9 << 20, flag='boot',
                        attrs=None))
         type_id = "C12A7328-F81F-11D2-BA4B-00A0C93EC93B"
-        expected = f'''\
+        expected = '''\
 label: gpt
 
-1:  start=2048 size=18432 type={type_id}'''
+1:  start=2048 size=18432 type={}'''.format(type_id)
         self.assertEqual(expected, table.render())
 
     def test_gpt_attrs_empty(self):
@@ -3084,10 +3084,10 @@ label: gpt
         table.add(dict(number=1, offset=1 << 20, size=9 << 20, flag='boot',
                        attrs=[]))
         type_id = "C12A7328-F81F-11D2-BA4B-00A0C93EC93B"
-        expected = f'''\
+        expected = '''\
 label: gpt
 
-1:  start=2048 size=18432 type={type_id}'''
+1:  start=2048 size=18432 type={}'''.format(type_id)
         self.assertEqual(expected, table.render())
 
     def test_gpt_attrs_required(self):
@@ -3095,10 +3095,10 @@ label: gpt
         table.add(dict(number=1, offset=1 << 20, size=9 << 20, flag='boot',
                        attrs=['RequiredPartition']))
         type_id = "C12A7328-F81F-11D2-BA4B-00A0C93EC93B"
-        expected = f'''\
+        expected = '''\
 label: gpt
 
-1:  start=2048 size=18432 type={type_id} attrs="RequiredPartition"'''
+1:  start=2048 size=18432 type={} attrs="RequiredPartition"'''.format(type_id)
         self.assertEqual(expected, table.render())
 
     def test_gpt_attrs_bit(self):
@@ -3106,10 +3106,10 @@ label: gpt
         table.add(dict(number=1, offset=1 << 20, size=9 << 20, flag='boot',
                        attrs=['GUID:51']))
         type_id = "C12A7328-F81F-11D2-BA4B-00A0C93EC93B"
-        expected = f'''\
+        expected = '''\
 label: gpt
 
-1:  start=2048 size=18432 type={type_id} attrs="GUID:51"'''
+1:  start=2048 size=18432 type={} attrs="GUID:51"'''.format(type_id)
         self.assertEqual(expected, table.render())
 
     def test_gpt_attrs_multi(self):
@@ -3117,10 +3117,11 @@ label: gpt
         table.add(dict(number=1, offset=1 << 20, size=9 << 20, flag='boot',
                        attrs=['RequiredPartition', 'GUID:51']))
         type_id = "C12A7328-F81F-11D2-BA4B-00A0C93EC93B"
-        expected = f'''\
+        attrs = 'RequiredPartition GUID:51'
+        expected = '''\
 label: gpt
 
-1:  start=2048 size=18432 type={type_id} attrs="RequiredPartition GUID:51"'''
+1:  start=2048 size=18432 type={} attrs="{}"'''.format(type_id, attrs)
         self.assertEqual(expected, table.render())
 
     def test_dos_basic(self):
@@ -3144,10 +3145,10 @@ label: dos
         table = block_meta_v2.DOSPartTable(512)
         table.add(dict(number=1, offset=1 << 20, size=9 << 20,
                        flag='boot', partition_type=ptype))
-        expected = f'''\
+        expected = '''\
 label: dos
 
-1:  start=2048 size=18432 type={ptype} bootable'''
+1:  start=2048 size=18432 type={} bootable'''.format(ptype)
         self.assertEqual(expected, table.render())
 
     def test_preserve_labelid_gpt(self):
@@ -3243,20 +3244,20 @@ label: dos
                 number=1, start=2, size=3, type='04', bootable=True,
                 uuid=uuid, name='name',
                 attrs=['stuff', 'things'])
-        expected = f'1:  start=2 size=3 type=04 uuid={uuid} ' + \
+        expected = '1:  start=2 size=3 type=04 uuid={} '.format(uuid) + \
             'name="name" attrs="stuff things" bootable'
         self.assertEqual(expected, pte.render())
 
     def test_gpt_entry_preserve(self):
         uuid = str(random_uuid())
         name = self.random_string()
-        attrs = f'{self.random_string()} {self.random_string()}'
+        attrs = '{} {}'.format(self.random_string(), self.random_string())
         pte = block_meta_v2.PartTableEntry(
                 number=1, start=2, size=3, type='04', bootable=False,
                 uuid=None, name=None, attrs=None)
         pte.preserve({'uuid': uuid, 'name': name, 'attrs': attrs})
-        expected = f'1:  start=2 size=3 type=04 uuid={uuid} ' + \
-            f'name="{name}" attrs="{attrs}"'
+        expected = '1:  start=2 size=3 type=04 uuid={} '.format(uuid) + \
+            'name="{}" attrs="{}"'.format(name, attrs)
         self.assertEqual(expected, pte.render())
 
     def test_v2_dos_is_logical(self):
