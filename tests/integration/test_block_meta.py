@@ -718,6 +718,8 @@ class TestBlockMeta(IntegrationTestCase):
                     PartData(number=6, offset=13 << 20, size=20 << 20),
                 ])
 
+    @skipIf(distro.lsb_release()['release'] < '20.04',
+            'old lsblk will not list info about extended partitions')
     def test_resize_extended(self):
         img = self.tmp_path('image.img')
         config = StorageConfigBuilder(version=2)
@@ -867,6 +869,8 @@ class TestBlockMeta(IntegrationTestCase):
             self.assertEqual(139 << 20, _get_filesystem_size(dev, p2))
             self.assertEqual(50 << 20, _get_filesystem_size(dev, p3))
 
+    @skipIf(distro.lsb_release()['release'] < '20.04',
+            'old lsblk will not list info about extended partitions')
     def test_mix_of_operations_msdos(self):
         # a test that keeps, creates, resizes, and deletes a partition
         # including handling of extended/logical
