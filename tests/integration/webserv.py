@@ -62,4 +62,4 @@ class ImageServer:
         if self.server is not None:
             ip, port = self.server.server_address
 
-        return f"http://{ip}:{port}"
+        return "http://{}:{}".format(ip, port)

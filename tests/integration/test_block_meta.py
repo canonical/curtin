@@ -65,7 +65,7 @@ class PartData:
 
 def _get_ext_size(dev, part_action):
     num = part_action['number']
-    cmd = ['dumpe2fs', '-h', f'{dev}p{num}']
+    cmd = ['dumpe2fs', '-h', '{}p{}'.format(dev, num)]
     out = util.subp(cmd, capture=True)[0]
     for line in out.splitlines():
         if line.startswith('Block count'):
@@ -80,7 +80,7 @@ def _get_ntfs_size(dev, part_action):
     cmd = ['ntfsresize',
            '--no-action',
            '--force',  # needed post-resize, which otherwise demands a CHKDSK
-           '--info', f'{dev}p{num}']
+           '--info', '{}p{}'.format(dev, num)]
     out = util.subp(cmd, capture=True)[0]
     # Sample input:
     # Current volume size: 41939456 bytes (42 MB)
@@ -102,7 +102,7 @@ _get_fs_sizers = {
 
 def _get_filesystem_size(dev, part_action, fstype='ext4'):
     if fstype not in _get_fs_sizers.keys():
-        raise Exception(f'_get_filesystem_size: no support for {fstype}')
+        raise Exception('_get_filesystem_size: no support for %s' % fstype)
     return _get_fs_sizers[fstype](dev, part_action)
 
 
@@ -125,7 +125,7 @@ def summarize_partitions(dev):
         (unused, s_number, s_offset, s_size) = [
                 entry for entry in sysfs_data
                 if '/dev/' + entry[0] == node][0]
-        assert node.startswith(f'{dev}p')
+        assert node.startswith(dev + 'p')
         number = int(node[len(dev) + 1:])
         ptype = part['type']
         offset = part['start'] * sectorsize
@@ -207,13 +207,13 @@ class TestBlockMeta(IntegrationTestCase):
     def mount(self, dev, partition_cfg):
         mnt_point = self.tmp_dir()
         num = partition_cfg['number']
-        with util.mount(f'{dev}p{num}', mnt_point):
+        with util.mount('{}p{}'.format(dev, num), mnt_point):
             yield mnt_point
 
     @contextlib.contextmanager
     def open_file_on_part(self, dev, part_action, mode):
         with self.mount(dev, part_action) as mnt_point:
-            with open(f'{mnt_point}/data.txt', mode) as fp:
+            with open(mnt_point + '/data.txt', mode) as fp:
                 yield fp
 
     def create_data(self, dev, part_action):
@@ -233,7 +233,7 @@ class TestBlockMeta(IntegrationTestCase):
             tolerance = 512 * 10
         actual_fssize = _get_filesystem_size(dev, part_action, fstype)
         diff = expected - actual_fssize
-        self.assertTrue(0 <= diff <= tolerance, f'difference of {diff}')
+        self.assertTrue(0 <= diff <= tolerance, 'difference of ' + str(diff))
 
     def run_bm(self, config, *args, **kwargs):
         config_path = self.tmp_path('config.yaml')
@@ -603,7 +603,7 @@ class TestBlockMeta(IntegrationTestCase):
             }
             with loop_dev(img) as dev:
                 try:
-                    self.run_bm(curtin_cfg, f'--devices={dev}', env=cmd_env)
+                    self.run_bm(curtin_cfg, '--devices=' + dev, env=cmd_env)
                 finally:
                     util.subp(['umount', mnt_point])
                     udev.udevadm_settle()
@@ -623,7 +623,7 @@ class TestBlockMeta(IntegrationTestCase):
                              fstype=fstype)
         self.run_bm(config.render())
         with loop_dev(img) as dev:
-            self.assertEqual(fstype, _get_volume_fstype(f'{dev}p1'))
+            self.assertEqual(fstype, _get_volume_fstype(dev + 'p1'))
             self.create_data(dev, p1)
             self.assertEqual(
                 summarize_partitions(dev), [
@@ -652,7 +652,7 @@ class TestBlockMeta(IntegrationTestCase):
             p1['size'] = size
             self.run_bm(config.render())
             with loop_dev(img) as dev:
-                self.assertEqual('ntfs', _get_volume_fstype(f'{dev}p1'))
+                self.assertEqual('ntfs', _get_volume_fstype(dev + 'p1'))
                 self.create_data(dev, p1)
                 self.assertEqual(
                     summarize_partitions(dev), [
@@ -960,11 +960,11 @@ class TestBlockMeta(IntegrationTestCase):
             with self.mount(dev, p1) as mnt_point:
                 # Attempt to create files across the partition with gaps
                 for i in range(1, 41):
-                    with open(f'{mnt_point}/{str(i)}', 'wb') as fp:
+                    with open('{}/{}'.format(mnt_point, i), 'wb') as fp:
                         fp.write(bytes([i]) * (2 << 20))
                 for i in range(1, 41):
                     if i % 5 != 0:
-                        os.remove(f'{mnt_point}/{str(i)}')
+                        os.remove('{}/{}'.format(mnt_point, i))
 
         config = StorageConfigBuilder(version=2)
         config.add_image(path=img, size='100M', ptable='gpt')
@@ -982,7 +982,7 @@ class TestBlockMeta(IntegrationTestCase):
                 ])
             with self.mount(dev, p1) as mnt_point:
                 for i in range(5, 41, 5):
-                    with open(f'{mnt_point}/{i}', 'rb') as fp:
+                    with open('{}/{}'.format(mnt_point, i), 'rb') as fp:
                         self.assertEqual(bytes([i]) * (2 << 20), fp.read())
 
     def test_parttype_dos(self):

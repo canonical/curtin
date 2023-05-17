@@ -124,8 +124,8 @@ class SFDiskPartTable:
         self._sector_bytes = sector_bytes
         if ONE_MIB_BYTES % sector_bytes != 0:
             raise Exception(
-                f"sector_bytes {sector_bytes} does not divide 1MiB, cannot "
-                "continue!")
+                "sector_bytes {} does not divide 1MiB, cannot "
+                "continue!".format(sector_bytes))
         self.one_mib_sectors = ONE_MIB_BYTES // sector_bytes
 
     def bytes2sectors(self, amount):
