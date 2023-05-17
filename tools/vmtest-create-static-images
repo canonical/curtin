@@ -34,7 +34,8 @@ trap cleanup EXIT
         mkpart primary 0% 25% \
         mkpart primary 25% 100% \
         set 2 lvm on
-    sudo udevadm trigger --settle "${loopdev}"
+    sudo udevadm trigger "${loopdev}"
+    sudo udevadm settle
 
     # create LVM volumes
     sudo pvcreate "${loopdev}"p2
