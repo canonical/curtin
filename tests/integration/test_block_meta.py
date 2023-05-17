@@ -9,9 +9,10 @@ from parameterized import parameterized
 import re
 import sys
 from typing import Optional
+from unittest import skipIf
 import yaml
 
-from curtin import block, log, udev, util
+from curtin import block, distro, log, udev, util
 
 from curtin.commands.block_meta import _get_volume_fstype
 from curtin.commands.block_meta_v2 import ONE_MIB_BYTES
@@ -1127,6 +1128,8 @@ class TestBlockMeta(IntegrationTestCase):
             actual_attrs = set(attrs_str.split(' '))
         self.assertEqual(set(attrs), actual_attrs)
 
+    @skipIf(distro.lsb_release()['release'] < '18.04',
+            'old sfdisk no attr support')
     def test_gpt_set_multi_attr(self):
         self.img = self.tmp_path('image.img')
         config = StorageConfigBuilder(version=2)
@@ -1213,6 +1216,8 @@ last-lba: 10240'''.encode()
             # default is disk size in sectors - 17 KiB
             self.assertEqual(10240, sfdisk_info['lastlba'])
 
+    @skipIf(distro.lsb_release()['release'] < '18.04',
+            'old sfdisk has no table-length support')
     def test_gpt_table_length_persistent(self):
         self.img = self.tmp_path('image.img')
         config = StorageConfigBuilder(version=2)
