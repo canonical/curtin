@@ -3,7 +3,6 @@
 import contextlib
 import json
 import os
-from parameterized import parameterized
 import re
 import sys
 from unittest import skipIf
@@ -1045,8 +1044,7 @@ class TestBlockMeta(IntegrationTestCase):
             PartData(number=4, offset=80 << 20, size=19 << 20,
                      partition_type=winre))
 
-    @parameterized.expand([('msdos',), ('gpt',)])
-    def test_disk_label_id_persistent(self, ptable):
+    def _test_disk_label_id_persistent(self, ptable):
         # when the disk is preserved, the disk label id shall also be preserved
         self.img = self.tmp_path('image.img')
         config = StorageConfigBuilder(version=2)
@@ -1064,6 +1062,12 @@ class TestBlockMeta(IntegrationTestCase):
             PartData(number=1, offset=1 << 20, size=18 << 20))
         with loop_dev(self.img) as dev:
             self.assertEqual(orig_label_id, _get_disk_label_id(dev))
+
+    def test_disk_label_id_persistent_msdos(self):
+        self._test_disk_label_id_persistent('msdos')
+
+    def test_disk_label_id_persistent_gpt(self):
+        self._test_disk_label_id_persistent('gpt')
 
     def test_gpt_uuid_persistent(self):
         # A persistent partition with an unspecified uuid shall keep the uuid
@@ -1101,7 +1105,7 @@ class TestBlockMeta(IntegrationTestCase):
             actual_name = sfdisk_info['partitions'][0]['name']
         self.assertEqual(name, actual_name)
 
-    def test_gpt_name_persistent(self):
+    def _test_gpt_name_persistent(self, title, name):
         self.img = self.tmp_path('image.img')
         name = self.random_string()
         config = StorageConfigBuilder(version=2)
@@ -1124,6 +1128,9 @@ class TestBlockMeta(IntegrationTestCase):
             sfdisk_info = block.sfdisk_info(dev)
             actual_name = sfdisk_info['partitions'][0]['name']
         self.assertEqual(name, actual_name)
+
+    def test_gpt_name_persistent_random(self):
+        self._test_gpt_name_persistent('random', CiTestCase.random_string())
 
     def test_gpt_set_single_attr(self):
         self.img = self.tmp_path('image.img')
@@ -1269,8 +1276,7 @@ table-length: 256'''.encode()
         self.assertPartitions(
             PartData(number=1, offset=1 << 20, size=1 << 20))
 
-    @parameterized.expand(((1,), (2,)))
-    def test_swap(self, sv):
+    def _test_swap(self, sv):
         self.img = self.tmp_path('image.img')
         config = StorageConfigBuilder(version=sv)
         config.add_image(path=self.img, create=True, size='20M',
@@ -1281,3 +1287,9 @@ table-length: 256'''.encode()
         self.assertPartitions(
             PartData(number=1, offset=1 << 20, size=1 << 20, boot=False,
                      partition_type='82'))
+
+    def test_swap_sv1(self):
+        self._test_swap(1)
+
+    def test_swap_sv2(self):
+        self._test_swap(2)
