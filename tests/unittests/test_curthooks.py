@@ -2286,19 +2286,21 @@ class TestDoAptConfig(CiTestCase):
     def test_apt_config_dict(self):
         with patch(self.handle_apt_sym) as m_handle_apt:
             curthooks.do_apt_config({"apt": {}}, target="/")
-        m_handle_apt.assert_called()
+        m_handle_apt.assert_any_call({}, '/')
 
     def test_with_apt_config(self):
         with patch(self.handle_apt_sym) as m_handle_apt:
             curthooks.do_apt_config(
                     {"apt": {"proxy": {"http_proxy": "http://proxy:3128"}}},
                     target="/")
-        m_handle_apt.assert_called_once()
+        m_handle_apt.assert_any_call(
+                {'proxy': {'http_proxy': 'http://proxy:3128'}}, '/')
 
     def test_with_debconf_selections(self):
         # debconf_selections are translated to apt config
         with patch(self.handle_apt_sym) as m_handle_apt:
             curthooks.do_apt_config({"debconf_selections": "foo"}, target="/")
-        m_handle_apt.assert_called_once()
+        m_handle_apt.assert_any_call({'debconf_selections': 'foo'}, '/')
+
 
 # vi: ts=4 expandtab syntax=python

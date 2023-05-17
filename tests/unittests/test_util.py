@@ -1179,7 +1179,7 @@ class TestNotExclusiveRetry(CiTestCase):
         f = mock.Mock(side_effect=[util.NotExclusiveError, 'success'])
 
         self.assertEqual(util.not_exclusive_retry(f, 1, 2, 3), 'success')
-        sleep.assert_called_once()
+        self.assertEqual(1, sleep.call_count)
 
     @mock.patch('curtin.util.time.sleep')
     def test_not_exclusive_retry_not_exclusive_twice(self, sleep):
@@ -1187,7 +1187,7 @@ class TestNotExclusiveRetry(CiTestCase):
 
         with self.assertRaises(util.NotExclusiveError):
             util.not_exclusive_retry(f, 1, 2, 3)
-        sleep.assert_called_once()
+        self.assertEqual(1, sleep.call_count)
 
     @mock.patch('curtin.util.time.sleep')
     def test_not_exclusive_retry_not_exclusive_once_then_error(self, sleep):
@@ -1195,6 +1195,6 @@ class TestNotExclusiveRetry(CiTestCase):
 
         with self.assertRaises(OSError):
             util.not_exclusive_retry(f, 1, 2, 3)
-        sleep.assert_called_once()
+        self.assertEqual(1, sleep.call_count)
 
 # vi: ts=4 expandtab syntax=python

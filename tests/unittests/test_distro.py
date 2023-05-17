@@ -311,7 +311,7 @@ class TestAptInstall(CiTestCase):
         ]
 
         distro.run_apt_command('install', ['foobar', 'wark'])
-        m_apt_update.assert_called_once()
+        self.assertEqual(1, m_apt_update.call_count)
         m_apt_install.assert_has_calls(expected_calls)
         m_subp.assert_called_once_with(['apt-get', 'clean'], target='/')
 
@@ -321,7 +321,7 @@ class TestAptInstall(CiTestCase):
 
         # no clean option
         distro.run_apt_command('install', ['foobar', 'wark'], clean=False)
-        m_apt_update.assert_called_once()
+        self.assertEqual(1, m_apt_update.call_count)
         m_subp.assert_has_calls(expected_calls[:-1])
 
     @mock.patch.object(util.ChrootableTarget, "__enter__", new=lambda a: a)
