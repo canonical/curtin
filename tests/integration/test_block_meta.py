@@ -1177,12 +1177,14 @@ class TestBlockMeta(IntegrationTestCase):
         config = StorageConfigBuilder(version=2)
         config.add_image(path=self.img, create=True, size='20M', ptable='gpt',
                          preserve=True)
+        # Set first-lba, and also a stub partition to keep older sfdisk happy.
         script = '''\
 label: gpt
-first-lba: 34'''.encode()
+first-lba: 34
+1MiB 1MiB L'''.encode()
         with loop_dev(self.img) as dev:
             cmd = ['sfdisk', dev]
-            util.subp(cmd, data=script)
+            util.subp(cmd, data=script, capture=True)
 
         config.add_part(number=1, offset=1 << 20, size=1 << 20)
         self.run_bm(config.render())
@@ -1199,9 +1201,11 @@ first-lba: 34'''.encode()
         config = StorageConfigBuilder(version=2)
         config.add_image(path=self.img, create=True, size='20M', ptable='gpt',
                          preserve=True)
+        # Set last-lba, and also a stub partition to keep older sfdisk happy.
         script = '''\
 label: gpt
-last-lba: 10240'''.encode()
+last-lba: 10240
+1MiB 1MiB L'''.encode()
         with loop_dev(self.img) as dev:
             cmd = ['sfdisk', dev]
             util.subp(cmd, data=script)
