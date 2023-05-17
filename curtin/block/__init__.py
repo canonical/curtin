@@ -1042,9 +1042,21 @@ def check_dos_signature(device):
     # this signature must be at 0x1fe
     # https://en.wikipedia.org/wiki/Master_boot_record#Sector_layout
     devname = dev_path(path_to_kname(device))
-    return (is_block_device(devname) and util.file_size(devname) >= 0x200 and
-            (util.load_file(devname, decode=False, read_len=2, offset=0x1fe) ==
-             b'\x55\xAA'))
+    if not is_block_device(devname):
+        return False
+    try:
+        # Some older series have the extended partition block device but return
+        # ENXIO when attempting to read it.
+        file_size = util.file_size(devname)
+    except OSError as ose:
+        if ose.errno == errno.ENXIO:
+            return False
+        else:
+            raise
+    if file_size < 0x200:
+        return False
+    signature = util.load_file(devname, decode=False, read_len=2, offset=0x1fe)
+    return signature == b'\x55\xAA'
 
 
 def check_efi_signature(device):
