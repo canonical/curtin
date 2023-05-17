@@ -426,8 +426,17 @@ class TestBlockMeta(IntegrationTestCase):
                     PartData(number=6, offset=13 << 20, size=10 << 20),
                 ])
 
-            p1kname = block.partition_kname(block.path_to_kname(dev), 1)
-            self.assertTrue(block.is_extended_partition('/dev/' + p1kname))
+            if distro.lsb_release()['release'] >= '20.04':
+                p1kname = block.partition_kname(block.path_to_kname(dev), 1)
+                self.assertTrue(block.is_extended_partition('/dev/' + p1kname))
+            else:
+                # on Bionic and earlier, the block device for the extended
+                # partition is not functional, so attempting to verify it is
+                # expected to fail.  So just read the value directly from the
+                # expected signature location.
+                signature = util.load_file(dev, decode=False,
+                                           read_len=2, offset=0x1001fe)
+                self.assertEqual(b'\x55\xAA', signature)
 
     def test_logical_v1(self):
         self._test_logical(1)
