@@ -734,6 +734,7 @@ def get_root_device(dev, paths=None):
     LOG.debug('Searching for filesystem on %s containing one of: %s',
               dev, paths)
     partitions = get_pardevs_on_blockdevs(dev)
+    LOG.debug('Known partitions %s', list(partitions.keys()))
     target = None
     tmp_mount = tempfile.mkdtemp()
     for i in partitions:
