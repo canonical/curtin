@@ -1,10 +1,6 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
 
 import os
-from typing import (
-    List,
-    Optional,
-    )
 
 import attr
 
@@ -26,21 +22,21 @@ from curtin.storage_config import (
 from curtin.udev import udevadm_settle
 
 
-@attr.s(auto_attribs=True)
+@attr.s()
 class PartTableEntry:
     # The order listed here matches the order sfdisk represents these fields
     # when using the --dump argument.
-    number: int
-    start: int
-    size: int
-    type: str
-    uuid: Optional[str]
+    number = attr.ib(default=None)
+    start = attr.ib(default=None)
+    size = attr.ib(default=None)
+    type = attr.ib(default=None)
+    uuid = attr.ib(default=None)
     # name here is the sfdisk term - quoted descriptive text of the partition -
     # not to be confused with what make_dname() does.
     # Offered in the partition command as 'partition_name'.
-    name: Optional[str]
-    attrs: Optional[List[str]]
-    bootable: bool = False
+    name = attr.ib(default=None)
+    attrs = attr.ib(default=None)
+    bootable = attr.ib(default=False)
 
     def render(self):
         r = '{}: '.format(self.number)

@@ -1,16 +1,15 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
 
-import dataclasses
-from dataclasses import dataclass
 import contextlib
 import json
 import os
 from parameterized import parameterized
 import re
 import sys
-from typing import Optional
 from unittest import skipIf
 import yaml
+
+import attr
 
 from curtin import block, compat, distro, log, udev, util
 from curtin.commands.block_meta import _get_volume_fstype
@@ -38,22 +37,25 @@ def loop_dev(image, sector_size=512):
         util.subp(['losetup', '--detach', dev])
 
 
-@dataclass(order=True)
+@attr.s(init=True, cmp=False)
 class PartData:
-    number: Optional[int] = None
-    offset: Optional[int] = None
-    size: Optional[int] = None
-    boot: Optional[bool] = None
-    partition_type: Optional[str] = None
+    number = attr.ib(default=None)
+    offset = attr.ib(default=None)
+    size = attr.ib(default=None)
+    boot = attr.ib(default=None)
+    partition_type = attr.ib(default=None)
 
     # test cases may initialize the values they care about
     # test utilities shall initialize all fields
     def assertFieldsAreNotNone(self):
-        for field in dataclasses.fields(self):
+        for field in attr.fields(self.__class__):
             assert getattr(self, field.name) is not None
 
+    def __lt__(self, other):
+        return self.number < other.number
+
     def __eq__(self, other):
-        for field in dataclasses.fields(self):
+        for field in attr.fields(self.__class__):
             myval = getattr(self, field.name)
             otherval = getattr(other, field.name)
             if myval is not None and otherval is not None \

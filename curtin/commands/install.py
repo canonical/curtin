@@ -112,16 +112,16 @@ def writeline(fname, output):
         pass
 
 
-@attr.s(auto_attribs=True)
+@attr.s()
 class WorkingDir:
-    target: str
-    top: str
-    scratch: str
-    interfaces: str
-    netconf: str
-    netstate: str
-    fstab: str
-    config_file: str
+    target = attr.ib()
+    top = attr.ib()
+    scratch = attr.ib()
+    interfaces = attr.ib()
+    netconf = attr.ib()
+    netstate = attr.ib()
+    fstab = attr.ib()
+    config_file = attr.ib()
 
     @classmethod
     def import_existing(cls, config):
