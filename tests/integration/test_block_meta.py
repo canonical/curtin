@@ -12,8 +12,7 @@ from typing import Optional
 from unittest import skipIf
 import yaml
 
-from curtin import block, distro, log, udev, util
-
+from curtin import block, compat, distro, log, udev, util
 from curtin.commands.block_meta import _get_volume_fstype
 from curtin.commands.block_meta_v2 import ONE_MIB_BYTES
 
@@ -27,11 +26,10 @@ class IntegrationTestCase(CiTestCase):
 
 @contextlib.contextmanager
 def loop_dev(image, sector_size=512):
-    dev = util.subp([
-        'losetup',
-        '--show', '--find', '--sector-size', str(sector_size),
-        image,
-        ], capture=True, decode='ignore')[0].strip()
+    cmd = ['losetup', '--show', '--find', image]
+    if sector_size != 512:
+        cmd.extend(('--sector-size', str(sector_size)))
+    dev = util.subp(cmd, capture=True, decode='ignore')[0].strip()
     util.subp(['partprobe', dev])
     try:
         udev.udevadm_trigger([dev])
@@ -118,7 +116,7 @@ def summarize_partitions(dev):
     parts = []
     ptable_json = util.subp(['sfdisk', '-J', dev], capture=True)[0]
     ptable = json.loads(ptable_json)['partitiontable']
-    sectorsize = ptable['sectorsize']
+    sectorsize = ptable.get('sectorsize', 512)
     assert dev == ptable['device']
     sysfs_data = block.sysfs_partition_data(dev)
     for part in ptable['partitions']:
@@ -311,15 +309,19 @@ class TestBlockMeta(IntegrationTestCase):
     def test_default_offsets_msdos_v2(self):
         self._test_default_offsets('msdos', 2)
 
+    @skipIf(not compat.supports_large_sectors(), 'test is for large sectors')
     def test_default_offsets_gpt_v1_4k(self):
         self._test_default_offsets('gpt', 1, 4096)
 
+    @skipIf(not compat.supports_large_sectors(), 'test is for large sectors')
     def test_default_offsets_msdos_v1_4k(self):
         self._test_default_offsets('msdos', 1, 4096)
 
+    @skipIf(not compat.supports_large_sectors(), 'test is for large sectors')
     def test_default_offsets_gpt_v2_4k(self):
         self._test_default_offsets('gpt', 2, 4096)
 
+    @skipIf(not compat.supports_large_sectors(), 'test is for large sectors')
     def test_default_offsets_msdos_v2_4k(self):
         self._test_default_offsets('msdos', 2, 4096)
 

@@ -1,7 +1,7 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
 
 from collections import OrderedDict, namedtuple
-from curtin import (block, config, paths, util)
+from curtin import (block, compat, config, paths, util)
 from curtin.block import schemas
 from curtin.block import (bcache, clear_holders, dasd, iscsi, lvm, mdadm, mkfs,
                           multipath, zfs)
@@ -653,7 +653,6 @@ DEVS = set()
 def image_handler(info, storage_config, context):
     path = info['path']
     size = int(util.human2bytes(info['size']))
-    sector_size = str(int(util.human2bytes(info.get('sector_size', 512))))
     if info.get('preserve', False):
         actual_size = os.stat(path).st_size
         if size != actual_size:
@@ -670,10 +669,14 @@ def image_handler(info, storage_config, context):
             if os.path.exists(path):
                 os.unlink(path)
             raise
+
+    cmd = ['losetup', '--show', '--find', path]
+    sector_size = int(util.human2bytes(info.get('sector_size', 512)))
+    if sector_size != 512:
+        compat.supports_large_sectors(fatal=True)
+        cmd.extend(('--sector-size', str(sector_size)))
     try:
-        dev = util.subp([
-            'losetup', '--show', '--sector-size', sector_size, '--find', path],
-            capture=True)[0].strip()
+        dev = util.subp(cmd, capture=True)[0].strip()
     except BaseException:
         if os.path.exists(path) and not info.get('preserve'):
             os.unlink(path)
