@@ -8,7 +8,7 @@ from typing import (
 
 import attr
 
-from curtin import (block, util)
+from curtin import (block, compat, util)
 from curtin.commands.block_meta import (
     _get_volume_fstype,
     disk_handler as disk_handler_v1,
@@ -150,9 +150,10 @@ class SFDiskPartTable:
     def apply(self, device):
         sfdisk_script = self.render()
         LOG.debug("sfdisk input:\n---\n%s\n---\n", sfdisk_script)
-        util.subp(
-            ['sfdisk', '--no-tell-kernel', '--no-reread', device],
-            data=sfdisk_script.encode('ascii'))
+        cmd = ['sfdisk', '--no-reread', device]
+        if compat.supports_sfdisk_no_tell_kernel():
+            cmd.append('--no-tell-kernel')
+        util.subp(cmd, data=sfdisk_script.encode('ascii'))
         util.subp(['partprobe', device])
         # sfdisk and partprobe (as invoked here) use ioctls to inform the
         # kernel that the partition table has changed so it can add and remove
