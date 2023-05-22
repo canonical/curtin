@@ -1,6 +1,5 @@
 TOP := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
 CWD := $(shell pwd)
-PYTHON2 ?= python2
 PYTHON3 ?= python3
 COVERAGE ?= 1
 DEFAULT_COVERAGEOPTS = --with-coverage --cover-erase --cover-branches --cover-package=curtin --cover-inclusive 
@@ -16,11 +15,11 @@ target_dirs ?= curtin tests tools
 build:
 
 bin/curtin: curtin/pack.py tools/write-curtin
-	$(PYTHON) tools/write-curtin bin/curtin
+	$(PYTHON3) tools/write-curtin bin/curtin
 
 check: unittest
 
-style-check: pep8 pyflakes pyflakes3
+style-check: pep8 pyflakes3
 
 coverage: coverageopts ?= $(DEFAULT_COVERAGEOPTS)
 coverage: unittest
@@ -28,25 +27,14 @@ coverage: unittest
 pep8:
 	@$(CWD)/tools/run-pep8
 
-pyflakes:
-	$(PYTHON2) -m pyflakes $(target_dirs)
-
-pyflakes3:
+pyflakes pyflakes3:
 	$(PYTHON3) -m pyflakes $(target_dirs)
 
-pylint:
-	$(PYTHON2) -m pylint $(pylintopts) $(target_dirs)
-
-pylint3:
+pylint pylint3:
 	$(PYTHON3) -m pylint $(pylintopts) $(target_dirs)
 
-unittest2:
-	$(PYTHON2) -m nose $(coverageopts) $(noseopts) tests/unittests
-
-unittest3:
+unittest unittest3:
 	$(PYTHON3) -m nose $(coverageopts) $(noseopts) tests/unittests
-
-unittest: unittest2 unittest3
 
 schema-validate:
 	@$(CWD)/tools/schema-validate-storage
@@ -55,7 +43,7 @@ docs: check-doc-deps
 	make -C doc html
 
 check-doc-deps:
-	@which sphinx-build && $(PYTHON) -c 'import sphinx_rtd_theme' || \
+	@which sphinx-build && $(PYTHON3) -c 'import sphinx_rtd_theme' || \
 		{ echo "Missing doc dependencies. Install with:"; \
 		  pkgs="python3-sphinx-rtd-theme python3-sphinx"; \
 		  echo sudo apt-get install -qy $$pkgs ; exit 1; }
