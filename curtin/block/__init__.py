@@ -1044,15 +1044,7 @@ def check_dos_signature(device):
     devname = dev_path(path_to_kname(device))
     if not is_block_device(devname):
         return False
-    try:
-        # Some older series have the extended partition block device but return
-        # ENXIO when attempting to read it.
-        file_size = util.file_size(devname)
-    except OSError as ose:
-        if ose.errno == errno.ENXIO:
-            return False
-        else:
-            raise
+    file_size = util.file_size(devname)
     if file_size < 0x200:
         return False
     signature = util.load_file(devname, decode=False, read_len=2, offset=0x1fe)
@@ -1097,9 +1089,20 @@ def is_extended_partition(device):
     # within the first 4 partitions and will have a valid dos signature,
     # because the format of the extended partition matches that of a real mbr
     (parent_dev, part_number) = get_blockdev_for_partition(device)
-    return (get_part_table_type(parent_dev) in ['dos', 'msdos'] and
-            part_number is not None and int(part_number) <= 4 and
-            check_dos_signature(device))
+    if (get_part_table_type(parent_dev) in ['dos', 'msdos'] and
+            part_number is not None and int(part_number) <= 4):
+        try:
+            return check_dos_signature(device)
+        except OSError as ose:
+            # Some older series have the extended partition block device but
+            # return ENXIO when attempting to read it.  Make a best guess from
+            # the parent_dev.
+            if ose.errno == errno.ENXIO:
+                return check_dos_signature(parent_dev)
+            else:
+                raise
+    else:
+        return False
 
 
 def is_zfs_member(device):
