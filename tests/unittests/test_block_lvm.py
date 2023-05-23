@@ -76,12 +76,12 @@ class TestBlockLvm(CiTestCase):
     @mock.patch('curtin.block.lvm.distro')
     def test_lvm_scan(self, mock_distro, mock_util, mock_lvmetad):
         """check that lvm_scan formats commands correctly for each release"""
-        cmds = [['pvscan'], ['vgscan']]
         for (count, (codename, lvmetad_status, use_cache)) in enumerate(
                 [('precise', False, False),
                  ('trusty', False, False),
                  ('xenial', False, False), ('xenial', True, True),
                  (None, True, True), (None, False, False)]):
+            cmds = [['pvscan'], ['vgscan']]
             mock_distro.lsb_release.return_value = {'codename': codename}
             mock_lvmetad.return_value = lvmetad_status
             lvm.lvm_scan()
@@ -92,7 +92,7 @@ class TestBlockLvm(CiTestCase):
 
             calls = [mock.call(cmd, capture=True) for cmd in expected]
             self.assertEqual(len(expected), len(mock_util.subp.call_args_list))
-            mock_util.subp.has_calls(calls)
+            mock_util.subp.assert_has_calls(calls)
             mock_util.subp.reset_mock()
 
     @mock.patch('curtin.block.lvm.lvmetad_running')
@@ -112,7 +112,7 @@ class TestBlockLvm(CiTestCase):
         expected = [cmd + cmd_filter for cmd in cmds]
         calls = [mock.call(cmd, capture=True) for cmd in expected]
         self.assertEqual(len(expected), len(mock_util.subp.call_args_list))
-        mock_util.subp.has_calls(calls)
+        mock_util.subp.assert_has_calls(calls)
 
 
 class TestBlockLvmMultipathFilter(CiTestCase):
