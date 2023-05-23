@@ -85,6 +85,7 @@ class CiTestCase(TestCase):
             handler = logging.StreamHandler(self.logs)
             handler.setFormatter(formatter)
             self.old_handlers = self.logger.handlers
+            self.logger.setLevel(logging.DEBUG)
             self.logger.handlers = [handler]
 
         if self.allowed_subp is True:
