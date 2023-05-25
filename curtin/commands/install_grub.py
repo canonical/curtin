@@ -26,12 +26,13 @@ CMD_ARGUMENTS = (
 GRUB_MULTI_INSTALL = '/usr/lib/grub/grub-multi-install'
 
 
-def get_grub_package_name(target_arch, uefi, rhel_ver=None):
+def get_grub_package_name(target_arch, uefi, rhel_ver=None, osfamily=None):
     """Determine the correct grub distro package name.
 
     :param: target_arch: string specifying the target system architecture
     :param: uefi: boolean indicating if system is booted via UEFI or not
     :param: rhel_ver: string specifying the major Redhat version in use.
+    :param: osfamily: string specifying the target os family
     :returns: tuple of strings, grub package name and grub target name
     """
     if target_arch is None:
@@ -43,43 +44,64 @@ def get_grub_package_name(target_arch, uefi, rhel_ver=None):
     if 'ppc64' in target_arch:
         return ('grub-ieee1275', 'powerpc-ieee1275')
     if uefi:
-        if target_arch == 'amd64':
-            grub_name = 'grub-efi-%s' % target_arch
-            grub_target = "x86_64-efi"
-        elif target_arch == 'x86_64':
-            # centos 7+, no centos6 support
-            # grub2-efi-x64 installs a signed grub bootloader
-            grub_name = "grub2-efi-x64"
-            grub_target = "x86_64-efi"
-        elif target_arch == 'aarch64':
-            # centos 7+, no centos6 support
-            # grub2-efi-aa64 installs a signed grub bootloader
-            grub_name = "grub2-efi-aa64"
-            grub_target = "arm64-efi"
-        elif target_arch == 'arm64':
-            grub_name = 'grub-efi-%s' % target_arch
-            grub_target = "arm64-efi"
-        elif target_arch == 'i386':
-            grub_name = 'grub-efi-ia32'
-            grub_target = 'i386-efi'
-        elif target_arch == 'riscv64':
-            grub_name = 'grub-efi-riscv64'
-            grub_target = 'riscv64-efi'
-        else:
-            raise ValueError('Unsupported UEFI arch: %s' % target_arch)
-    else:
-        grub_target = 'i386-pc'
-        if target_arch in ['i386', 'amd64']:
-            grub_name = 'grub-pc'
-        elif target_arch == 'x86_64':
-            if rhel_ver == '6':
-                grub_name = 'grub'
-            elif rhel_ver in ['7', '8', '9']:
-                grub_name = 'grub2-pc'
+        if osfamily == distro.DISTROS.redhat:
+            if target_arch == 'x86_64':
+                # centos 7+, no centos6 support
+                # grub2-efi-x64 installs a signed grub bootloader
+                grub_name = "grub2-efi-x64"
+                grub_target = "x86_64-efi"
+            elif target_arch == 'aarch64':
+                # centos 7+, no centos6 support
+                # grub2-efi-aa64 installs a signed grub bootloader
+                grub_name = "grub2-efi-aa64"
+                grub_target = "arm64-efi"
             else:
                 raise ValueError('Unsupported RHEL version: %s', rhel_ver)
+        elif osfamily == distro.DISTROS.suse:
+            if target_arch == 'x86_64':
+                grub_target = "x86_64-efi"
+            elif target_arch == 'aarch64':
+                grub_target = "arm64-efi"
+            else:
+                raise ValueError('Unsupported SUSE arch: %s', target_arch)
+            grub_name = 'grub2-%s' % grub_target
         else:
-            raise ValueError('Unsupported arch: %s' % target_arch)
+            if target_arch == 'amd64':
+                grub_name = 'grub-efi-%s' % target_arch
+                grub_target = "x86_64-efi"
+            elif target_arch == 'arm64':
+                grub_name = 'grub-efi-%s' % target_arch
+                grub_target = "arm64-efi"
+            elif target_arch == 'i386':
+                grub_name = 'grub-efi-ia32'
+                grub_target = 'i386-efi'
+            elif target_arch == 'riscv64':
+                grub_name = 'grub-efi-riscv64'
+                grub_target = 'riscv64-efi'
+            else:
+                raise ValueError('Unsupported UEFI arch %s for OS %s' %
+                                 (target_arch, osfamily))
+    else:
+        grub_target = 'i386-pc'
+        if osfamily == distro.DISTROS.redhat:
+            if target_arch == 'x86_64':
+                if rhel_ver == '6':
+                    grub_name = 'grub'
+                elif rhel_ver in ['7', '8', '9']:
+                    grub_name = 'grub2-pc'
+                else:
+                    raise ValueError('Unsupported RHEL version: %s', rhel_ver)
+            elif target_arch == 'i386':
+                grub_name = 'grub-pc'
+            else:
+                raise ValueError('Unsupported RHEL arch: %s', target_arch)
+        elif osfamily == distro.DISTROS.suse:
+            grub_name = 'grub2-i386-pc'
+        elif target_arch in ['i386', 'amd64']:
+            grub_name = 'grub-pc'
+        else:
+            raise ValueError('Unsupported arch %s for OS %s' %
+                             (target_arch, osfamily))
 
     return (grub_name, grub_target)
 
@@ -397,7 +419,9 @@ def install_grub(devices, target, uefi=None, grubcfg=None):
                 if distroinfo.family == distro.DISTROS.redhat else None)
 
     check_target_arch_machine(target, arch=target_arch, uefi=uefi)
-    grub_name, grub_target = get_grub_package_name(target_arch, uefi, rhel_ver)
+    grub_name, grub_target = get_grub_package_name(target_arch, uefi,
+                                                   rhel_ver=rhel_ver,
+                                                   osfamily=distroinfo.family)
     grub_conf = get_grub_config_file(target, distroinfo.family)
     new_params = get_carryover_params(distroinfo)
     prepare_grub_dir(target, grub_conf)
