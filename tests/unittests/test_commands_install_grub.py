@@ -16,120 +16,191 @@ class TestGetGrubPackageName(CiTestCase):
         target_arch = 'ppc64le'
         uefi = False
         rhel_ver = None
+        osfamily = distro.DISTROS.debian
         self.assertEqual(
             ('grub-ieee1275', 'powerpc-ieee1275'),
-            install_grub.get_grub_package_name(target_arch, uefi, rhel_ver))
+            install_grub.get_grub_package_name(target_arch, uefi, rhel_ver,
+                                               osfamily))
 
     def test_uefi_debian_amd64(self):
         target_arch = 'amd64'
         uefi = True
         rhel_ver = None
+        osfamily = distro.DISTROS.debian
         self.assertEqual(
             ('grub-efi-amd64', 'x86_64-efi'),
-            install_grub.get_grub_package_name(target_arch, uefi, rhel_ver))
+            install_grub.get_grub_package_name(target_arch, uefi, rhel_ver,
+                                               osfamily))
 
     def test_uefi_rhel7_amd64(self):
         target_arch = 'x86_64'
         uefi = True
         rhel_ver = '7'
+        osfamily = distro.DISTROS.redhat
         self.assertEqual(
             ('grub2-efi-x64', 'x86_64-efi'),
-            install_grub.get_grub_package_name(target_arch, uefi, rhel_ver))
+            install_grub.get_grub_package_name(target_arch, uefi, rhel_ver,
+                                               osfamily))
 
     def test_uefi_rhel8_amd64(self):
         target_arch = 'x86_64'
         uefi = True
         rhel_ver = '8'
+        osfamily = distro.DISTROS.redhat
         self.assertEqual(
             ('grub2-efi-x64', 'x86_64-efi'),
-            install_grub.get_grub_package_name(target_arch, uefi, rhel_ver))
+            install_grub.get_grub_package_name(target_arch, uefi, rhel_ver,
+                                               osfamily))
+
+    def test_uefi_suse_amd64(self):
+        target_arch = 'x86_64'
+        uefi = True
+        rhel_ver = None
+        osfamily = distro.DISTROS.suse
+        self.assertEqual(
+            ('grub2-x86_64-efi', 'x86_64-efi'),
+            install_grub.get_grub_package_name(target_arch, uefi, rhel_ver,
+                                               osfamily))
 
     def test_uefi_rhel7_arm64(self):
         target_arch = 'aarch64'
         uefi = True
         rhel_ver = '7'
+        osfamily = distro.DISTROS.redhat
         self.assertEqual(
             ('grub2-efi-aa64', 'arm64-efi'),
-            install_grub.get_grub_package_name(target_arch, uefi, rhel_ver))
+            install_grub.get_grub_package_name(target_arch, uefi, rhel_ver,
+                                               osfamily))
 
     def test_uefi_rhel8_arm64(self):
         target_arch = 'aarch64'
         uefi = True
         rhel_ver = '8'
+        osfamily = distro.DISTROS.redhat
         self.assertEqual(
             ('grub2-efi-aa64', 'arm64-efi'),
-            install_grub.get_grub_package_name(target_arch, uefi, rhel_ver))
+            install_grub.get_grub_package_name(target_arch, uefi, rhel_ver,
+                                               osfamily))
 
     def test_uefi_debian_arm64(self):
         target_arch = 'arm64'
         uefi = True
         rhel_ver = None
+        osfamily = distro.DISTROS.debian
         self.assertEqual(
             ('grub-efi-arm64', 'arm64-efi'),
-            install_grub.get_grub_package_name(target_arch, uefi, rhel_ver))
+            install_grub.get_grub_package_name(target_arch, uefi, rhel_ver,
+                                               osfamily))
+
+    def test_uefi_suse_arm64(self):
+        target_arch = 'aarch64'
+        uefi = True
+        rhel_ver = None
+        osfamily = distro.DISTROS.suse
+        self.assertEqual(
+            ('grub2-arm64-efi', 'arm64-efi'),
+            install_grub.get_grub_package_name(target_arch, uefi, rhel_ver,
+                                               osfamily))
 
     def test_uefi_debian_i386(self):
         target_arch = 'i386'
         uefi = True
         rhel_ver = None
+        osfamily = distro.DISTROS.debian
         self.assertEqual(
             ('grub-efi-ia32', 'i386-efi'),
-            install_grub.get_grub_package_name(target_arch, uefi, rhel_ver))
+            install_grub.get_grub_package_name(target_arch, uefi, rhel_ver,
+                                               osfamily))
 
     def test_debian_amd64(self):
         target_arch = 'amd64'
         uefi = False
         rhel_ver = None
+        osfamily = distro.DISTROS.debian
         self.assertEqual(
             ('grub-pc', 'i386-pc'),
-            install_grub.get_grub_package_name(target_arch, uefi, rhel_ver))
+            install_grub.get_grub_package_name(target_arch, uefi, rhel_ver,
+                                               osfamily))
 
     def test_rhel6_amd64(self):
         target_arch = 'x86_64'
         uefi = False
         rhel_ver = '6'
+        osfamily = distro.DISTROS.redhat
         self.assertEqual(
             ('grub', 'i386-pc'),
-            install_grub.get_grub_package_name(target_arch, uefi, rhel_ver))
+            install_grub.get_grub_package_name(target_arch, uefi, rhel_ver,
+                                               osfamily))
 
     def test_rhel7_amd64(self):
         target_arch = 'x86_64'
         uefi = False
         rhel_ver = '7'
+        osfamily = distro.DISTROS.redhat
         self.assertEqual(
             ('grub2-pc', 'i386-pc'),
-            install_grub.get_grub_package_name(target_arch, uefi, rhel_ver))
+            install_grub.get_grub_package_name(target_arch, uefi, rhel_ver,
+                                               osfamily))
 
     def test_rhel8_amd64(self):
         target_arch = 'x86_64'
         uefi = False
         rhel_ver = '8'
+        osfamily = distro.DISTROS.redhat
         self.assertEqual(
             ('grub2-pc', 'i386-pc'),
-            install_grub.get_grub_package_name(target_arch, uefi, rhel_ver))
+            install_grub.get_grub_package_name(target_arch, uefi, rhel_ver,
+                                               osfamily))
+
+    def test_suse_amd64(self):
+        target_arch = 'x86_64'
+        uefi = False
+        rhel_ver = None
+        osfamily = distro.DISTROS.suse
+        self.assertEqual(
+            ('grub2-i386-pc', 'i386-pc'),
+            install_grub.get_grub_package_name(target_arch, uefi, rhel_ver,
+                                               osfamily))
 
     def test_debian_i386(self):
         target_arch = 'i386'
         uefi = False
         rhel_ver = None
+        osfamily = distro.DISTROS.debian
         self.assertEqual(
             ('grub-pc', 'i386-pc'),
-            install_grub.get_grub_package_name(target_arch, uefi, rhel_ver))
+            install_grub.get_grub_package_name(target_arch, uefi, rhel_ver,
+                                               osfamily))
+
+    def test_suse_i386(self):
+        target_arch = 'i386'
+        uefi = False
+        rhel_ver = None
+        osfamily = distro.DISTROS.suse
+        self.assertEqual(
+            ('grub2-i386-pc', 'i386-pc'),
+            install_grub.get_grub_package_name(target_arch, uefi, rhel_ver,
+                                               osfamily))
 
     def test_invalid_rhel_version(self):
+        osfamily = distro.DISTROS.redhat
         with self.assertRaises(ValueError):
             install_grub.get_grub_package_name('x86_64', uefi=False,
-                                               rhel_ver='5')
+                                               rhel_ver='5', osfamily=osfamily)
 
     def test_invalid_arch(self):
+        osfamily = distro.DISTROS.debian
         with self.assertRaises(ValueError):
             install_grub.get_grub_package_name(self.random_string(),
-                                               uefi=False, rhel_ver=None)
+                                               uefi=False, rhel_ver=None,
+                                               osfamily=osfamily)
 
     def test_invalid_arch_uefi(self):
+        osfamily = distro.DISTROS.debian
         with self.assertRaises(ValueError):
             install_grub.get_grub_package_name(self.random_string(),
-                                               uefi=True, rhel_ver=None)
+                                               uefi=True, rhel_ver=None,
+                                               osfamily=osfamily)
 
 
 class TestGetGrubConfigFile(CiTestCase):
@@ -1095,7 +1166,8 @@ class TestInstallGrub(CiTestCase):
         self.m_distro_get_distroinfo.assert_called_with(target=self.target)
         self.m_distro_get_architecture.assert_called_with(target=self.target)
         self.assertEqual(0, self.m_distro_rpm_get_dist_id.call_count)
-        self.m_get_grub_package_name.assert_called_with('amd64', uefi, None)
+        self.m_get_grub_package_name.assert_called_with('amd64', uefi, None,
+                                                        'debian')
         self.m_get_grub_config_file.assert_called_with(self.target,
                                                        self.distroinfo.family)
         self.m_get_carryover_params.assert_called_with(self.distroinfo)
@@ -1136,7 +1208,8 @@ class TestInstallGrub(CiTestCase):
         self.m_distro_get_distroinfo.assert_called_with(target=self.target)
         self.m_distro_get_architecture.assert_called_with(target=self.target)
         self.assertEqual(0, self.m_distro_rpm_get_dist_id.call_count)
-        self.m_get_grub_package_name.assert_called_with('amd64', uefi, None)
+        self.m_get_grub_package_name.assert_called_with('amd64', uefi, None,
+                                                        'debian')
         self.m_get_grub_config_file.assert_called_with(self.target,
                                                        self.distroinfo.family)
         self.m_get_carryover_params.assert_called_with(self.distroinfo)
@@ -1178,7 +1251,8 @@ class TestInstallGrub(CiTestCase):
         self.m_distro_get_distroinfo.assert_called_with(target=self.target)
         self.m_distro_get_architecture.assert_called_with(target=self.target)
         self.assertEqual(0, self.m_distro_rpm_get_dist_id.call_count)
-        self.m_get_grub_package_name.assert_called_with('amd64', uefi, None)
+        self.m_get_grub_package_name.assert_called_with('amd64', uefi, None,
+                                                        'debian')
         self.m_get_grub_config_file.assert_called_with(self.target,
                                                        self.distroinfo.family)
         self.m_get_carryover_params.assert_called_with(self.distroinfo)
