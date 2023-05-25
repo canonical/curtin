@@ -20,6 +20,7 @@ REQUIRED_IMPORTS = [
     # import string to execute, python2 package, python3 package
     ('import yaml', 'python-yaml', 'python3-yaml'),
     ('import pyudev', 'python-pyudev', 'python3-pyudev'),
+    ('import attr', 'python-attr', 'python3-attr'),
 ]
 
 REQUIRED_EXECUTABLES = [
