@@ -1,5 +1,6 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
 
+
 class MutuallyExclusiveGroup:
     def __init__(self, entries) -> None:
         self.entries = entries

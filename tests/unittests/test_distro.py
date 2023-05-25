@@ -334,11 +334,11 @@ class TestAptInstall(CiTestCase):
         ]
 
         expected_calls = [
-            mock.call(cmd_prefix + ['install', '--download-only']
-                                 + ['foobar', 'wark'],
+            mock.call(cmd_prefix +
+                      ['install', '--download-only'] +
+                      ['foobar', 'wark'],
                       env=None, target='/', retries=None),
-            mock.call(cmd_prefix + ['install']
-                                 + ['foobar', 'wark'],
+            mock.call(cmd_prefix + ['install', 'foobar', 'wark'],
                       env=None, target='/'),
         ]
 

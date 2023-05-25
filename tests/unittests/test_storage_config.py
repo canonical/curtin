@@ -1109,9 +1109,11 @@ class TestExtractStorageConfig(CiTestCase):
         config = extracted['storage']['config']
         disks = [cfg for cfg in config if cfg['type'] == 'disk']
         expected_count = len([
-            1 for bd_name, bd_data in self.probe_data['blockdev'].items()
-            if bd_data.get('DM_UUID', '').startswith('mpath-')
-            or bd_name.startswith('/dev/dasd') and bd_data['DEVTYPE'] == 'disk'
+            1
+            for bd_name, bd_data in self.probe_data['blockdev'].items()
+            if bd_data.get('DM_UUID', '').startswith('mpath-') or
+            bd_name.startswith('/dev/dasd') and
+            bd_data['DEVTYPE'] == 'disk'
             ])
         self.assertEqual(expected_count, len(disks))
 
