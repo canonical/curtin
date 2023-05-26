@@ -32,10 +32,6 @@ class FocalTestNetworkStatic(relbase.focal, TestNetworkStaticAbs):
     __test__ = True
 
 
-class HirsuteTestNetworkStatic(relbase.hirsute, TestNetworkStaticAbs):
-    __test__ = True
-
-
 class Centos70TestNetworkStatic(centos_relbase.centos70_xenial,
                                 CentosTestNetworkStaticAbs):
     __test__ = True

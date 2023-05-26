@@ -63,24 +63,11 @@ class FocalCurtinDisableNetworkRendering(relbase.focal, TestKlass1):
     __test__ = True
 
 
-class HirsuteCurtinDisableNetworkRendering(relbase.hirsute, TestKlass1):
-    __test__ = True
-
-
 class FocalCurtinDisableCloudInitNetworking(relbase.focal, TestKlass2):
     __test__ = True
 
 
-class HirsuteCurtinDisableCloudInitNetworking(relbase.hirsute, TestKlass2):
-    __test__ = True
-
-
 class FocalCurtinDisableCloudInitNetworkingVersion1(relbase.focal, TestKlass3):
-    __test__ = True
-
-
-class HirsuteCurtinDisableCloudInitNetworkingVersion1(relbase.hirsute,
-                                                      TestKlass3):
     __test__ = True
 
 

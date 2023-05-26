@@ -29,8 +29,4 @@ class FocalTestInstallPanic(relbase.focal, TestInstallPanic):
     __test__ = True
 
 
-class HirsuteTestInstallPanic(relbase.hirsute, TestInstallPanic):
-    __test__ = True
-
-
 # vi: ts=4 expandtab syntax=python

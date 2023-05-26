@@ -56,8 +56,4 @@ class FocalTestBasicDasd(relbase.focal, TestBasicDasd):
     __test__ = True
 
 
-class HirsuteTestBasicDasd(relbase.hirsute, TestBasicDasd):
-    __test__ = True
-
-
 # vi: ts=4 expandtab syntax=python

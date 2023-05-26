@@ -68,8 +68,4 @@ class FocalBcacheBasic(relbase.focal, TestBcacheBasic):
     __test__ = True
 
 
-class HirsuteBcacheBasic(relbase.hirsute, TestBcacheBasic):
-    __test__ = True
-
-
 # vi: ts=4 expandtab syntax=python

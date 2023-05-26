@@ -33,11 +33,6 @@ class FocalTestNetworkStaticRoutes(relbase.focal,
     __test__ = True
 
 
-class HirsuteTestNetworkStaticRoutes(relbase.hirsute,
-                                     TestNetworkStaticRoutesAbs):
-    __test__ = True
-
-
 class Centos70TestNetworkStaticRoutes(centos_relbase.centos70_xenial,
                                       CentosTestNetworkStaticRoutesAbs):
     __test__ = False

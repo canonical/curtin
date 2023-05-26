@@ -23,8 +23,4 @@ class FocalTestBcacheBug1718699(relbase.focal, TestBcacheBug1718699):
     __test__ = True
 
 
-class HirsuteTestBcacheBug1718699(relbase.hirsute, TestBcacheBug1718699):
-    __test__ = True
-
-
 # vi: ts=4 expandtab syntax=python

@@ -26,9 +26,4 @@ class FocalTestReuseLVMMemberPartition(relbase.focal,
     __test__ = True
 
 
-class HirsuteTestReuseLVMMemberPartition(relbase.hirsute,
-                                         TestReuseLVMMemberPartition):
-    __test__ = True
-
-
 # vi: ts=4 expandtab syntax=python

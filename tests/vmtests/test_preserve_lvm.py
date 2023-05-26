@@ -73,8 +73,4 @@ class FocalTestLvmPreserve(relbase.focal, TestLvmPreserveAbs):
     __test__ = True
 
 
-class HirsuteTestLvmPreserve(relbase.hirsute, TestLvmPreserveAbs):
-    __test__ = True
-
-
 # vi: ts=4 expandtab syntax=python

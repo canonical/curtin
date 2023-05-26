@@ -22,8 +22,4 @@ class FocalTestRAIDPartitionToDisk(relbase.focal, TestRAIDPartitionToDisk):
     __test__ = True
 
 
-class HirsuteTestRAIDPartitionToDisk(relbase.hirsute, TestRAIDPartitionToDisk):
-    __test__ = True
-
-
 # vi: ts=4 expandtab syntax=python

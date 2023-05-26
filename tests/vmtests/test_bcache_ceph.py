@@ -79,10 +79,6 @@ class FocalTestBcacheCeph(relbase.focal, TestBcacheCeph):
     __test__ = True
 
 
-class HirsuteTestBcacheCeph(relbase.hirsute, TestBcacheCeph):
-    __test__ = True
-
-
 class TestBcacheCephLvm(TestBcacheCeph):
     test_type = 'storage'
     nr_cpus = 2
@@ -106,10 +102,6 @@ class BionicTestBcacheCephLvm(relbase.bionic, TestBcacheCephLvm):
 
 
 class FocalTestBcacheCephLvm(relbase.focal, TestBcacheCephLvm):
-    __test__ = True
-
-
-class HirsuteTestBcacheCephLvm(relbase.hirsute, TestBcacheCephLvm):
     __test__ = True
 
 

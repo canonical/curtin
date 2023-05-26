@@ -31,8 +31,4 @@ class FocalTestPythonApt(relbase.focal, TestPythonApt):
     __test__ = True
 
 
-class HirsuteTestPythonApt(relbase.hirsute, TestPythonApt):
-    __test__ = True
-
-
 # vi: ts=4 expandtab syntax=python

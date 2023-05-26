@@ -27,10 +27,6 @@ class FocalTestNetworkIPV6Static(relbase.focal, TestNetworkIPV6StaticAbs):
     __test__ = True
 
 
-class HirsuteTestNetworkIPV6Static(relbase.hirsute, TestNetworkIPV6StaticAbs):
-    __test__ = True
-
-
 class Centos70TestNetworkIPV6Static(centos_relbase.centos70_xenial,
                                     CentosTestNetworkIPV6StaticAbs):
     __test__ = True

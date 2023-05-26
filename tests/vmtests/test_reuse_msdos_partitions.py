@@ -23,9 +23,4 @@ class FocalTestReuseMSDOSPartitions(relbase.focal,
     __test__ = True
 
 
-class HirsuteTestReuseMSDOSPartitions(relbase.hirsute,
-                                      TestReuseMSDOSPartitions):
-    __test__ = True
-
-
 # vi: ts=4 expandtab syntax=python

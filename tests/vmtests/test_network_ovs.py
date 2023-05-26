@@ -38,8 +38,4 @@ class FocalTestNetworkOvs(relbase.focal, TestNetworkOvsAbs):
     __test__ = True
 
 
-class HirsuteTestNetworkOvs(relbase.hirsute, TestNetworkOvsAbs):
-    __test__ = True
-
-
 # vi: ts=4 expandtab syntax=python

@@ -59,7 +59,3 @@ class FocalTestLvmOverRaid(relbase.focal, TestLvmOverRaidAbs):
     __test__ = True
 
 
-class HirsuteTestLvmOverRaid(relbase.hirsute, TestLvmOverRaidAbs):
-    __test__ = True
-
-

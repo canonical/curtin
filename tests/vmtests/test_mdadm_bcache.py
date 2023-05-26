@@ -158,10 +158,6 @@ class FocalTestMdadmBcache(relbase.focal, TestMdadmBcacheAbs):
     __test__ = True
 
 
-class HirsuteTestMdadmBcache(relbase.hirsute, TestMdadmBcacheAbs):
-    __test__ = True
-
-
 class TestMirrorbootAbs(TestMdadmAbs):
     # alternative config for more complex setup
     conf_file = "examples/tests/mirrorboot.yaml"
@@ -200,10 +196,6 @@ class BionicTestMirrorboot(relbase.bionic, TestMirrorbootAbs):
 
 
 class FocalTestMirrorboot(relbase.focal, TestMirrorbootAbs):
-    __test__ = True
-
-
-class HirsuteTestMirrorboot(relbase.hirsute, TestMirrorbootAbs):
     __test__ = True
 
 
@@ -249,11 +241,6 @@ class BionicTestMirrorbootPartitions(relbase.bionic,
 
 class FocalTestMirrorbootPartitions(relbase.focal,
                                     TestMirrorbootPartitionsAbs):
-    __test__ = True
-
-
-class HirsuteTestMirrorbootPartitions(relbase.hirsute,
-                                      TestMirrorbootPartitionsAbs):
     __test__ = True
 
 
@@ -347,11 +334,6 @@ class FocalTestMirrorbootPartitionsUEFI(relbase.focal,
     __test__ = True
 
 
-class HirsuteTestMirrorbootPartitionsUEFI(relbase.hirsute,
-                                          TestMirrorbootPartitionsUEFIAbs):
-    __test__ = True
-
-
 class TestRaid5bootAbs(TestMdadmAbs):
     # alternative config for more complex setup
     conf_file = "examples/tests/raid5boot.yaml"
@@ -393,10 +375,6 @@ class BionicTestRaid5boot(relbase.bionic, TestRaid5bootAbs):
 
 
 class FocalTestRaid5boot(relbase.focal, TestRaid5bootAbs):
-    __test__ = True
-
-
-class HirsuteTestRaid5boot(relbase.hirsute, TestRaid5bootAbs):
     __test__ = True
 
 
@@ -457,10 +435,6 @@ class FocalTestRaid6boot(relbase.focal, TestRaid6bootAbs):
     __test__ = True
 
 
-class HirsuteTestRaid6boot(relbase.hirsute, TestRaid6bootAbs):
-    __test__ = True
-
-
 class TestRaid10bootAbs(TestMdadmAbs):
     # alternative config for more complex setup
     conf_file = "examples/tests/raid10boot.yaml"
@@ -501,10 +475,6 @@ class BionicTestRaid10boot(relbase.bionic, TestRaid10bootAbs):
 
 
 class FocalTestRaid10boot(relbase.focal, TestRaid10bootAbs):
-    __test__ = True
-
-
-class HirsuteTestRaid10boot(relbase.hirsute, TestRaid10bootAbs):
     __test__ = True
 
 
@@ -605,10 +575,6 @@ class BionicTestAllindata(relbase.bionic, TestAllindataAbs):
 
 
 class FocalTestAllindata(relbase.focal, TestAllindataAbs):
-    __test__ = True
-
-
-class HirsuteTestAllindata(relbase.hirsute, TestAllindataAbs):
     __test__ = True
 
 

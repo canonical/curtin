@@ -94,13 +94,6 @@ class FocalTestLvmRootExt4(relbase.focal, TestLvmRootAbs):
     }
 
 
-class HirsuteTestLvmRootExt4(relbase.hirsute, TestLvmRootAbs):
-    __test__ = True
-    conf_replace = {
-        '__ROOTFS_FORMAT__': 'ext4',
-    }
-
-
 class XenialTestLvmRootXfs(relbase.xenial, TestLvmRootAbs):
     __test__ = True
     conf_replace = {
@@ -140,14 +133,6 @@ class XenialTestUefiLvmRootExt4(relbase.xenial, TestUefiLvmRootAbs):
 
 
 class FocalTestUefiLvmRootExt4(relbase.focal, TestUefiLvmRootAbs):
-    __test__ = True
-    conf_replace = {
-        '__BOOTFS_FORMAT__': 'ext4',
-        '__ROOTFS_FORMAT__': 'ext4',
-    }
-
-
-class HirsuteTestUefiLvmRootExt4(relbase.hirsute, TestUefiLvmRootAbs):
     __test__ = True
     conf_replace = {
         '__BOOTFS_FORMAT__': 'ext4',

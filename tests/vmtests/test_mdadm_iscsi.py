@@ -54,8 +54,4 @@ class FocalTestIscsiMdadm(relbase.focal, TestMdadmIscsiAbs):
     __test__ = True
 
 
-class HirsuteTestIscsiMdadm(relbase.hirsute, TestMdadmIscsiAbs):
-    __test__ = True
-
-
 # vi: ts=4 expandtab syntax=python

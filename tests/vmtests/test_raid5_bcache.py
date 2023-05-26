@@ -92,8 +92,4 @@ class FocalTestRaid5Bcache(relbase.focal, TestMdadmBcacheAbs):
     __test__ = True
 
 
-class HirsuteTestRaid5Bcache(relbase.hirsute, TestMdadmBcacheAbs):
-    __test__ = True
-
-
 # vi: ts=4 expandtab syntax=python
