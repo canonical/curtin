@@ -80,6 +80,10 @@ class FocalTestNetworkVlan(relbase.focal, TestNetworkVlanAbs):
     __test__ = True
 
 
+class JammyTestNetworkVlan(relbase.jammy, TestNetworkVlanAbs):
+    __test__ = True
+
+
 class Centos70TestNetworkVlan(centos_relbase.centos70_xenial,
                               CentosTestNetworkVlanAbs):
     __test__ = True

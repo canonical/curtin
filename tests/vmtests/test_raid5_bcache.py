@@ -92,4 +92,8 @@ class FocalTestRaid5Bcache(relbase.focal, TestMdadmBcacheAbs):
     __test__ = True
 
 
+class JammyTestRaid5Bcache(relbase.jammy, TestMdadmBcacheAbs):
+    __test__ = True
+
+
 # vi: ts=4 expandtab syntax=python

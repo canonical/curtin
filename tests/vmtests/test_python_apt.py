@@ -31,4 +31,8 @@ class FocalTestPythonApt(relbase.focal, TestPythonApt):
     __test__ = True
 
 
+class JammyTestPythonApt(relbase.jammy, TestPythonApt):
+    __test__ = True
+
+
 # vi: ts=4 expandtab syntax=python

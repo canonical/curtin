@@ -59,3 +59,8 @@ class FocalTestLvmOverRaid(relbase.focal, TestLvmOverRaidAbs):
     __test__ = True
 
 
+class JammyTestLvmOverRaid(relbase.jammy, TestLvmOverRaidAbs):
+    __test__ = True
+
+
+# vi: ts=4 expandtab syntax=python

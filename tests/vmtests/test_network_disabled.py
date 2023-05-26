@@ -71,4 +71,16 @@ class FocalCurtinDisableCloudInitNetworkingVersion1(relbase.focal, TestKlass3):
     __test__ = True
 
 
+class JammyCurtinDisableNetworkRendering(relbase.jammy, TestKlass1):
+    __test__ = True
+
+
+class JammyCurtinDisableCloudInitNetworking(relbase.jammy, TestKlass2):
+    __test__ = True
+
+
+class JammyCurtinDisableCloudInitNetworkingVersion1(relbase.jammy, TestKlass3):
+    __test__ = True
+
+
 # vi: ts=4 expandtab syntax=python

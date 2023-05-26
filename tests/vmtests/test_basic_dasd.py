@@ -56,4 +56,8 @@ class FocalTestBasicDasd(relbase.focal, TestBasicDasd):
     __test__ = True
 
 
+class JammyTestBasicDasd(relbase.jammy, TestBasicDasd):
+    __test__ = True
+
+
 # vi: ts=4 expandtab syntax=python

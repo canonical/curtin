@@ -68,4 +68,8 @@ class FocalBcacheBasic(relbase.focal, TestBcacheBasic):
     __test__ = True
 
 
+class JammyBcacheBasic(relbase.jammy, TestBcacheBasic):
+    __test__ = True
+
+
 # vi: ts=4 expandtab syntax=python

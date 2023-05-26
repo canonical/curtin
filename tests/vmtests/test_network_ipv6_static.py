@@ -27,6 +27,10 @@ class FocalTestNetworkIPV6Static(relbase.focal, TestNetworkIPV6StaticAbs):
     __test__ = True
 
 
+class JammyTestNetworkIPV6Static(relbase.jammy, TestNetworkIPV6StaticAbs):
+    __test__ = True
+
+
 class Centos70TestNetworkIPV6Static(centos_relbase.centos70_xenial,
                                     CentosTestNetworkIPV6StaticAbs):
     __test__ = True

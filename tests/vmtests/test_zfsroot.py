@@ -101,6 +101,11 @@ class FocalTestZfsRoot(relbase.focal, TestZfsRootAbs):
     mem = 4096
 
 
+class JammyTestZfsRoot(relbase.jammy, TestZfsRootAbs):
+    __test__ = True
+    mem = 4096
+
+
 class TestZfsRootFsTypeAbs(TestZfsRootAbs):
     conf_file = "examples/tests/basic-zfsroot.yaml"
 
@@ -121,6 +126,11 @@ class BionicTestZfsRootFsType(relbase.bionic, TestZfsRootFsTypeAbs):
 
 
 class FocalTestZfsRootFsType(relbase.focal, TestZfsRootFsTypeAbs):
+    __test__ = True
+    mem = 4096
+
+
+class JammyTestZfsRootFsType(relbase.jammy, TestZfsRootFsTypeAbs):
     __test__ = True
     mem = 4096
 

@@ -32,12 +32,21 @@ class FocalTestReuseRAIDMember(relbase.focal, TestReuseRAIDMember):
     __test__ = True
 
 
+class JammyTestReuseRAIDMember(relbase.jammy, TestReuseRAIDMember):
+    __test__ = True
+
+
 class BionicTestReuseRAIDMemberPartition(relbase.bionic,
                                          TestReuseRAIDMemberPartition):
     __test__ = True
 
 
 class FocalTestReuseRAIDMemberPartition(relbase.focal,
+                                        TestReuseRAIDMemberPartition):
+    __test__ = True
+
+
+class JammyTestReuseRAIDMemberPartition(relbase.jammy,
                                         TestReuseRAIDMemberPartition):
     __test__ = True
 

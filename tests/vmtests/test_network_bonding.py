@@ -61,6 +61,10 @@ class FocalTestBonding(relbase.focal, TestNetworkBondingAbs):
     __test__ = True
 
 
+class JammyTestBonding(relbase.jammy, TestNetworkBondingAbs):
+    __test__ = True
+
+
 class Centos70TestNetworkBonding(centos_relbase.centos70_xenial,
                                  CentosTestNetworkBondingAbs):
     __test__ = True

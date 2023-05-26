@@ -478,6 +478,10 @@ class FocalTestNetworkBasic(relbase.focal, TestNetworkBasicAbs):
     __test__ = True
 
 
+class JammyTestNetworkBasic(relbase.jammy, TestNetworkBasicAbs):
+    __test__ = True
+
+
 class Centos70TestNetworkBasic(centos_relbase.centos70_xenial,
                                CentosTestNetworkBasicAbs):
     __test__ = True

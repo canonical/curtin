@@ -79,6 +79,12 @@ class FocalTestNvme(relbase.focal, TestNvmeAbs):
     # OSError - [Errno 16] Device or resource busy: '/dev/mapper/mpatha'
 
 
+class JammyTestNvme(relbase.jammy, TestNvmeAbs):
+    __test__ = False
+    # An error occured handling 'nvme_disk2':
+    # OSError - [Errno 16] Device or resource busy: '/dev/mapper/mpatha'
+
+
 class TestNvmeBcacheAbs(TestNvmeAbs):
     arch_skip = [
         "s390x",  # nvme is a pci device, no pci on s390x
@@ -142,6 +148,10 @@ class BionicTestNvmeBcache(relbase.bionic, TestNvmeBcacheAbs):
 
 
 class FocalTestNvmeBcache(relbase.focal, TestNvmeBcacheAbs):
+    __test__ = True
+
+
+class JammyTestNvmeBcache(relbase.jammy, TestNvmeBcacheAbs):
     __test__ = True
 
 

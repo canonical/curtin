@@ -158,6 +158,10 @@ class FocalTestMdadmBcache(relbase.focal, TestMdadmBcacheAbs):
     __test__ = True
 
 
+class JammyTestMdadmBcache(relbase.jammy, TestMdadmBcacheAbs):
+    __test__ = True
+
+
 class TestMirrorbootAbs(TestMdadmAbs):
     # alternative config for more complex setup
     conf_file = "examples/tests/mirrorboot.yaml"
@@ -196,6 +200,10 @@ class BionicTestMirrorboot(relbase.bionic, TestMirrorbootAbs):
 
 
 class FocalTestMirrorboot(relbase.focal, TestMirrorbootAbs):
+    __test__ = True
+
+
+class JammyTestMirrorboot(relbase.jammy, TestMirrorbootAbs):
     __test__ = True
 
 
@@ -240,6 +248,11 @@ class BionicTestMirrorbootPartitions(relbase.bionic,
 
 
 class FocalTestMirrorbootPartitions(relbase.focal,
+                                    TestMirrorbootPartitionsAbs):
+    __test__ = True
+
+
+class JammyTestMirrorbootPartitions(relbase.jammy,
                                     TestMirrorbootPartitionsAbs):
     __test__ = True
 
@@ -334,6 +347,11 @@ class FocalTestMirrorbootPartitionsUEFI(relbase.focal,
     __test__ = True
 
 
+class JammyTestMirrorbootPartitionsUEFI(relbase.jammy,
+                                        TestMirrorbootPartitionsUEFIAbs):
+    __test__ = True
+
+
 class TestRaid5bootAbs(TestMdadmAbs):
     # alternative config for more complex setup
     conf_file = "examples/tests/raid5boot.yaml"
@@ -375,6 +393,10 @@ class BionicTestRaid5boot(relbase.bionic, TestRaid5bootAbs):
 
 
 class FocalTestRaid5boot(relbase.focal, TestRaid5bootAbs):
+    __test__ = True
+
+
+class JammyTestRaid5boot(relbase.jammy, TestRaid5bootAbs):
     __test__ = True
 
 
@@ -435,6 +457,10 @@ class FocalTestRaid6boot(relbase.focal, TestRaid6bootAbs):
     __test__ = True
 
 
+class JammyTestRaid6boot(relbase.jammy, TestRaid6bootAbs):
+    __test__ = True
+
+
 class TestRaid10bootAbs(TestMdadmAbs):
     # alternative config for more complex setup
     conf_file = "examples/tests/raid10boot.yaml"
@@ -475,6 +501,10 @@ class BionicTestRaid10boot(relbase.bionic, TestRaid10bootAbs):
 
 
 class FocalTestRaid10boot(relbase.focal, TestRaid10bootAbs):
+    __test__ = True
+
+
+class JammyTestRaid10boot(relbase.jammy, TestRaid10bootAbs):
     __test__ = True
 
 
@@ -575,6 +605,10 @@ class BionicTestAllindata(relbase.bionic, TestAllindataAbs):
 
 
 class FocalTestAllindata(relbase.focal, TestAllindataAbs):
+    __test__ = True
+
+
+class JammyTestAllindata(relbase.jammy, TestAllindataAbs):
     __test__ = True
 
 

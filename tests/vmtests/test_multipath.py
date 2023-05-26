@@ -162,11 +162,19 @@ class FocalTestMultipathBasic(relbase.focal, TestMultipathBasicAbs):
     __test__ = True
 
 
+class JammyTestMultipathBasic(relbase.jammy, TestMultipathBasicAbs):
+    __test__ = True
+
+
 class TestMultipathReuseAbs(TestMultipathBasicAbs):
     conf_file = "examples/tests/multipath-reuse.yaml"
 
 
 class FocalTestMultipathReuse(relbase.focal, TestMultipathReuseAbs):
+    __test__ = True
+
+
+class JammyTestMultipathReuse(relbase.jammy, TestMultipathReuseAbs):
     __test__ = True
 
 

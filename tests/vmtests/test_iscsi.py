@@ -76,4 +76,8 @@ class FocalTestIscsiBasic(relbase.focal, TestBasicIscsiAbs):
     __test__ = True
 
 
+class JammyTestIscsiBasic(relbase.jammy, TestBasicIscsiAbs):
+    __test__ = True
+
+
 # vi: ts=4 expandtab syntax=python

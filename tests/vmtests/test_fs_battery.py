@@ -243,4 +243,8 @@ class FocalTestFsBattery(relbase.focal, TestFsBattery):
     __test__ = True
 
 
+class JammyTestFsBattery(relbase.jammy, TestFsBattery):
+    __test__ = True
+
+
 # vi: ts=4 expandtab syntax=python

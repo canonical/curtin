@@ -99,4 +99,8 @@ class FocalTestIscsiLvm(relbase.focal, TestLvmIscsiAbs):
     __test__ = True
 
 
+class JammyTestIscsiLvm(relbase.jammy, TestLvmIscsiAbs):
+    __test__ = True
+
+
 # vi: ts=4 expandtab syntax=python

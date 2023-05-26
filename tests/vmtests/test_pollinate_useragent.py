@@ -65,4 +65,8 @@ class FocalTestPollinateUserAgent(relbase.focal, TestPollinateUserAgent):
     __test__ = True
 
 
+class JammyTestPollinateUserAgent(relbase.jammy, TestPollinateUserAgent):
+    __test__ = True
+
+
 # vi: ts=4 expandtab syntax=python

@@ -29,6 +29,10 @@ class FocalTestPreserveRAID(relbase.focal, TestPreserveRAID):
     __test__ = True
 
 
+class JammyTestPreserveRAID(relbase.jammy, TestPreserveRAID):
+    __test__ = True
+
+
 class TestPartitionExistingRAID(VMBaseClass):
     """ Test that curtin can repartition an existing RAID. """
     conf_file = "examples/tests/partition-existing-raid.yaml"
@@ -54,6 +58,11 @@ class BionicTestPartitionExistingRAID(
 
 class FocalTestPartitionExistingRAID(
         relbase.focal, TestPartitionExistingRAID):
+    __test__ = True
+
+
+class JammyTestPartitionExistingRAID(
+        relbase.jammy, TestPartitionExistingRAID):
     __test__ = True
 
 

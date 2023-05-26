@@ -234,6 +234,10 @@ class FocalTestBasic(relbase.focal, TestBasicAbs):
     __test__ = True
 
 
+class JammyTestBasic(relbase.jammy, TestBasicAbs):
+    __test__ = True
+
+
 class TestBasicScsiAbs(TestBasicAbs):
     arch_skip = [
         'arm64',  # arm64 is UEFI only
@@ -347,6 +351,10 @@ class BionicTestScsiBasic(relbase.bionic, TestBasicScsiAbs):
 
 
 class FocalTestScsiBasic(relbase.focal, TestBasicScsiAbs):
+    __test__ = True
+
+
+class JammyTestScsiBasic(relbase.jammy, TestBasicScsiAbs):
     __test__ = True
 
 

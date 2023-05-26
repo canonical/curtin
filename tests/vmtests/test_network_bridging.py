@@ -233,6 +233,10 @@ class FocalTestBridging(relbase.focal, TestBridgeNetworkAbs):
     __test__ = True
 
 
+class JammyTestBridging(relbase.jammy, TestBridgeNetworkAbs):
+    __test__ = True
+
+
 class XenialTestBridgingV2(relbase.xenial, TestBridgeNetworkAbs):
     """ This class only needs to verify that when provided a v2 config
         that the Xenial network packages are installed. """

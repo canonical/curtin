@@ -51,4 +51,8 @@ class FocalTestNetworkAlias(relbase.focal, TestNetworkAliasAbs):
     __test__ = True
 
 
+class JammyTestNetworkAlias(relbase.jammy, TestNetworkAliasAbs):
+    __test__ = True
+
+
 # vi: ts=4 expandtab syntax=python

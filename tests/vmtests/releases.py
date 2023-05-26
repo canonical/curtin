@@ -165,6 +165,13 @@ class _FocalBase(_UbuntuBase):
         subarch = "ga-20.04"
 
 
+class _JammyBase(_UbuntuBase):
+    release = "jammy"
+    target_release = "jammy"
+    if _UbuntuBase.arch == "arm64":
+        subarch = "ga-22.04"
+
+
 class _Releases(object):
     trusty = _TrustyBase
     precise = _PreciseBase
@@ -183,6 +190,7 @@ class _Releases(object):
     disco = _DiscoBase
     eoan = _EoanBase
     focal = _FocalBase
+    jammy = _JammyBase
 
 
 class _CentosReleases(object):
