@@ -60,8 +60,4 @@ class HirsuteTestBasicDasd(relbase.hirsute, TestBasicDasd):
     __test__ = True
 
 
-class ImpishTestBasicDasd(relbase.impish, TestBasicDasd):
-    __test__ = True
-
-
 # vi: ts=4 expandtab syntax=python

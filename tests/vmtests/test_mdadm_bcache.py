@@ -162,10 +162,6 @@ class HirsuteTestMdadmBcache(relbase.hirsute, TestMdadmBcacheAbs):
     __test__ = True
 
 
-class ImpishTestMdadmBcache(relbase.impish, TestMdadmBcacheAbs):
-    __test__ = True
-
-
 class TestMirrorbootAbs(TestMdadmAbs):
     # alternative config for more complex setup
     conf_file = "examples/tests/mirrorboot.yaml"
@@ -208,10 +204,6 @@ class FocalTestMirrorboot(relbase.focal, TestMirrorbootAbs):
 
 
 class HirsuteTestMirrorboot(relbase.hirsute, TestMirrorbootAbs):
-    __test__ = True
-
-
-class ImpishTestMirrorboot(relbase.impish, TestMirrorbootAbs):
     __test__ = True
 
 
@@ -262,11 +254,6 @@ class FocalTestMirrorbootPartitions(relbase.focal,
 
 class HirsuteTestMirrorbootPartitions(relbase.hirsute,
                                       TestMirrorbootPartitionsAbs):
-    __test__ = True
-
-
-class ImpishTestMirrorbootPartitions(relbase.impish,
-                                     TestMirrorbootPartitionsAbs):
     __test__ = True
 
 
@@ -365,11 +352,6 @@ class HirsuteTestMirrorbootPartitionsUEFI(relbase.hirsute,
     __test__ = True
 
 
-class ImpishTestMirrorbootPartitionsUEFI(relbase.impish,
-                                         TestMirrorbootPartitionsUEFIAbs):
-    __test__ = True
-
-
 class TestRaid5bootAbs(TestMdadmAbs):
     # alternative config for more complex setup
     conf_file = "examples/tests/raid5boot.yaml"
@@ -415,10 +397,6 @@ class FocalTestRaid5boot(relbase.focal, TestRaid5bootAbs):
 
 
 class HirsuteTestRaid5boot(relbase.hirsute, TestRaid5bootAbs):
-    __test__ = True
-
-
-class ImpishTestRaid5boot(relbase.impish, TestRaid5bootAbs):
     __test__ = True
 
 
@@ -483,10 +461,6 @@ class HirsuteTestRaid6boot(relbase.hirsute, TestRaid6bootAbs):
     __test__ = True
 
 
-class ImpishTestRaid6boot(relbase.impish, TestRaid6bootAbs):
-    __test__ = True
-
-
 class TestRaid10bootAbs(TestMdadmAbs):
     # alternative config for more complex setup
     conf_file = "examples/tests/raid10boot.yaml"
@@ -531,10 +505,6 @@ class FocalTestRaid10boot(relbase.focal, TestRaid10bootAbs):
 
 
 class HirsuteTestRaid10boot(relbase.hirsute, TestRaid10bootAbs):
-    __test__ = True
-
-
-class ImpishTestRaid10boot(relbase.impish, TestRaid10bootAbs):
     __test__ = True
 
 
@@ -639,10 +609,6 @@ class FocalTestAllindata(relbase.focal, TestAllindataAbs):
 
 
 class HirsuteTestAllindata(relbase.hirsute, TestAllindataAbs):
-    __test__ = True
-
-
-class ImpishTestAllindata(relbase.impish, TestAllindataAbs):
     __test__ = True
 
 

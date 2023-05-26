@@ -33,8 +33,4 @@ class HirsuteTestInstallPanic(relbase.hirsute, TestInstallPanic):
     __test__ = True
 
 
-class ImpishTestInstallPanic(relbase.impish, TestInstallPanic):
-    __test__ = True
-
-
 # vi: ts=4 expandtab syntax=python

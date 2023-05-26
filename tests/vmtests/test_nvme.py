@@ -83,10 +83,6 @@ class HirsuteTestNvme(relbase.hirsute, TestNvmeAbs):
     __test__ = False
 
 
-class ImpishTestNvme(relbase.impish, TestNvmeAbs):
-    __test__ = False
-
-
 class TestNvmeBcacheAbs(TestNvmeAbs):
     arch_skip = [
         "s390x",  # nvme is a pci device, no pci on s390x
@@ -154,10 +150,6 @@ class FocalTestNvmeBcache(relbase.focal, TestNvmeBcacheAbs):
 
 
 class HirsuteTestNvmeBcache(relbase.hirsute, TestNvmeBcacheAbs):
-    __test__ = True
-
-
-class ImpishTestNvmeBcache(relbase.impish, TestNvmeBcacheAbs):
     __test__ = True
 
 

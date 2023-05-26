@@ -80,8 +80,4 @@ class HirsuteTestIscsiBasic(relbase.hirsute, TestBasicIscsiAbs):
     __test__ = True
 
 
-class ImpishTestIscsiBasic(relbase.impish, TestBasicIscsiAbs):
-    __test__ = True
-
-
 # vi: ts=4 expandtab syntax=python

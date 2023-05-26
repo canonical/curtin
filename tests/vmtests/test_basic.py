@@ -238,10 +238,6 @@ class HirsuteTestBasic(relbase.hirsute, TestBasicAbs):
     __test__ = True
 
 
-class ImpishTestBasic(relbase.impish, TestBasicAbs):
-    __test__ = True
-
-
 class TestBasicScsiAbs(TestBasicAbs):
     arch_skip = [
         'arm64',  # arm64 is UEFI only
@@ -359,10 +355,6 @@ class FocalTestScsiBasic(relbase.focal, TestBasicScsiAbs):
 
 
 class HirsuteTestScsiBasic(relbase.hirsute, TestBasicScsiAbs):
-    __test__ = True
-
-
-class ImpishTestScsiBasic(relbase.impish, TestBasicScsiAbs):
     __test__ = True
 
 

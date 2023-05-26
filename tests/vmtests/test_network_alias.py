@@ -55,8 +55,4 @@ class HirsuteTestNetworkAlias(relbase.hirsute, TestNetworkAliasAbs):
     __test__ = True
 
 
-class ImpishTestNetworkAlias(relbase.impish, TestNetworkAliasAbs):
-    __test__ = True
-
-
 # vi: ts=4 expandtab syntax=python

@@ -172,13 +172,6 @@ class _HirsuteBase(_UbuntuBase):
         subarch = "ga-21.04"
 
 
-class _ImpishBase(_UbuntuBase):
-    release = "impish"
-    target_release = "impish"
-    if _UbuntuBase.arch == "arm64":
-        subarch = "ga-21.10"
-
-
 class _Releases(object):
     trusty = _TrustyBase
     precise = _PreciseBase
@@ -198,7 +191,6 @@ class _Releases(object):
     eoan = _EoanBase
     focal = _FocalBase
     hirsute = _HirsuteBase
-    impish = _ImpishBase
 
 
 class _CentosReleases(object):

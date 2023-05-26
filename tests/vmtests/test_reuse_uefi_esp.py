@@ -48,11 +48,4 @@ class HirsuteTestUefiReuseEsp(relbase.hirsute, TestUefiReuseEspAbs):
         return super().test_efiboot_menu_has_one_distro_entry()
 
 
-class ImpishTestUefiReuseEsp(relbase.impish, TestUefiReuseEspAbs):
-    __test__ = True
-
-    def test_efiboot_menu_has_one_distro_entry(self):
-        return super().test_efiboot_menu_has_one_distro_entry()
-
-
 # vi: ts=4 expandtab syntax=python

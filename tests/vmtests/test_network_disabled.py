@@ -67,19 +67,11 @@ class HirsuteCurtinDisableNetworkRendering(relbase.hirsute, TestKlass1):
     __test__ = True
 
 
-class ImpishCurtinDisableNetworkRendering(relbase.impish, TestKlass1):
-    __test__ = True
-
-
 class FocalCurtinDisableCloudInitNetworking(relbase.focal, TestKlass2):
     __test__ = True
 
 
 class HirsuteCurtinDisableCloudInitNetworking(relbase.hirsute, TestKlass2):
-    __test__ = True
-
-
-class ImpishCurtinDisableCloudInitNetworking(relbase.impish, TestKlass2):
     __test__ = True
 
 
@@ -89,11 +81,6 @@ class FocalCurtinDisableCloudInitNetworkingVersion1(relbase.focal, TestKlass3):
 
 class HirsuteCurtinDisableCloudInitNetworkingVersion1(relbase.hirsute,
                                                       TestKlass3):
-    __test__ = True
-
-
-class ImpishCurtinDisableCloudInitNetworkingVersion1(relbase.impish,
-                                                     TestKlass3):
     __test__ = True
 
 

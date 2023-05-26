@@ -85,8 +85,4 @@ class HirsuteTestLvm(relbase.hirsute, TestLvmAbs):
     __test__ = True
 
 
-class ImpishTestLvm(relbase.impish, TestLvmAbs):
-    __test__ = True
-
-
 # vi: ts=4 expandtab syntax=python

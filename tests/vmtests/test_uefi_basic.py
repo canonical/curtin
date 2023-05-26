@@ -104,10 +104,6 @@ class HirsuteUefiTestBasic(relbase.hirsute, TestBasicAbs):
     __test__ = True
 
 
-class ImpishUefiTestBasic(relbase.impish, TestBasicAbs):
-    __test__ = True
-
-
 class Centos70UefiTestBasic4k(centos_relbase.centos70_xenial, TestBasicAbs):
     __test__ = True
     disk_block_size = 4096
@@ -129,11 +125,6 @@ class FocalUefiTestBasic4k(relbase.focal, TestBasicAbs):
 
 
 class HirsuteUefiTestBasic4k(relbase.hirsute, TestBasicAbs):
-    __test__ = True
-    disk_block_size = 4096
-
-
-class ImpishUefiTestBasic4k(relbase.impish, TestBasicAbs):
     __test__ = True
     disk_block_size = 4096
 

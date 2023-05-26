@@ -42,8 +42,4 @@ class HirsuteTestNetworkOvs(relbase.hirsute, TestNetworkOvsAbs):
     __test__ = True
 
 
-class ImpishTestNetworkOvs(relbase.impish, TestNetworkOvsAbs):
-    __test__ = True
-
-
 # vi: ts=4 expandtab syntax=python

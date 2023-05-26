@@ -40,8 +40,4 @@ class HirsuteTestJournaldReporter(relbase.hirsute, TestJournaldReporter):
     __test__ = True
 
 
-class ImpishTestJournaldReporter(relbase.impish, TestJournaldReporter):
-    __test__ = True
-
-
 # vi: ts=4 expandtab syntax=python

@@ -101,13 +101,6 @@ class HirsuteTestLvmRootExt4(relbase.hirsute, TestLvmRootAbs):
     }
 
 
-class ImpishTestLvmRootExt4(relbase.impish, TestLvmRootAbs):
-    __test__ = True
-    conf_replace = {
-        '__ROOTFS_FORMAT__': 'ext4',
-    }
-
-
 class XenialTestLvmRootXfs(relbase.xenial, TestLvmRootAbs):
     __test__ = True
     conf_replace = {
@@ -155,14 +148,6 @@ class FocalTestUefiLvmRootExt4(relbase.focal, TestUefiLvmRootAbs):
 
 
 class HirsuteTestUefiLvmRootExt4(relbase.hirsute, TestUefiLvmRootAbs):
-    __test__ = True
-    conf_replace = {
-        '__BOOTFS_FORMAT__': 'ext4',
-        '__ROOTFS_FORMAT__': 'ext4',
-    }
-
-
-class ImpishTestUefiLvmRootExt4(relbase.impish, TestUefiLvmRootAbs):
     __test__ = True
     conf_replace = {
         '__BOOTFS_FORMAT__': 'ext4',

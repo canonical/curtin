@@ -96,8 +96,4 @@ class HirsuteTestRaid5Bcache(relbase.hirsute, TestMdadmBcacheAbs):
     __test__ = True
 
 
-class ImpishTestRaid5Bcache(relbase.impish, TestMdadmBcacheAbs):
-    __test__ = True
-
-
 # vi: ts=4 expandtab syntax=python

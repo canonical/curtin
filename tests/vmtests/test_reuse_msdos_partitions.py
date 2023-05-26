@@ -28,9 +28,4 @@ class HirsuteTestReuseMSDOSPartitions(relbase.hirsute,
     __test__ = True
 
 
-class ImpishTestReuseMSDOSPartitions(relbase.impish,
-                                     TestReuseMSDOSPartitions):
-    __test__ = True
-
-
 # vi: ts=4 expandtab syntax=python

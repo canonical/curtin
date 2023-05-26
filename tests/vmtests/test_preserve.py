@@ -33,8 +33,4 @@ class HirsuteTestPreserve(relbase.hirsute, TestPreserve):
     __test__ = True
 
 
-class ImpishTestPreserve(relbase.impish, TestPreserve):
-    __test__ = True
-
-
 # vi: ts=4 expandtab syntax=python

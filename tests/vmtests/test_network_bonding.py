@@ -65,10 +65,6 @@ class HirsuteTestBonding(relbase.hirsute, TestNetworkBondingAbs):
     __test__ = True
 
 
-class ImpishTestBonding(relbase.impish, TestNetworkBondingAbs):
-    __test__ = True
-
-
 class Centos70TestNetworkBonding(centos_relbase.centos70_xenial,
                                  CentosTestNetworkBondingAbs):
     __test__ = True

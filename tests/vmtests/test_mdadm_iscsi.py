@@ -58,8 +58,4 @@ class HirsuteTestIscsiMdadm(relbase.hirsute, TestMdadmIscsiAbs):
     __test__ = True
 
 
-class ImpishTestIscsiMdadm(relbase.impish, TestMdadmIscsiAbs):
-    __test__ = True
-
-
 # vi: ts=4 expandtab syntax=python

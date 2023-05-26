@@ -38,11 +38,6 @@ class HirsuteTestNetworkStaticRoutes(relbase.hirsute,
     __test__ = True
 
 
-class ImpishTestNetworkStaticRoutes(relbase.impish,
-                                    TestNetworkStaticRoutesAbs):
-    __test__ = True
-
-
 class Centos70TestNetworkStaticRoutes(centos_relbase.centos70_xenial,
                                       CentosTestNetworkStaticRoutesAbs):
     __test__ = False

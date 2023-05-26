@@ -72,8 +72,4 @@ class HirsuteTestAptConfigCMDCMD(relbase.hirsute, TestAptConfigCMD):
     __test__ = True
 
 
-class ImpishTestAptConfigCMDCMD(relbase.impish, TestAptConfigCMD):
-    __test__ = True
-
-
 # vi: ts=4 expandtab syntax=python

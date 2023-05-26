@@ -247,8 +247,4 @@ class HirsuteTestFsBattery(relbase.hirsute, TestFsBattery):
     __test__ = True
 
 
-class ImpishTestFsBattery(relbase.impish, TestFsBattery):
-    __test__ = True
-
-
 # vi: ts=4 expandtab syntax=python

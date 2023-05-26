@@ -64,10 +64,6 @@ class HirsuteTestMultipathLvm(relbase.hirsute, TestMultipathLvmAbs):
     __test__ = True
 
 
-class ImpishTestMultipathLvm(relbase.impish, TestMultipathLvmAbs):
-    __test__ = True
-
-
 class TestMultipathLvmPartWipeAbs(TestMultipathLvmAbs):
     conf_file = "examples/tests/multipath-lvm-part-wipe.yaml"
 
@@ -79,11 +75,6 @@ class FocalTestMultipathLvmPartWipe(relbase.focal,
 
 class HirsuteTestMultipathLvmPartWipe(relbase.hirsute,
                                       TestMultipathLvmPartWipeAbs):
-    __test__ = True
-
-
-class ImpishTestMultipathLvmPartWipe(relbase.impish,
-                                     TestMultipathLvmPartWipeAbs):
     __test__ = True
 
 

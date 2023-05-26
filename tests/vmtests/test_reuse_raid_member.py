@@ -36,10 +36,6 @@ class HirsuteTestReuseRAIDMember(relbase.hirsute, TestReuseRAIDMember):
     __test__ = True
 
 
-class ImpishTestReuseRAIDMember(relbase.impish, TestReuseRAIDMember):
-    __test__ = True
-
-
 class BionicTestReuseRAIDMemberPartition(relbase.bionic,
                                          TestReuseRAIDMemberPartition):
     __test__ = True
@@ -52,11 +48,6 @@ class FocalTestReuseRAIDMemberPartition(relbase.focal,
 
 class HirsuteTestReuseRAIDMemberPartition(relbase.hirsute,
                                           TestReuseRAIDMemberPartition):
-    __test__ = True
-
-
-class ImpishTestReuseRAIDMemberPartition(relbase.impish,
-                                         TestReuseRAIDMemberPartition):
     __test__ = True
 
 

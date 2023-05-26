@@ -72,8 +72,4 @@ class HirsuteBcacheBasic(relbase.hirsute, TestBcacheBasic):
     __test__ = True
 
 
-class ImpishBcacheBasic(relbase.impish, TestBcacheBasic):
-    __test__ = True
-
-
 # vi: ts=4 expandtab syntax=python

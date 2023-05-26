@@ -31,9 +31,4 @@ class HirsuteTestReuseLVMMemberPartition(relbase.hirsute,
     __test__ = True
 
 
-class ImpishTestReuseLVMMemberPartition(relbase.impish,
-                                        TestReuseLVMMemberPartition):
-    __test__ = True
-
-
 # vi: ts=4 expandtab syntax=python
