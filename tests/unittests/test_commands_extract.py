@@ -92,7 +92,8 @@ class ExtractTestCase(CiTestCase):
         if len(fnames) == 1:
             self.assertEqual(len(other_mounts), 0)
             self.m_copy_to_target.assert_called_once_with(
-                mount_tracker.mounts[0].mountpoint, target)
+                mount_tracker.mounts[0].mountpoint, target,
+                extra_rsync_args=None)
             return
 
         expected_lowers = []
@@ -114,7 +115,7 @@ class ExtractTestCase(CiTestCase):
                 self.fail("did not find expected lowerdir option")
                 self.assertEqual(expected_lowers, seen_lowers)
         self.m_copy_to_target.assert_called_once_with(
-            final_mount.mountpoint, target)
+            final_mount.mountpoint, target, extra_rsync_args=None)
 
     def assert_downloaded_and_mounted_and_extracted(self, mount_tracker, urls,
                                                     target):
@@ -145,7 +146,21 @@ class TestExtractSourceCp(ExtractTestCase):
 
         self.assertEqual(0, self.m_download.call_count)
         self.assertEqual(0, len(mount_tracker.mounts))
-        self.m_copy_to_target.assert_called_once_with(path, target)
+        self.m_copy_to_target.assert_called_once_with(
+            path, target, extra_rsync_args=None)
+
+    def test_cp_uri_extra_rsync_args(self):
+        mount_tracker = self.track_mounts()
+        path = self.random_string()
+        target = self.random_string()
+
+        extract_source(
+            {'uri': 'cp://' + path}, target, extra_rsync_args=['--no-links'])
+
+        self.assertEqual(0, self.m_download.call_count)
+        self.assertEqual(0, len(mount_tracker.mounts))
+        self.m_copy_to_target.assert_called_once_with(
+            path, target, extra_rsync_args=['--no-links'])
 
 
 class TestExtractSourceFsImageUrl(ExtractTestCase):

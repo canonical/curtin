@@ -199,27 +199,32 @@ def get_handler_for_source(source):
         return None
 
 
-def extract_source(source, target):
+def extract_source(source, target, *, extra_rsync_args=None):
     handler = get_handler_for_source(source)
     if handler is not None:
         root_dir = handler.setup()
         try:
-            copy_to_target(root_dir, target)
+            copy_to_target(root_dir, target, extra_rsync_args=extra_rsync_args)
         finally:
             handler.cleanup()
     else:
         extract_root_tgz_url(source['uri'], target=target)
 
 
-def copy_to_target(source, target):
+def copy_to_target(source, target, *, extra_rsync_args=None):
+    if extra_rsync_args is None:
+        extra_rsync_args = []
     if source.startswith("cp://"):
         source = source[5:]
     source = os.path.abspath(source)
 
-    util.subp(args=['sh', '-c',
-                    ('mkdir -p "$2" && cd "$2" && '
-                     'rsync -aXHAS --one-file-system "$1/" .'),
-                    '--', source, target])
+    os.makedirs(target, exist_ok=True)
+
+    util.subp(
+        ['rsync', '-aXHAS', '--one-file-system'] +
+        extra_rsync_args +
+        [source + '/', '.'],
+        cwd=target)
 
 
 def _path_from_file_url(url):
@@ -255,7 +260,9 @@ def extract(args):
                 source['uri']):
             if source['type'].startswith('dd-'):
                 continue
-            extract_source(source, target)
+            extra_rsync_args = cfg.get(
+                'install', {}).get('extra_rsync_args', [])
+            extract_source(source, target, extra_rsync_args=extra_rsync_args)
 
     if cfg.get('write_files'):
         LOG.info("Applying write_files from config.")

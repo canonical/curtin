@@ -378,6 +378,10 @@ expected to be empty.
 If the file does not exist, curtin will create it and store the necessary data
 so that one can resume the installation and run further stages later.
 
+**extra_rsync_args**: *list of extra arguments*
+
+Additional arguments to pass to rsync when copying files to the target system.
+
 **Example**::
 
   install:
