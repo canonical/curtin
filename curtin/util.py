@@ -344,10 +344,6 @@ def load_kernel_module(module, check_loaded=True):
     subp(['modprobe', '--use-blacklist', module])
 
 
-class BadUsage(Exception):
-    pass
-
-
 class ProcessExecutionError(IOError):
 
     MESSAGE_TMPL = ('%(description)s\n'

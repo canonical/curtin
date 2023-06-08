@@ -7,7 +7,7 @@ import os
 
 from curtin import config
 from curtin.commands import install
-from curtin.util import BadUsage, ensure_dir, write_file
+from curtin.util import ensure_dir, write_file
 from .helpers import CiTestCase
 from collections import namedtuple
 
@@ -47,14 +47,6 @@ class TestCmdInstall(CiTestCase):
         super(TestCmdInstall, self).setUp()
         self.new_root = self.tmp_dir()
         self.logfile = self.tmp_path('my.log', _dir=self.new_root)
-
-    def test_error_no_sources_in_config(self):
-        """An error is raised when the configuration does not have sources."""
-        myargs = FakeArgs(config={}, source=[], reportstack=None)
-        with self.assertRaises(BadUsage) as context_manager:
-            install.cmd_install(myargs)
-        self.assertEqual(
-            'no sources provided to install', str(context_manager.exception))
 
     def test_error_invalid_proxy_value(self):
         """An error is raised when the proxy configuration is not a dict."""

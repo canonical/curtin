@@ -454,8 +454,6 @@ def cmd_install(args):
     LOG.info(INSTALL_START_MSG)
     LOG.debug('LANG=%s', os.environ.get('LANG'))
     LOG.debug("merged config: %s" % cfg)
-    if not len(cfg.get('sources', [])):
-        raise util.BadUsage("no sources provided to install")
 
     migrate_proxy_settings(cfg)
     for k in ('http_proxy', 'https_proxy', 'no_proxy'):
