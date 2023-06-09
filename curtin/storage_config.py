@@ -13,35 +13,36 @@ from curtin import util
 
 # map
 # https://en.wikipedia.org/wiki/GUID_Partition_Table#Partition_type_GUIDs
-# to
-# curtin/commands/block_meta.py:partition_handler()sgdisk_flags/types
+# to values used as "flag" on partition actions.
 GPT_GUID_TO_CURTIN_MAP = {
-    'C12A7328-F81F-11D2-BA4B-00A0C93EC93B': ('boot', 'EF00'),
-    '21686148-6449-6E6F-744E-656564454649': ('bios_grub', 'EF02'),
-    '933AC7E1-2EB4-4F13-B844-0E14E2AEF915': ('home', '8302'),
-    '0FC63DAF-8483-4772-8E79-3D69D8477DE4': ('linux', '8300'),
-    'E6D6D379-F507-44C2-A23C-238F2A3DF928': ('lvm', '8e00'),
-    '024DEE41-33E7-11D3-9D69-0008C781F39F': ('mbr', ''),
-    '9E1A2D38-C612-4316-AA26-8B49521E5A8B': ('prep', '4200'),
-    'A19D880F-05FC-4D3B-A006-743F0F84911E': ('raid', 'fd00'),
-    '0657FD6D-A4AB-43C4-84E5-0933C84B4F4F': ('swap', '8200'),
+    'C12A7328-F81F-11D2-BA4B-00A0C93EC93B': 'boot',
+    '21686148-6449-6E6F-744E-656564454649': 'bios_grub',
+    '933AC7E1-2EB4-4F13-B844-0E14E2AEF915': 'home',
+    '0FC63DAF-8483-4772-8E79-3D69D8477DE4': 'linux',
+    'E6D6D379-F507-44C2-A23C-238F2A3DF928': 'lvm',
+    '024DEE41-33E7-11D3-9D69-0008C781F39F': 'mbr',
+    '9E1A2D38-C612-4316-AA26-8B49521E5A8B': 'prep',
+    'A19D880F-05FC-4D3B-A006-743F0F84911E': 'raid',
+    '0657FD6D-A4AB-43C4-84E5-0933C84B4F4F': 'swap',
 }
 
 # MBR types
 # https://www.win.tue.nl/~aeb/partitions/partition_types-2.html
 # to
-# curtin/commands/block_meta.py:partition_handler()sgdisk_flags/types
+# to values used as "flag" on partition actions.
 MBR_TYPE_TO_CURTIN_MAP = {
-    '0XF': ('extended', 'f'),
-    '0X5': ('extended', 'f'),
-    '0X83': ('linux', '83'),
-    '0X85': ('extended', 'f'),
-    '0XC5': ('extended', 'f'),
+    '5':  'extended',
+    '82': 'swap',
+    '83': 'linux',
+    '85': 'extended',
+    '8E': 'lvm',
+    'C5': 'extended',
+    'EF': 'boot',
+    'F':  'extended',
+    'FD': 'raid',
 }
 
 MBR_BOOT_FLAG = '0x80'
-
-PTABLE_TYPE_MAP = dict(GPT_GUID_TO_CURTIN_MAP, **MBR_TYPE_TO_CURTIN_MAP)
 
 StorageConfig = namedtuple('StorageConfig', ('type', 'schema'))
 STORAGE_CONFIG_TYPES = {
@@ -803,7 +804,7 @@ class BlockdevParser(ProbertParser):
             ptype = blockdev_data.get('ID_PART_ENTRY_TYPE')
             if ptype is not None:
                 entry['partition_type'] = ptype
-            flag_name, _flag_code = ptable_uuid_to_flag_entry(ptype)
+            flag_name = ptable_part_type_to_flag(ptype)
 
             if ptable and ptable.get('label') == 'dos':
                 # if the boot flag is set, use this as the flag, logical
@@ -1278,15 +1279,17 @@ class ZfsParser(ProbertParser):
         return (zpool_configs + zfs_configs, errors)
 
 
-def ptable_uuid_to_flag_entry(guid):
-    name = code = None
-    # prefix non-uuid guid values with 0x
-    if guid and '-' not in guid and not guid.upper().startswith('0X'):
-        guid = '0x' + guid
-    if guid and guid.upper() in PTABLE_TYPE_MAP:
-        name, code = PTABLE_TYPE_MAP[guid.upper()]
-
-    return (name, code)
+def ptable_part_type_to_flag(part_type):
+    if not part_type:
+        return None
+    part_type = part_type.upper()
+    if '-' in part_type:  # Assume it's a GPT partition type GUID
+        return GPT_GUID_TO_CURTIN_MAP.get(part_type)
+    else:
+        # Handle MBR partition types with and without 0x/0X prefixes.
+        if part_type.startswith('0X'):
+            part_type = part_type[2:]
+        return MBR_TYPE_TO_CURTIN_MAP.get(part_type)
 
 
 def extract_storage_config(probe_data, strict=False):

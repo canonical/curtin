@@ -8,8 +8,10 @@ from curtin.block import (bcache, clear_holders, dasd, iscsi, lvm, mdadm, mkfs,
 from curtin import distro
 from curtin.log import LOG, logged_time
 from curtin.reporter import events
-from curtin.storage_config import (extract_storage_ordered_dict,
-                                   ptable_uuid_to_flag_entry)
+from curtin.storage_config import (
+    extract_storage_ordered_dict,
+    ptable_part_type_to_flag,
+    )
 
 
 from . import populate_one_subcmd
@@ -45,14 +47,14 @@ PTABLES_SUPPORTED = schemas._ptables
 PTABLES_VALID = schemas._ptables_valid
 
 SGDISK_FLAGS = {
-    "boot": 'ef00',
-    "lvm": '8e00',
-    "raid": 'fd00',
     "bios_grub": 'ef02',
-    "prep": '4100',
-    "swap": '8200',
+    "boot": 'ef00',
     "home": '8302',
-    "linux": '8300'
+    "linux": '8300',
+    "lvm": '8e00',
+    "prep": '4100',
+    "raid": 'fd00',
+    "swap": '8200',
 }
 
 MSDOS_FLAGS = {
@@ -900,7 +902,7 @@ def verify_exists(devpath):
 
 
 def get_part_size_bytes(devpath, part_info):
-    (found_type, _code) = ptable_uuid_to_flag_entry(part_info.get('type'))
+    found_type = ptable_part_type_to_flag(part_info.get('type'))
     if found_type == 'extended':
         found_size_bytes = int(part_info['size']) * 512
     else:
@@ -929,14 +931,14 @@ def verify_ptable_flag(devpath, expected_flag, label, part_info):
         if expected_flag == 'boot':
             found_flag = 'boot' if part_info.get('bootable') is True else None
         elif expected_flag == 'extended':
-            (found_flag, _code) = ptable_uuid_to_flag_entry(part_info['type'])
+            found_flag = ptable_part_type_to_flag(part_info['type'])
         elif expected_flag == 'logical':
             (_parent, partnumber) = block.get_blockdev_for_partition(devpath)
             found_flag = 'logical' if int(partnumber) > 4 else None
 
     # gpt and msdos primary partitions look up flag by entry['type']
     if found_flag is None:
-        (found_flag, _code) = ptable_uuid_to_flag_entry(part_info['type'])
+        found_flag = ptable_part_type_to_flag(part_info['type'])
     msg = (
         'Verifying %s partition flag, expecting %s, found %s' % (
          devpath, expected_flag, found_flag))

@@ -7,7 +7,7 @@ from curtin.storage_config import ProbertParser as baseparser
 from curtin.storage_config import (BcacheParser, BlockdevParser, DasdParser,
                                    DmcryptParser, FilesystemParser, LvmParser,
                                    RaidParser, MountParser, ZfsParser)
-from curtin.storage_config import ptable_uuid_to_flag_entry, select_configs
+from curtin.storage_config import ptable_part_type_to_flag, select_configs
 from curtin.storage_config import LOG as SCLogger
 from curtin import util
 
@@ -257,24 +257,21 @@ class TestBlockdevParser(CiTestCase):
         """ BlockdevParser maps ptable UUIDs to boot flags. """
         boot_guids = ['C12A7328-F81F-11D2-BA4B-00A0C93EC93B',
                       'c12a7328-f81f-11d2-ba4b-00a0c93ec93b']
-        expected_tuple = ('boot', 'EF00')
+        expected_flag = 'boot'
         for guid in boot_guids:
-            self.assertEqual(expected_tuple,
-                             ptable_uuid_to_flag_entry(guid))
+            self.assertEqual(expected_flag, ptable_part_type_to_flag(guid))
 
     # XXX: Parameterize me
     def test_blockdev_ptable_uuid_flag_invalid(self):
-        """ BlockdevParser returns (None, None) for invalid uuids. """
+        """ BlockdevParser returns None for invalid uuids. """
         for invalid in [None, '', {}, []]:
-            self.assertEqual((None, None),
-                             ptable_uuid_to_flag_entry(invalid))
+            self.assertEqual(None, ptable_part_type_to_flag(invalid))
 
     # XXX: Parameterize me
     def test_blockdev_ptable_uuid_flag_unknown_uuid(self):
-        """ BlockdevParser returns (None, None) for unknown uuids. """
+        """ BlockdevParser returns None for unknown uuids. """
         for unknown in [self.random_string(), self.random_string()]:
-            self.assertEqual((None, None),
-                             ptable_uuid_to_flag_entry(unknown))
+            self.assertEqual(None, ptable_part_type_to_flag(unknown))
 
     def test_get_unique_ids(self):
         """ BlockdevParser extracts uniq udev ID_ values. """

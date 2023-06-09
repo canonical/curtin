@@ -21,6 +21,7 @@ from curtin.commands.block_meta import (
 from curtin.log import LOG
 from curtin.storage_config import (
     GPT_GUID_TO_CURTIN_MAP,
+    MBR_TYPE_TO_CURTIN_MAP,
     select_configs,
     )
 from curtin.udev import udevadm_settle
@@ -130,11 +131,10 @@ resizers = {
 
 
 FLAG_TO_GUID = {
-    flag: guid for (guid, (flag, typecode)) in GPT_GUID_TO_CURTIN_MAP.items()
+    flag: guid for (guid, flag) in GPT_GUID_TO_CURTIN_MAP.items()
     }
 FLAG_TO_MBR_TYPE = {
-    flag: typecode[:2].upper() for (guid, (flag, typecode))
-    in GPT_GUID_TO_CURTIN_MAP.items()
+    flag: typecode for (typecode, flag) in MBR_TYPE_TO_CURTIN_MAP.items()
     }
 FLAG_TO_MBR_TYPE['extended'] = '05'
 
