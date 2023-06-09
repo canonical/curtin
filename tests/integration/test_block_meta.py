@@ -1283,3 +1283,16 @@ table-length: 256'''.encode()
         self.assertPartitions(
             PartData(number=1, offset=1 << 20, size=1 << 20, boot=False,
                      partition_type='82'))
+
+    @parameterized.expand(((1,), (2,)))
+    def test_msftres(self, sv):
+        self.img = self.tmp_path('image.img')
+        config = StorageConfigBuilder(version=sv)
+        config.add_image(path=self.img, create=True, size='20M',
+                         ptable='gpt')
+        config.add_part(number=1, offset=1 << 20, size=1 << 20, flag='msftres')
+        self.run_bm(config.render())
+
+        self.assertPartitions(
+            PartData(number=1, offset=1 << 20, size=1 << 20, boot=False,
+                     partition_type='E3C9E316-0B5C-4DB8-817D-F92DF00215AE'))

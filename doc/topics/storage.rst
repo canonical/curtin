@@ -423,7 +423,7 @@ disks.
   prior to creating the partition to ensure that other block layers or devices
   do not enable themselves and prevent accessing the partition.
 
-**flag**: *logical, extended, boot, bios_grub, swap, lvm, raid, home, prep*
+**flag**: *logical, extended, boot, bios_grub, swap, lvm, raid, home, prep, msftres*
 
 If the ``flag`` key is present, curtin will set the specified flag on the
 partition. Note that some flags only apply to msdos partition tables, and some
@@ -434,9 +434,9 @@ on a msdos table. An extended partition should be created containing all of the
 empty space on the drive, and logical partitions can be created within it. A
 extended partition must already be present to create logical partitions.
 
-On msdos partition tables, the *boot* flag sets the boot parameter to that
-partition. On gpt partition tables, the boot flag sets the esp flag on the
-partition.
+On msdos partition tables, the *boot* flag sets the boot parameter to
+that partition. On gpt partition tables, the boot flag sets partition
+type guid to the appropriate value for the EFI System Partition / ESP.
 
 If the host system for curtin has been booted using UEFI then curtin will
 install grub to the esp partition. If the system installation media
@@ -450,7 +450,7 @@ filesystem or be mounted anywhere on the system.
 **partition_type**: *msdos: byte value in 0xnn style; gpt: GUID*
 
 Only applicable to v2 storage configuration.  If both ``partition_type`` and
-``flag`` are set, ``partition_type`` dictates the acutal type.
+``flag`` are set, ``partition_type`` dictates the actual type.
 
 The ``partition_type`` field allows for setting arbitrary partition type values
 that do not have a matching ``flag``, or cases that are not handled by the

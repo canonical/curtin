@@ -52,6 +52,7 @@ SGDISK_FLAGS = {
     "home": '8302',
     "linux": '8300',
     "lvm": '8e00',
+    "msftres": '0c01',
     "prep": '4100',
     "raid": 'fd00',
     "swap": '8200',
@@ -921,8 +922,8 @@ def verify_size(devpath, expected_size_bytes, part_info):
 
 
 def verify_ptable_flag(devpath, expected_flag, label, part_info):
-    if (expected_flag not in SGDISK_FLAGS.keys()) and (expected_flag not in
-                                                       MSDOS_FLAGS.keys()):
+    if expected_flag not in SGDISK_FLAGS and \
+       expected_flag not in MSDOS_FLAGS:
         raise RuntimeError(
             'Cannot verify unknown partition flag: %s' % expected_flag)
 
