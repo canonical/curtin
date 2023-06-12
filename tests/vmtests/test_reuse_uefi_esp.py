@@ -11,10 +11,10 @@ class TestUefiReuseEspAbs(TestBasicAbs):
     conf_file = "examples/tests/uefi_reuse_esp.yaml"
 
     def test_efiboot_menu_has_one_distro_entry(self):
-        efi_output = util.parse_efibootmgr(
+        efi_state = util.parse_efibootmgr(
             self.load_collect_file("efibootmgr.out"))
         duplicates = uefi_find_duplicate_entries(
-            grubcfg=None, target=None, efi_output=efi_output)
+            grubcfg=None, target=None, efi_state=efi_state)
         print(duplicates)
         self.assertEqual(0, len(duplicates))
 

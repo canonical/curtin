@@ -893,7 +893,7 @@ class TestGetEFIBootMGR(CiTestCase):
     def test_calls_efibootmgr_verbose(self):
         self.in_chroot_subp_output.append(('', ''))
         util.get_efibootmgr('target')
-        self.assertEquals(
+        self.assertEqual(
             (['efibootmgr', '-v'],),
             self.mock_in_chroot_subp.call_args_list[0][0])
 
@@ -911,37 +911,38 @@ class TestGetEFIBootMGR(CiTestCase):
             Boot0005* UEFI:Network Device	BBS(131,,0x0)
             """), ''))
         observed = util.get_efibootmgr('target')
-        self.assertEquals({
-            'current': '0000',
-            'timeout': '1 seconds',
-            'order': ['0000', '0002', '0001', '0003', '0004', '0005'],
-            'entries': {
-                '0000': {
-                    'name': 'ubuntu',
-                    'path': 'HD(1,GPT)/File(\\EFI\\ubuntu\\shimx64.efi)',
-                },
-                '0001': {
-                    'name': 'CD/DVD Drive',
-                    'path': 'BBS(CDROM,,0x0)',
-                },
-                '0002': {
-                    'name': 'Hard Drive',
-                    'path': 'BBS(HD,,0x0)',
-                },
-                '0003': {
-                    'name': 'UEFI:CD/DVD Drive',
-                    'path': 'BBS(129,,0x0)',
-                },
-                '0004': {
-                    'name': 'UEFI:Removable Device',
-                    'path': 'BBS(130,,0x0)',
-                },
-                '0005': {
-                    'name': 'UEFI:Network Device',
-                    'path': 'BBS(131,,0x0)',
-                },
-            }
-        }, observed)
+        expected = util.EFIBootState(
+            current='0000',
+            timeout='1 seconds',
+            order=['0000', '0002', '0001', '0003', '0004', '0005'],
+            entries={
+                '0000': util.EFIBootEntry(
+                    name='ubuntu',
+                    path='HD(1,GPT)/File(\\EFI\\ubuntu\\shimx64.efi)',
+                    ),
+                '0001': util.EFIBootEntry(
+                    name='CD/DVD Drive',
+                    path='BBS(CDROM,,0x0)',
+                    ),
+                '0002': util.EFIBootEntry(
+                    name='Hard Drive',
+                    path='BBS(HD,,0x0)',
+                    ),
+                '0003': util.EFIBootEntry(
+                    name='UEFI:CD/DVD Drive',
+                    path='BBS(129,,0x0)',
+                    ),
+                '0004': util.EFIBootEntry(
+                    name='UEFI:Removable Device',
+                    path='BBS(130,,0x0)',
+                    ),
+                '0005': util.EFIBootEntry(
+                    name='UEFI:Network Device',
+                    path='BBS(131,,0x0)',
+                    ),
+                })
+
+        self.assertEqual(expected, observed)
 
     def test_parses_output_filter_missing(self):
         """ensure parsing ignores items in order that don't have entries"""
@@ -958,37 +959,37 @@ class TestGetEFIBootMGR(CiTestCase):
             Boot0005* UEFI:Network Device	BBS(131,,0x0)
             """), ''))
         observed = util.get_efibootmgr('target')
-        self.assertEquals({
-            'current': '0000',
-            'timeout': '1 seconds',
-            'order': ['0000', '0002', '0001', '0003', '0004', '0005'],
-            'entries': {
-                '0000': {
-                    'name': 'ubuntu',
-                    'path': 'HD(1,GPT)/File(\\EFI\\ubuntu\\shimx64.efi)',
-                },
-                '0001': {
-                    'name': 'CD/DVD Drive',
-                    'path': 'BBS(CDROM,,0x0)',
-                },
-                '0002': {
-                    'name': 'Hard Drive',
-                    'path': 'BBS(HD,,0x0)',
-                },
-                '0003': {
-                    'name': 'UEFI:CD/DVD Drive',
-                    'path': 'BBS(129,,0x0)',
-                },
-                '0004': {
-                    'name': 'UEFI:Removable Device',
-                    'path': 'BBS(130,,0x0)',
-                },
-                '0005': {
-                    'name': 'UEFI:Network Device',
-                    'path': 'BBS(131,,0x0)',
-                },
-            }
-        }, observed)
+        expected = util.EFIBootState(
+            current='0000',
+            timeout='1 seconds',
+            order=['0000', '0002', '0001', '0003', '0004', '0005'],
+            entries={
+                '0000': util.EFIBootEntry(
+                    name='ubuntu',
+                    path='HD(1,GPT)/File(\\EFI\\ubuntu\\shimx64.efi)',
+                    ),
+                '0001': util.EFIBootEntry(
+                    name='CD/DVD Drive',
+                    path='BBS(CDROM,,0x0)',
+                    ),
+                '0002': util.EFIBootEntry(
+                    name='Hard Drive',
+                    path='BBS(HD,,0x0)',
+                    ),
+                '0003': util.EFIBootEntry(
+                    name='UEFI:CD/DVD Drive',
+                    path='BBS(129,,0x0)',
+                    ),
+                '0004': util.EFIBootEntry(
+                    name='UEFI:Removable Device',
+                    path='BBS(130,,0x0)',
+                    ),
+                '0005': util.EFIBootEntry(
+                    name='UEFI:Network Device',
+                    path='BBS(131,,0x0)',
+                    ),
+                })
+        self.assertEqual(expected, observed)
 
 
 class TestUsesSystemd(CiTestCase):

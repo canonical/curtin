@@ -8,6 +8,7 @@ import re
 import sys
 import shutil
 import textwrap
+from typing import List, Optional, Tuple
 
 from curtin import config
 from curtin import block
@@ -424,32 +425,37 @@ def install_kernel(cfg, target):
 
 def uefi_remove_old_loaders(grubcfg, target):
     """Removes the old UEFI loaders from efibootmgr."""
-    efi_output = util.get_efibootmgr(target)
-    LOG.debug('UEFI remove old olders efi output:\n%s', efi_output)
-    current_uefi_boot = efi_output.get('current', None)
+    efi_state = util.get_efibootmgr(target)
+
+    LOG.debug('UEFI remove old olders efi state:\n%s', efi_state)
+
     old_efi_entries = {
-        entry: info
-        for entry, info in efi_output['entries'].items()
-        if re.match(r'^.*File\(\\EFI.*$', info['path'])
+        number: entry
+        for number, entry in efi_state.entries.items()
+        if 'File(\\EFI' in entry.path
     }
-    old_efi_entries.pop(current_uefi_boot, None)
-    remove_old_loaders = grubcfg.get('remove_old_uefi_loaders', True)
-    if old_efi_entries:
-        if remove_old_loaders:
-            with util.ChrootableTarget(target) as in_chroot:
-                for entry, info in old_efi_entries.items():
-                    LOG.debug("removing old UEFI entry: %s" % info['name'])
-                    in_chroot.subp(
-                        ['efibootmgr', '-B', '-b', entry], capture=True)
-        else:
+
+    if efi_state.current in old_efi_entries:
+        del old_efi_entries[efi_state.current]
+
+    if not old_efi_entries:
+        return
+
+    if grubcfg.get('remove_old_uefi_loaders', True):
+        with util.ChrootableTarget(target) as in_chroot:
+            for number, entry in old_efi_entries.items():
+                LOG.debug("removing old UEFI entry: %s", entry.name)
+                in_chroot.subp(
+                    ['efibootmgr', '-B', '-b', number], capture=True)
+    else:
+        LOG.debug(
+            "Skipped removing %d old UEFI entrie%s.",
+            len(old_efi_entries),
+            '' if len(old_efi_entries) == 1 else 's')
+        for entry in old_efi_entries.values():
             LOG.debug(
-                "Skipped removing %d old UEFI entrie%s.",
-                len(old_efi_entries),
-                '' if len(old_efi_entries) == 1 else 's')
-            for info in old_efi_entries.values():
-                LOG.debug(
-                    "UEFI entry '%s' might no longer exist and "
-                    "should be removed.", info['name'])
+                "UEFI entry '%s' might no longer exist and "
+                "should be removed.", entry.name)
 
 
 def uefi_boot_entry_is_network(boot_entry_name):
@@ -460,7 +466,11 @@ def uefi_boot_entry_is_network(boot_entry_name):
                     boot_entry_name, re.IGNORECASE) is not None
 
 
-def _reorder_new_entry(boot_order, efi_output, efi_orig=None, variant=None):
+def _reorder_new_entry(
+        efi_state: util.EFIBootState,
+        efi_orig: util.EFIBootState,
+        variant: str,
+        ) -> List[str]:
     """
     Reorder the EFI boot menu as follows
 
@@ -470,32 +480,22 @@ def _reorder_new_entry(boot_order, efi_output, efi_orig=None, variant=None):
 
     returns a list of bootnum strings
     """
-
-    if not boot_order:
-        raise RuntimeError('boot_order is not a list')
-
-    if efi_orig is None:
-        raise RuntimeError('Missing efi_orig boot dictionary')
-
-    if variant is None:
-        variant = ""
-
     net_boot = []
     other = []
     target = []
 
-    LOG.debug("UEFI previous boot order: %s", efi_orig['order'])
-    LOG.debug("UEFI current  boot order: %s", boot_order)
-    new_entries = list(set(boot_order).difference(set(efi_orig['order'])))
+    LOG.debug("UEFI previous boot order: %s", efi_orig.order)
+    LOG.debug("UEFI current  boot order: %s", efi_state.order)
+    new_entries = list(set(efi_state.order).difference(set(efi_orig.order)))
     if new_entries:
         LOG.debug("UEFI Found new boot entries: %s", new_entries)
     LOG.debug('UEFI Looking for installed entry variant=%s', variant.lower())
-    for bootnum in boot_order:
-        entry = efi_output['entries'][bootnum]
-        if uefi_boot_entry_is_network(entry['name']):
+    for bootnum in efi_state.order:
+        entry = efi_state.entries[bootnum]
+        if uefi_boot_entry_is_network(entry.name):
             net_boot.append(bootnum)
         else:
-            if entry['name'].lower() == variant.lower():
+            if entry.name.lower() == variant.lower():
                 target.append(bootnum)
             else:
                 other.append(bootnum)
@@ -505,17 +505,22 @@ def _reorder_new_entry(boot_order, efi_output, efi_orig=None, variant=None):
     if other:
         LOG.debug("UEFI found other entries: %s", other)
     if target:
-        LOG.debug("UEFI found target entry: %s", target)
+        LOG.debug("UEFI found target entries: %s", target)
     else:
         LOG.debug("UEFI Did not find an entry with variant=%s",
                   variant.lower())
     new_order = net_boot + target + other
-    if boot_order == new_order:
+    if efi_state.order == new_order:
         LOG.debug("UEFI Current and Previous bootorders match")
     return new_order
 
 
-def uefi_reorder_loaders(grubcfg, target, efi_orig=None, variant=None):
+def uefi_reorder_loaders(
+        grubcfg: dict,
+        target: str,
+        efi_orig_state: util.EFIBootState,
+        variant: str,
+        ) -> None:
     """Reorders the UEFI BootOrder to place BootCurrent first.
 
     The specifically doesn't try to do to much. The order in which grub places
@@ -527,85 +532,92 @@ def uefi_reorder_loaders(grubcfg, target, efi_orig=None, variant=None):
     is installed after the the previous first entry (before we installed grub).
 
     """
-    if grubcfg.get('reorder_uefi', True):
-        efi_output = util.get_efibootmgr(target=target)
-        LOG.debug('UEFI efibootmgr output after install:\n%s', efi_output)
-        currently_booted = efi_output.get('current', None)
-        boot_order = efi_output.get('order', [])
-        new_boot_order = None
-        force_fallback_reorder = config.value_as_boolean(
-            grubcfg.get('reorder_uefi_force_fallback', False))
-        if currently_booted and force_fallback_reorder is False:
-            if currently_booted in boot_order:
-                boot_order.remove(currently_booted)
-            boot_order = [currently_booted] + boot_order
-            new_boot_order = ','.join(boot_order)
-            LOG.debug(
-                "Setting currently booted %s as the first "
-                "UEFI loader.", currently_booted)
-        else:
-            reason = (
-                "config 'reorder_uefi_force_fallback' is True" if
-                force_fallback_reorder else "missing 'BootCurrent' value")
-            LOG.debug("Using fallback UEFI reordering: " + reason)
-            if len(boot_order) < 2:
-                LOG.debug(
-                    'UEFI BootOrder has less than 2 entries, cannot reorder')
-                return
-            # look at efi entries before we added one to find the new addition
-            new_order = _reorder_new_entry(
-                    copy.deepcopy(boot_order), efi_output, efi_orig, variant)
-            if new_order != boot_order:
-                new_boot_order = ','.join(new_order)
-            else:
-                LOG.debug("UEFI No changes to boot order.")
-        if new_boot_order:
-            LOG.debug(
-                "New UEFI boot order: %s", new_boot_order)
-            with util.ChrootableTarget(target) as in_chroot:
-                in_chroot.subp(['efibootmgr', '-o', new_boot_order])
-    else:
+    if not grubcfg.get('reorder_uefi', True):
         LOG.debug("Skipped reordering of UEFI boot methods.")
         LOG.debug("Currently booted UEFI loader might no longer boot.")
+        return
+
+    efi_state = util.get_efibootmgr(target=target)
+    LOG.debug('UEFI efibootmgr output after install:\n%s', efi_state)
+    new_boot_order = None
+
+    force_fallback_reorder = config.value_as_boolean(
+        grubcfg.get('reorder_uefi_force_fallback', False))
+
+    if efi_state.current and not force_fallback_reorder:
+        boot_order = list(efi_state.order)
+        if efi_state.current in boot_order:
+            boot_order.remove(efi_state.current)
+        new_boot_order = ','.join([efi_state.current] + boot_order)
+        LOG.debug(
+            "Setting currently booted %s as the first UEFI loader.",
+            efi_state.current)
+    else:
+        if force_fallback_reorder:
+            reason = "config 'reorder_uefi_force_fallback' is True"
+        else:
+            reason = "missing 'BootCurrent' value"
+        LOG.debug("Using fallback UEFI reordering: " + reason)
+
+        if len(efi_state.order) < 2:
+            LOG.debug(
+                'UEFI BootOrder has less than 2 entries, cannot reorder')
+            return
+
+        # look at efi entries before we added one to find the new addition
+        new_order = _reorder_new_entry(efi_state, efi_orig_state, variant)
+
+        if new_order != efi_state.order:
+            new_boot_order = ','.join(new_order)
+        else:
+            LOG.debug("UEFI No changes to boot order.")
+
+    if new_boot_order:
+        LOG.debug("New UEFI boot order: %s", new_boot_order)
+        with util.ChrootableTarget(target) as in_chroot:
+            in_chroot.subp(['efibootmgr', '-o', new_boot_order])
 
 
-def uefi_remove_duplicate_entries(grubcfg, target, to_remove=None):
+def uefi_remove_duplicate_entries(grubcfg: dict, target: str) -> None:
     if not grubcfg.get('remove_duplicate_entries', True):
         LOG.debug("Skipped removing duplicate UEFI boot entries per config.")
         return
-    if to_remove is None:
-        to_remove = uefi_find_duplicate_entries(grubcfg, target)
+
+    to_remove = uefi_find_duplicate_entries(grubcfg, target)
 
     # check so we don't run ChrootableTarget code unless we have things to do
-    if to_remove:
-        with util.ChrootableTarget(target) as in_chroot:
-            for bootnum, entry in to_remove:
-                LOG.debug('Removing duplicate EFI entry (%s, %s)',
-                          bootnum, entry)
-                in_chroot.subp(['efibootmgr', '--bootnum=%s' % bootnum,
-                                '--delete-bootnum'])
+    if not to_remove:
+        return
+
+    with util.ChrootableTarget(target) as in_chroot:
+        for bootnum, entry in to_remove:
+            LOG.debug('Removing duplicate EFI entry (%s, %s)', bootnum, entry)
+            in_chroot.subp(
+                ['efibootmgr', '--bootnum=%s' % bootnum, '--delete-bootnum'])
 
 
-def uefi_find_duplicate_entries(grubcfg, target, efi_output=None):
+def uefi_find_duplicate_entries(
+        grubcfg: dict,
+        target: str,
+        efi_state: Optional[util.EFIBootState] = None,
+        ) -> List[Tuple[str, util.EFIBootEntry]]:
     seen = set()
     to_remove = []
-    if efi_output is None:
-        efi_output = util.get_efibootmgr(target=target)
-    entries = efi_output.get('entries', {})
-    current_bootnum = efi_output.get('current', None)
+    if efi_state is None:
+        efi_state = util.get_efibootmgr(target=target)
     # adding BootCurrent to seen first allows us to remove any other duplicate
     # entry of BootCurrent.
-    if current_bootnum:
-        seen.add(tuple(entries[current_bootnum].items()))
-    for bootnum in sorted(entries):
-        if bootnum == current_bootnum:
+    if efi_state.current in efi_state.entries:
+        current = efi_state.entries[efi_state.current]
+        seen.add((current.name, current.path))
+    for bootnum, entry in sorted(efi_state.entries.items()):
+        if bootnum == efi_state.current:
             continue
-        entry = entries[bootnum]
-        t = tuple(entry.items())
-        if t not in seen:
-            seen.add(t)
-        else:
+        t = (entry.name, entry.path)
+        if t in seen:
             to_remove.append((bootnum, entry))
+        seen.add(t)
+
     return to_remove
 
 
@@ -715,7 +727,7 @@ def uefi_find_grub_device_ids(sconfig):
     return grub_device_ids
 
 
-def setup_grub(cfg, target, osfamily=DISTROS.debian, variant=None):
+def setup_grub(cfg, target, osfamily, variant):
     # target is the path to the mounted filesystem
 
     # FIXME: these methods need moving to curtin.block
@@ -815,13 +827,13 @@ def setup_grub(cfg, target, osfamily=DISTROS.debian, variant=None):
 
     update_nvram = grubcfg.get('update_nvram', True)
     if uefi_bootable and update_nvram:
-        efi_orig_output = util.get_efibootmgr(target)
+        efi_orig_state = util.get_efibootmgr(target)
         uefi_remove_old_loaders(grubcfg, target)
 
     install_grub(instdevs, target, uefi=uefi_bootable, grubcfg=grubcfg)
 
     if uefi_bootable and update_nvram:
-        uefi_reorder_loaders(grubcfg, target, efi_orig_output, variant)
+        uefi_reorder_loaders(grubcfg, target, efi_orig_state, variant)
         uefi_remove_duplicate_entries(grubcfg, target)
 
 
