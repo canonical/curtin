@@ -304,8 +304,8 @@ PARTITION = {
         'device': {'$ref': '#/definitions/ref_id'},
         'flag': {'type': 'string',
                  'enum': ['bios_grub', 'boot', 'extended', 'home', 'linux',
-                          'logical', 'lvm', 'mbr', 'prep', 'raid', 'swap',
-                          '']},
+                          'logical', 'lvm', 'mbr', 'msftres', 'prep', 'raid',
+                          'swap', '']},
         'partition_type': {'type': 'string',
                            'oneOf': [
                                {'pattern': r'^0x[0-9a-fA-F]{1,2}$'},
