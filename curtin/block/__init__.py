@@ -1164,8 +1164,8 @@ def exclusive_open(path, exclusive=True):
         flags += os.O_EXCL
     try:
         fd = os.open(path, flags)
+        fd_needs_closing = True
         try:
-            fd_needs_closing = True
             with os.fdopen(fd, mode) as fo:
                 yield fo
             fd_needs_closing = False

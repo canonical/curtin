@@ -419,6 +419,7 @@ def _oauth_headers_none(url, consumer_key, token_key, token_secret,
 def _oauth_headers_oauth(url, consumer_key, token_key, token_secret,
                          consumer_secret, clockskew=0):
     """Build OAuth headers with oauth using given credentials."""
+    # pylint: disable=used-before-assignment
     consumer = oauth.OAuthConsumer(consumer_key, consumer_secret)
     token = oauth.OAuthToken(token_key, token_secret)
 
