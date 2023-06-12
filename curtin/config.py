@@ -1,7 +1,9 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
 
-import yaml
 import json
+
+import attr
+import yaml
 
 ARCHIVE_HEADER = "#curtin-config-archive"
 ARCHIVE_TYPE = "text/curtin-config-archive"
@@ -125,5 +127,25 @@ def dump_config(config):
 def value_as_boolean(value):
     false_values = (False, None, 0, '0', 'False', 'false', 'None', 'none', '')
     return value not in false_values
+
+
+@attr.s(auto_attribs=True)
+class GrubConfig:
+    # This is not yet every option that appears under the "grub" config key,
+    # but it is a work in progress.
+    remove_old_uefi_loaders: bool = True
+    reorder_uefi: bool = True
+    reorder_uefi_force_fallback: bool = attr.ib(
+        default=False, converter=value_as_boolean)
+    remove_duplicate_entries: bool = True
+
+
+def fromdict(cls, d):
+    kw = {}
+    for field in attr.fields(cls):
+        if field.name in d:
+            kw[field.name] = d[field.name]
+    return cls(**kw)
+
 
 # vi: ts=4 expandtab syntax=python

@@ -1103,7 +1103,7 @@ class TestUefiRemoveDuplicateEntries(CiTestCase):
     def test_uefi_remove_duplicate_entries(self):
         grubcfg = {}
         curthooks.uefi_remove_duplicate_entries(grubcfg, self.target)
-        self.assertEquals([
+        self.assertEqual([
             call(['efibootmgr', '--bootnum=0001', '--delete-bootnum'],
                  target=self.target),
             call(['efibootmgr', '--bootnum=0003', '--delete-bootnum'],
@@ -1117,7 +1117,7 @@ class TestUefiRemoveDuplicateEntries(CiTestCase):
         efiout.current = ''
         self.m_efibootmgr.return_value = efiout
         curthooks.uefi_remove_duplicate_entries(grubcfg, self.target)
-        self.assertEquals([
+        self.assertEqual([
             call(['efibootmgr', '--bootnum=0001', '--delete-bootnum'],
                  target=self.target),
             call(['efibootmgr', '--bootnum=0003', '--delete-bootnum'],
@@ -1139,7 +1139,7 @@ class TestUefiRemoveDuplicateEntries(CiTestCase):
         efiout.current = '0003'
         self.m_efibootmgr.return_value = efiout
         curthooks.uefi_remove_duplicate_entries(grubcfg, self.target)
-        self.assertEquals([
+        self.assertEqual([
             call(['efibootmgr', '--bootnum=0000', '--delete-bootnum'],
                  target=self.target),
             call(['efibootmgr', '--bootnum=0001', '--delete-bootnum'],
@@ -1168,7 +1168,7 @@ class TestUefiRemoveDuplicateEntries(CiTestCase):
                 ),
             })
         curthooks.uefi_remove_duplicate_entries(grubcfg, self.target)
-        self.assertEquals([], self.m_subp.call_args_list)
+        self.assertEqual([], self.m_subp.call_args_list)
 
 
 class TestUbuntuCoreHooks(CiTestCase):

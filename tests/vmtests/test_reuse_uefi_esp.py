@@ -13,8 +13,7 @@ class TestUefiReuseEspAbs(TestBasicAbs):
     def test_efiboot_menu_has_one_distro_entry(self):
         efi_state = util.parse_efibootmgr(
             self.load_collect_file("efibootmgr.out"))
-        duplicates = uefi_find_duplicate_entries(
-            grubcfg=None, target=None, efi_state=efi_state)
+        duplicates = uefi_find_duplicate_entries(efi_state)
         print(duplicates)
         self.assertEqual(0, len(duplicates))
 

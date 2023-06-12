@@ -8,7 +8,7 @@ import re
 import sys
 import shutil
 import textwrap
-from typing import List, Optional, Tuple
+from typing import List, Tuple
 
 from curtin import config
 from curtin import block
@@ -423,8 +423,9 @@ def install_kernel(cfg, target):
                      " System may not boot.", package)
 
 
-def uefi_remove_old_loaders(grubcfg, target):
+def uefi_remove_old_loaders(grubcfg: dict, target):
     """Removes the old UEFI loaders from efibootmgr."""
+    grubcfg = config.fromdict(config.GrubConfig, grubcfg)
     efi_state = util.get_efibootmgr(target)
 
     LOG.debug('UEFI remove old olders efi state:\n%s', efi_state)
@@ -441,7 +442,7 @@ def uefi_remove_old_loaders(grubcfg, target):
     if not old_efi_entries:
         return
 
-    if grubcfg.get('remove_old_uefi_loaders', True):
+    if grubcfg.remove_old_uefi_loaders:
         with util.ChrootableTarget(target) as in_chroot:
             for number, entry in old_efi_entries.items():
                 LOG.debug("removing old UEFI entry: %s", entry.name)
@@ -532,7 +533,9 @@ def uefi_reorder_loaders(
     is installed after the the previous first entry (before we installed grub).
 
     """
-    if not grubcfg.get('reorder_uefi', True):
+    grubcfg = config.fromdict(config.GrubConfig, grubcfg)
+
+    if not grubcfg.reorder_uefi:
         LOG.debug("Skipped reordering of UEFI boot methods.")
         LOG.debug("Currently booted UEFI loader might no longer boot.")
         return
@@ -541,10 +544,7 @@ def uefi_reorder_loaders(
     LOG.debug('UEFI efibootmgr output after install:\n%s', efi_state)
     new_boot_order = None
 
-    force_fallback_reorder = config.value_as_boolean(
-        grubcfg.get('reorder_uefi_force_fallback', False))
-
-    if efi_state.current and not force_fallback_reorder:
+    if efi_state.current and not grubcfg.reorder_uefi_force_fallback:
         boot_order = list(efi_state.order)
         if efi_state.current in boot_order:
             boot_order.remove(efi_state.current)
@@ -553,7 +553,7 @@ def uefi_reorder_loaders(
             "Setting currently booted %s as the first UEFI loader.",
             efi_state.current)
     else:
-        if force_fallback_reorder:
+        if grubcfg.reorder_uefi_force_fallback:
             reason = "config 'reorder_uefi_force_fallback' is True"
         else:
             reason = "missing 'BootCurrent' value"
@@ -579,11 +579,13 @@ def uefi_reorder_loaders(
 
 
 def uefi_remove_duplicate_entries(grubcfg: dict, target: str) -> None:
-    if not grubcfg.get('remove_duplicate_entries', True):
+    grubcfg = config.fromdict(config.GrubConfig, grubcfg)
+
+    if not grubcfg.remove_duplicate_entries:
         LOG.debug("Skipped removing duplicate UEFI boot entries per config.")
         return
 
-    to_remove = uefi_find_duplicate_entries(grubcfg, target)
+    to_remove = uefi_find_duplicate_entries(util.get_efibootmgr(target=target))
 
     # check so we don't run ChrootableTarget code unless we have things to do
     if not to_remove:
@@ -597,14 +599,10 @@ def uefi_remove_duplicate_entries(grubcfg: dict, target: str) -> None:
 
 
 def uefi_find_duplicate_entries(
-        grubcfg: dict,
-        target: str,
-        efi_state: Optional[util.EFIBootState] = None,
+        efi_state: util.EFIBootState,
         ) -> List[Tuple[str, util.EFIBootEntry]]:
     seen = set()
     to_remove = []
-    if efi_state is None:
-        efi_state = util.get_efibootmgr(target=target)
     # adding BootCurrent to seen first allows us to remove any other duplicate
     # entry of BootCurrent.
     if efi_state.current in efi_state.entries:
