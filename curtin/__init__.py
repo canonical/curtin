@@ -40,6 +40,6 @@ FEATURES = [
     'FSTAB_DEFAULT_FSCK_ON_BLK'
 ]
 
-__version__ = "22.1"
+__version__ = "23.1.1"
 
 # vi: ts=4 expandtab syntax=python
