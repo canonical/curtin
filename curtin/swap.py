@@ -93,18 +93,21 @@ def get_target_kernel_version(target):
 
 def can_use_swapfile(target, fstype):
     if fstype is None:
-        raise RuntimeError(
-            'Unknown target filesystem type, may not support swapfiles')
-    if fstype in ['btrfs', 'xfs']:
+        LOG.debug('Unknown target filesystem type, may not support swapfiles')
+        return False
+    elif fstype == 'btrfs':
         # check kernel version
         pkg_ver = get_target_kernel_version(target)
         if not pkg_ver:
-            raise RuntimeError('Failed to read target kernel version')
-        if fstype == 'btrfs' and pkg_ver['major'] < 5:
-            raise RuntimeError(
-                'btrfs requiers kernel version 5.0+ to use swapfiles')
-    elif fstype in ['zfs']:
-        raise RuntimeError('ZFS cannot use swapfiles')
+            LOG.debug('Failed to read target kernel version')
+            return False
+        if pkg_ver['major'] < 5:
+            LOG.debug('btrfs requires kernel version 5.0+ to use swapfiles')
+            return False
+    elif fstype == 'zfs':
+        LOG.debug('ZFS cannot use swapfiles')
+        return False
+    return True
 
 
 def setup_swapfile(target, fstab=None, swapfile=None, size=None, maxsize=None,
@@ -124,13 +127,11 @@ def setup_swapfile(target, fstab=None, swapfile=None, size=None, maxsize=None,
 
     # query the directory in which swapfile will reside
     fstype = get_fstype(target, os.path.dirname(swapfile))
-    try:
-        can_use_swapfile(target, fstype)
-    except RuntimeError as err:
+    if not can_use_swapfile(target, fstype):
         if force:
-            LOG.warning('swapfile may not work: %s', err)
+            LOG.warning('swapfile may not work')
         else:
-            LOG.debug('Not creating swapfile: %s', err)
+            LOG.debug('Not creating swapfile')
             return
 
     allocate_cmd = 'fallocate -l "${2}M" "$1"'

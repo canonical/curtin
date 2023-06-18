@@ -51,3 +51,22 @@ class TestSwap(CiTestCase):
         blob = b'\x00\x00c\x05\x00\x00\x11\x19'
         util.write_file(path, int(pagesize * 2 / len(blob)) * blob, omode="wb")
         self.assertFalse(swap.is_swap_device(path))
+
+    def test_swapfile_nonefs(self):
+        self.assertFalse(swap.can_use_swapfile(None, None))
+
+    def test_swapfile_ext4(self):
+        self.assertTrue(swap.can_use_swapfile(None, 'ext4'))
+
+    def test_swapfile_zfs(self):
+        self.assertFalse(swap.can_use_swapfile(None, 'zfs'))
+
+    @mock.patch('curtin.swap.get_target_kernel_version')
+    def test_swapfile_btrfs_oldkernel(self, mock_gtkv):
+        mock_gtkv.return_value = dict(major=4)
+        self.assertFalse(swap.can_use_swapfile(None, 'btrfs'))
+
+    @mock.patch('curtin.swap.get_target_kernel_version')
+    def test_swapfile_btrfs_ok(self, mock_gtkv):
+        mock_gtkv.return_value = dict(major=5)
+        self.assertTrue(swap.can_use_swapfile(None, 'btrfs'))
