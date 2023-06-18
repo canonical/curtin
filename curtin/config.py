@@ -1,6 +1,7 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
 
 import json
+import typing
 
 import attr
 import yaml
@@ -129,23 +130,143 @@ def value_as_boolean(value):
     return value not in false_values
 
 
+def _convert_install_devices(value):
+    if isinstance(value, str):
+        return [value]
+    return value
+
+
 @attr.s(auto_attribs=True)
 class GrubConfig:
-    # This is not yet every option that appears under the "grub" config key,
-    # but it is a work in progress.
+    install_devices_default = object()
+    install_devices: typing.Optional[typing.List[str]] = attr.ib(
+        converter=_convert_install_devices, default=install_devices_default)
+    probe_additional_os: bool = attr.ib(
+        default=False, converter=value_as_boolean)
+    remove_duplicate_entries: bool = True
     remove_old_uefi_loaders: bool = True
     reorder_uefi: bool = True
     reorder_uefi_force_fallback: bool = attr.ib(
         default=False, converter=value_as_boolean)
-    remove_duplicate_entries: bool = True
+    replace_linux_default: bool = attr.ib(
+        default=True, converter=value_as_boolean)
+    terminal: str = "console"
+    update_nvram: bool = attr.ib(default=True, converter=value_as_boolean)
 
 
-def fromdict(cls, d):
-    kw = {}
-    for field in attr.fields(cls):
-        if field.name in d:
-            kw[field.name] = d[field.name]
-    return cls(**kw)
+class SerializationError(Exception):
+    def __init__(self, obj, path, message):
+        self.obj = obj
+        self.path = path
+        self.message = message
+
+    def __str__(self):
+        p = self.path
+        if not p:
+            p = 'top-level'
+        return f"processing {self.obj}: at {p}, {self.message}"
+
+
+@attr.s(auto_attribs=True)
+class SerializationContext:
+    obj: typing.Any
+    cur: typing.Any
+    path: str
+    metadata: typing.Optional[typing.Dict]
+
+    @classmethod
+    def new(cls, obj):
+        return SerializationContext(obj, obj, '', {})
+
+    def child(self, path, cur, metadata=None):
+        if metadata is None:
+            metadata = self.metadata
+        return attr.evolve(
+            self, path=self.path + path, cur=cur, metadata=metadata)
+
+    def error(self, message):
+        raise SerializationError(self.obj, self.path, message)
+
+    def assert_type(self, typ):
+        if type(self.cur) is not typ:
+            self.error("{!r} is not a {}".format(self.cur, typ))
+
+
+class Deserializer:
+
+    def __init__(self):
+        self.typing_walkers = {
+            list: self._walk_List,
+            typing.List: self._walk_List,
+            typing.Union: self._walk_Union,
+            }
+        self.type_deserializers = {}
+        for typ in int, str, bool, list, dict, type(None):
+            self.type_deserializers[typ] = self._scalar
+
+    def _scalar(self, annotation, context):
+        context.assert_type(annotation)
+        return context.cur
+
+    def _walk_List(self, meth, args, context):
+        return [
+            meth(args[0], context.child(f'[{i}]', v))
+            for i, v in enumerate(context.cur)
+            ]
+
+    def _walk_Union(self, meth, args, context):
+        NoneType = type(None)
+        if NoneType in args:
+            args = [a for a in args if a is not NoneType]
+            if len(args) == 1:
+                # I.e. Optional[thing]
+                if context.cur is None:
+                    return context.cur
+                return meth(args[0], context)
+        context.error(f"cannot serialize Union[{args}]")
+
+    def _deserialize_attr(self, annotation, context):
+        context.assert_type(dict)
+        args = {}
+        fields = {
+            field.name: field for field in attr.fields(annotation)
+            }
+        for key, value in context.cur.items():
+            if key not in fields:
+                continue
+            field = fields[key]
+            if field.converter:
+                value = field.converter(value)
+            args[field.name] = self._deserialize(
+                field.type,
+                context.child(f'[{key!r}]', value, field.metadata))
+        return annotation(**args)
+
+    def _deserialize(self, annotation, context):
+        if annotation is None:
+            context.assert_type(type(None))
+            return None
+        if annotation is typing.Any:
+            return context.cur
+        if attr.has(annotation):
+            return self._deserialize_attr(annotation, context)
+        origin = getattr(annotation, '__origin__', None)
+        if origin is not None:
+            return self.typing_walkers[origin](
+                self._deserialize, annotation.__args__, context)
+        return self.type_deserializers[annotation](annotation, context)
+
+    def deserialize(self, annotation, value):
+        context = SerializationContext.new(value)
+        return self._deserialize(annotation, context)
+
+
+T = typing.TypeVar("T")
+
+
+def fromdict(cls: typing.Type[T], d) -> T:
+    deserializer = Deserializer()
+    return deserializer.deserialize(cls, d)
 
 
 # vi: ts=4 expandtab syntax=python

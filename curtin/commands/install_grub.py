@@ -3,6 +3,7 @@ import re
 import platform
 import shutil
 import sys
+from typing import List, Optional
 
 from curtin import block
 from curtin import config
@@ -137,7 +138,7 @@ def prepare_grub_dir(target, grub_cfg):
         shutil.move(ci_cfg, ci_cfg + '.disabled')
 
 
-def get_carryover_params(distroinfo):
+def get_carryover_params(distroinfo) -> str:
     # return a string to append to installed systems boot parameters
     # it may include a '--' after a '---'
     # see LP: 1402042 for some history here.
@@ -206,14 +207,17 @@ def replace_grub_cmdline_linux_default(target, new_args):
     LOG.debug('updated %s to set: %s', target_grubconf, newcontent)
 
 
-def write_grub_config(target, grubcfg, grub_conf, new_params):
-    replace_default = config.value_as_boolean(
-        grubcfg.get('replace_linux_default', True))
+def write_grub_config(
+        target: str,
+        grubcfg: config.GrubConfig,
+        grub_conf: str,
+        new_params: str,
+        ) -> None:
+    replace_default = grubcfg.replace_linux_default
     if replace_default:
         replace_grub_cmdline_linux_default(target, new_params)
 
-    probe_os = config.value_as_boolean(
-        grubcfg.get('probe_additional_os', False))
+    probe_os = grubcfg.probe_additional_os
     if not probe_os:
         probe_content = [
             ('# Curtin disable grub os prober that might find other '
@@ -224,10 +228,7 @@ def write_grub_config(target, grubcfg, grub_conf, new_params):
                         "\n".join(probe_content), omode='a+')
 
     # if terminal is present in config, but unset, then don't
-    grub_terminal = grubcfg.get('terminal', 'console')
-    if not isinstance(grub_terminal, str):
-        raise ValueError("Unexpected value %s for 'terminal'. "
-                         "Value must be a string" % grub_terminal)
+    grub_terminal = grubcfg.terminal
     if not grub_terminal.lower() == "unmodified":
         terminal_content = [
             '# Curtin configured GRUB_TERMINAL value',
@@ -394,7 +395,13 @@ def check_target_arch_machine(target, arch=None, machine=None, uefi=None):
         raise RuntimeError(errmsg)
 
 
-def install_grub(devices, target, uefi=None, grubcfg=None):
+def install_grub(
+        devices: List[str],
+        target: str,
+        *,
+        grubcfg: config.GrubConfig,
+        uefi: Optional[bool] = None,
+        ):
     """Install grub to devices inside target chroot.
 
     :param: devices: List of block device paths to install grub upon.
@@ -411,8 +418,8 @@ def install_grub(devices, target, uefi=None, grubcfg=None):
         raise ValueError("Invalid parameter 'target': %s" % target)
 
     LOG.debug("installing grub to target=%s devices=%s [replace_defaults=%s]",
-              target, devices, grubcfg.get('replace_default'))
-    update_nvram = config.value_as_boolean(grubcfg.get('update_nvram', True))
+              target, devices, grubcfg.replace_linux_default)
+    update_nvram = grubcfg.update_nvram
     distroinfo = distro.get_distroinfo(target=target)
     target_arch = distro.get_architecture(target=target)
     rhel_ver = (distro.rpm_get_dist_id(target)
@@ -460,7 +467,7 @@ def install_grub_main(args):
     cfg = config.load_command_config(args, state)
     stack_prefix = state.get('report_stack_prefix', '')
     uefi = util.is_uefi_bootable()
-    grubcfg = cfg.get('grub')
+    grubcfg = config.fromdict(config.GrubConfig, cfg.get('grub'))
     with events.ReportEventStack(
             name=stack_prefix, reporting_enabled=True, level="INFO",
             description="Installing grub to target devices"):

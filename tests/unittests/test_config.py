@@ -3,6 +3,9 @@
 import copy
 import json
 import textwrap
+import typing
+
+import attr
 
 from curtin import config
 from .helpers import CiTestCase
@@ -138,5 +141,59 @@ def _replace_consts(cfgstr):
     for k, v in repls.items():
         cfgstr = cfgstr.replace(k, v)
     return cfgstr
+
+
+class TestDeserializer(CiTestCase):
+
+    def test_scalar(self):
+        deserializer = config.Deserializer()
+        self.assertEqual(1, deserializer.deserialize(int, 1))
+        self.assertEqual("a", deserializer.deserialize(str, "a"))
+
+    def test_attr(self):
+        deserializer = config.Deserializer()
+
+        @attr.s(auto_attribs=True)
+        class Point:
+            x: int
+            y: int
+
+        self.assertEqual(
+            Point(x=1, y=2),
+            deserializer.deserialize(Point, {'x': 1, 'y': 2}))
+
+    def test_list(self):
+        deserializer = config.Deserializer()
+        self.assertEqual(
+            [1, 2, 3],
+            deserializer.deserialize(typing.List[int], [1, 2, 3]))
+
+    def test_optional(self):
+        deserializer = config.Deserializer()
+        self.assertEqual(
+            1,
+            deserializer.deserialize(typing.Optional[int], 1))
+        self.assertEqual(
+            None,
+            deserializer.deserialize(typing.Optional[int], None))
+
+    def test_converter(self):
+        deserializer = config.Deserializer()
+
+        @attr.s(auto_attribs=True)
+        class WithoutConverter:
+            val: bool
+
+        with self.assertRaises(config.SerializationError):
+            deserializer.deserialize(WithoutConverter, {"val": "on"})
+
+        @attr.s(auto_attribs=True)
+        class WithConverter:
+            val: bool = attr.ib(converter=config.value_as_boolean)
+
+        self.assertEqual(
+            WithConverter(val=True),
+            deserializer.deserialize(WithConverter, {"val": "on"}))
+
 
 # vi: ts=4 expandtab syntax=python

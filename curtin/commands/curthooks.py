@@ -423,9 +423,8 @@ def install_kernel(cfg, target):
                      " System may not boot.", package)
 
 
-def uefi_remove_old_loaders(grubcfg: dict, target):
+def uefi_remove_old_loaders(grubcfg: config.GrubConfig, target: str):
     """Removes the old UEFI loaders from efibootmgr."""
-    grubcfg = config.fromdict(config.GrubConfig, grubcfg)
     efi_state = util.get_efibootmgr(target)
 
     LOG.debug('UEFI remove old olders efi state:\n%s', efi_state)
@@ -517,7 +516,7 @@ def _reorder_new_entry(
 
 
 def uefi_reorder_loaders(
-        grubcfg: dict,
+        grubcfg: config.GrubConfig,
         target: str,
         efi_orig_state: util.EFIBootState,
         variant: str,
@@ -533,8 +532,6 @@ def uefi_reorder_loaders(
     is installed after the the previous first entry (before we installed grub).
 
     """
-    grubcfg = config.fromdict(config.GrubConfig, grubcfg)
-
     if not grubcfg.reorder_uefi:
         LOG.debug("Skipped reordering of UEFI boot methods.")
         LOG.debug("Currently booted UEFI loader might no longer boot.")
@@ -578,9 +575,10 @@ def uefi_reorder_loaders(
             in_chroot.subp(['efibootmgr', '-o', new_boot_order])
 
 
-def uefi_remove_duplicate_entries(grubcfg: dict, target: str) -> None:
-    grubcfg = config.fromdict(config.GrubConfig, grubcfg)
-
+def uefi_remove_duplicate_entries(
+        grubcfg: config.GrubConfig,
+        target: str,
+        ) -> None:
     if not grubcfg.remove_duplicate_entries:
         LOG.debug("Skipped removing duplicate UEFI boot entries per config.")
         return
@@ -725,7 +723,12 @@ def uefi_find_grub_device_ids(sconfig):
     return grub_device_ids
 
 
-def setup_grub(cfg, target, osfamily, variant):
+def setup_grub(
+        cfg: dict,
+        target: str,
+        osfamily: str,
+        variant: str,
+        ) -> None:
     # target is the path to the mounted filesystem
 
     # FIXME: these methods need moving to curtin.block
@@ -733,11 +736,13 @@ def setup_grub(cfg, target, osfamily, variant):
     from curtin.commands.block_meta import (extract_storage_ordered_dict,
                                             get_path_to_storage_volume)
 
-    grubcfg = cfg.get('grub', {})
+    grubcfg_d = cfg.get('grub', {})
 
     # copy legacy top level name
-    if 'grub_install_devices' in cfg and 'install_devices' not in grubcfg:
-        grubcfg['install_devices'] = cfg['grub_install_devices']
+    if 'grub_install_devices' in cfg and 'install_devices' not in grubcfg_d:
+        grubcfg_d['install_devices'] = cfg['grub_install_devices']
+
+    grubcfg = config.fromdict(config.GrubConfig, grubcfg_d)
 
     LOG.debug("setup grub on target %s", target)
     # if there is storage config, look for devices tagged with 'grub_device'
@@ -763,17 +768,16 @@ def setup_grub(cfg, target, osfamily, variant):
                     get_path_to_storage_volume(item_id, storage_cfg_odict))
 
         if len(storage_grub_devices) > 0:
-            if len(grubcfg.get('install_devices', [])):
+            if grubcfg.install_devices and \
+               grubcfg.install_devices is not grubcfg.install_devices_default:
                 LOG.warn("Storage Config grub device config takes precedence "
                          "over grub 'install_devices' value, ignoring: %s",
                          grubcfg['install_devices'])
-            grubcfg['install_devices'] = storage_grub_devices
+            grubcfg.install_devices = storage_grub_devices
 
-    LOG.debug("install_devices: %s", grubcfg.get('install_devices'))
-    if 'install_devices' in grubcfg:
-        instdevs = grubcfg.get('install_devices')
-        if isinstance(instdevs, str):
-            instdevs = [instdevs]
+    LOG.debug("install_devices: %s", grubcfg.install_devices)
+    if grubcfg.install_devices is not grubcfg.install_devices_default:
+        instdevs = grubcfg.install_devices
         if instdevs is None:
             LOG.debug("grub installation disabled by config")
     else:
@@ -823,7 +827,7 @@ def setup_grub(cfg, target, osfamily, variant):
     else:
         instdevs = ["none"]
 
-    update_nvram = grubcfg.get('update_nvram', True)
+    update_nvram = grubcfg.update_nvram
     if uefi_bootable and update_nvram:
         efi_orig_state = util.get_efibootmgr(target)
         uefi_remove_old_loaders(grubcfg, target)
