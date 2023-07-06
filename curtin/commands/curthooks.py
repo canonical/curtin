@@ -365,12 +365,13 @@ def install_kernel(cfg, target):
     kernel_cfg = cfg.get('kernel', {'package': None,
                                     'fallback-package': "linux-generic",
                                     'mapping': {}})
-    if kernel_cfg is not None:
-        kernel_package = kernel_cfg.get('package')
-        kernel_fallback = kernel_cfg.get('fallback-package')
-    else:
-        kernel_package = None
-        kernel_fallback = None
+
+    if kernel_cfg is None:
+        LOG.debug("Not installing any kernel since kernel: null was specified")
+        return
+
+    kernel_package = kernel_cfg.get('package')
+    kernel_fallback = kernel_cfg.get('fallback-package')
 
     mapping = copy.deepcopy(KERNEL_MAPPING)
     config.merge_config(mapping, kernel_cfg.get('mapping', {}))

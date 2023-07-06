@@ -94,6 +94,15 @@ class TestCurthooksInstallKernel(CiTestCase):
             self.mock_instpkg.assert_called_with(
                 [kernel_package], target=self.target, env=env)
 
+    def test__installs_kernel_null(self):
+        kernel_cfg = {'kernel': None}
+        self.mock_get_flash_kernel_pkgs.return_value = None
+
+        with patch.dict(os.environ, clear=True):
+            curthooks.install_kernel(kernel_cfg, self.target)
+
+            self.mock_instpkg.assert_not_called()
+
 
 class TestEnableDisableUpdateInitramfs(CiTestCase):
 
