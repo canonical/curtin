@@ -146,20 +146,26 @@ def write_image_to_disk(source, dev):
     """
     LOG.info('writing image to disk %s, %s', source, dev)
     extractor = {
-        'dd-tgz': '|tar -xOzf -',
-        'dd-txz': '|tar -xOJf -',
-        'dd-tbz': '|tar -xOjf -',
-        'dd-tar': '|smtar -xOf -',
-        'dd-bz2': '|bzcat',
-        'dd-gz': '|zcat',
-        'dd-xz': '|xzcat',
+        'dd-tgz': '| tar -xOzf -',
+        'dd-txz': '| tar -xOJf -',
+        'dd-tbz': '| tar -xOjf -',
+        'dd-tar': '| smtar -xOf -',
+        'dd-bz2': '| bzcat',
+        'dd-gz': '| zcat',
+        'dd-xz': '| xzcat',
         'dd-raw': ''
     }
+    uri = source['uri']
+    if uri.startswith('file://'):
+        uri = uri[len('file://'):]
+        fetch = 'cat "$1"'
+    else:
+        fetch = 'wget "$1" --progress=dot:mega -O - '
     (devname, devnode) = block.get_dev_name_entry(dev)
-    util.subp(args=['sh', '-c',
-                    ('wget "$1" --progress=dot:mega -O - ' +
-                     extractor[source['type']] + '| dd bs=4M of="$2"'),
-                    '--', source['uri'], devnode])
+    util.subp(args=[
+        'sh', '-c',
+        fetch + extractor[source['type']] + ' | dd bs=4M of="$2"',
+        '--', uri, devnode])
     util.subp(['partprobe', devnode])
 
     for i in range(3):

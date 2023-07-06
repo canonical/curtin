@@ -444,11 +444,13 @@ class TestBlockMetaSimple(CiTestCase):
 
         block_meta.write_image_to_disk(source, devname)
 
-        wget = ['sh', '-c',
-                'wget "$1" --progress=dot:mega -O - |xzcat| dd bs=4M of="$2"',
-                '--', source['uri'], devnode]
+        write = [
+            'sh', '-c',
+            'wget "$1" --progress=dot:mega -O - | xzcat | dd bs=4M of="$2"',
+            '--', source['uri'], devnode,
+            ]
         self.mock_block_get_dev_name_entry.assert_called_with(devname)
-        self.mock_subp.assert_has_calls([call(args=wget),
+        self.mock_subp.assert_has_calls([call(args=write),
                                          call(['partprobe', devnode]),
                                          call(['udevadm', 'trigger', devnode]),
                                          call(['udevadm', 'settle']),
@@ -468,12 +470,40 @@ class TestBlockMetaSimple(CiTestCase):
 
         block_meta.write_image_to_disk(source, devname)
 
-        wget = ['sh', '-c',
-                'wget "$1" --progress=dot:mega -O - |'
-                'tar -xOzf -| dd bs=4M of="$2"',
-                '--', source['uri'], devnode]
+        write = [
+            'sh', '-c',
+            'wget "$1" --progress=dot:mega -O - | '
+            'tar -xOzf - | dd bs=4M of="$2"',
+            '--', source['uri'], devnode,
+            ]
         self.mock_block_get_dev_name_entry.assert_called_with(devname)
-        self.mock_subp.assert_has_calls([call(args=wget),
+        self.mock_subp.assert_has_calls([call(args=write),
+                                         call(['partprobe', devnode]),
+                                         call(['udevadm', 'trigger', devnode]),
+                                         call(['udevadm', 'settle']),
+                                         call(['udevadm', 'settle'])])
+        paths = ["curtin", "system-data/var/lib/snapd", "snaps"]
+        self.mock_block_get_root_device.assert_called_with([devname],
+                                                           paths=paths)
+
+    def test_write_image_to_disk_ddrawfile(self):
+        source = {
+            'type': 'dd-raw',
+            'uri': 'file:///pc.img'
+        }
+        devname = "fakedisk1p1"
+        devnode = "/dev/" + devname
+        self.mock_block_get_dev_name_entry.return_value = (devname, devnode)
+
+        block_meta.write_image_to_disk(source, devname)
+
+        write = [
+            'sh', '-c',
+            'cat "$1" | dd bs=4M of="$2"',
+            '--', '/pc.img', devnode,
+            ]
+        self.mock_block_get_dev_name_entry.assert_called_with(devname)
+        self.mock_subp.assert_has_calls([call(args=write),
                                          call(['partprobe', devnode]),
                                          call(['udevadm', 'trigger', devnode]),
                                          call(['udevadm', 'settle']),
