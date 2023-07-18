@@ -740,7 +740,7 @@ class ChrootableTarget(object):
             if do_mount(p, tpath, opts='--bind'):
                 self.umounts.append(tpath)
 
-        if not self.allow_daemons:
+        if self.target != "/" and not self.allow_daemons:
             self.disabled_daemons = disable_daemons_in_root(self.target)
 
         rconf = paths.target_path(self.target, "/etc/resolv.conf")
