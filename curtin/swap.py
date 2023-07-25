@@ -9,19 +9,37 @@ from curtin import paths
 from curtin import distro
 
 
-def suggested_swapsize(memsize=None, maxsize=None, fsys=None):
-    # make a suggestion on the size of swap for this system.
+def suggested_swapsize(memsize=None, maxsize=None, fsys=None, avail=None):
+    """Calculate a suggestion for system swap size.
+
+    :param memsize: The scaling formula looks at available memory, and chooses
+    a larger swap size if there is more memory.  If None, use the system total
+    available memory.
+
+    :param maxsize: The maximum size to suggest.  If None, a maximum will be
+    calculated by looking at available space on the filesystem, or 8GiB if fsys
+    is None.
+
+    :param fsys: The filesystem to check for calculating a maxsize.  Optional.
+
+    :param avail: When calculating a maxsize, fsys will be consulted to find
+    the available space.  Avail is a shortcut for this value, useful for sizing
+    projections when the filesystem hasn't yet been populated.  If avail and
+    fsys are both supplied, fsys takes precedence.  Optional.
+    """
     if memsize is None:
         memsize = util.get_meminfo()['total']
 
     GB = 2 ** 30
     sugg_max = 8 * GB
 
-    if fsys is None and maxsize is None:
+    if fsys is None and avail is None and maxsize is None:
         # set max to 8GB default if no filesystem given
         maxsize = sugg_max
     elif fsys:
         avail = util.get_fs_use_info(fsys)[1]
+
+    if avail is not None:
         if maxsize is None:
             # set to 25% of filesystem space
             maxsize = min(int(avail / 4), sugg_max)

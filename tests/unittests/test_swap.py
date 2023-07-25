@@ -4,6 +4,12 @@ from curtin import swap
 from curtin import util
 from .helpers import CiTestCase
 
+from parameterized import parameterized
+
+
+def gigify(val):
+    return int(val * (2 ** 30))
+
 
 class TestSwap(CiTestCase):
     def _valid_swap_contents(self):
@@ -70,3 +76,51 @@ class TestSwap(CiTestCase):
     def test_swapfile_btrfs_ok(self, mock_gtkv):
         mock_gtkv.return_value = dict(major=5)
         self.assertTrue(swap.can_use_swapfile(None, 'btrfs'))
+
+    @parameterized.expand([
+        [2, 1],
+        [2, 1.9],
+        [2, 2],
+        [2.1, 2.1],
+        [3.9, 3.9],
+        [4, 4],
+        [4, 4.1],
+        [4, 15.9],
+        [4, 16],
+        # above 16GB memsize hits suggested max
+        [8, 16.1],
+        [8, 64],
+    ])
+    def test_swapsize(self, expected, memsize):
+        expected = gigify(expected)
+        memsize = gigify(memsize)
+        self.assertEqual(expected, swap.suggested_swapsize(memsize=memsize))
+
+    @parameterized.expand([
+        [4, 16, 16],
+        [4, 16, 24],
+        [4, 16, 32],
+        [4, 16.1, 16],
+        [6, 16.1, 24],
+        [8, 16.1, 32],
+        [8, 16.1, 64],
+    ])
+    def test_swapsize_with_avail(self, expected, memsize, avail):
+        expected = gigify(expected)
+        memsize = gigify(memsize)
+        avail = gigify(avail)
+        actual = swap.suggested_swapsize(memsize=memsize, avail=avail)
+        self.assertEqual(expected, actual)
+
+    @parameterized.expand([
+        [16, 16],
+        [24, 24],
+        [32, 32],
+        [32, 64],
+    ])
+    def test_swapsize_with_larger_max(self, expected, maxsize):
+        expected = gigify(expected)
+        memsize = gigify(64)
+        maxsize = gigify(maxsize)
+        actual = swap.suggested_swapsize(memsize=memsize, maxsize=maxsize)
+        self.assertEqual(expected, actual)
