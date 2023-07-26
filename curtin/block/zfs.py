@@ -107,6 +107,7 @@ def zfs_assert_supported():
 
 
 def zpool_create(poolname, vdevs, mountpoint=None, altroot=None,
+                 default_features=True,
                  pool_properties=None, zfs_properties=None):
     """
     Create a zpool called <poolname> comprised of devices specified in <vdevs>.
@@ -114,6 +115,7 @@ def zpool_create(poolname, vdevs, mountpoint=None, altroot=None,
     :param poolname: String used to name the pool.
     :param vdevs: An iterable of strings of block devices paths which *should*
                   start with '/dev/disk/by-id/' to follow best practices.
+    :param default_features: If true, keep the default features enabled.
     :param pool_properties: A dictionary of key, value pairs to be passed
                             to `zpool create` with the `-o` flag as properties
                             of the zpool.  If value is None, then
@@ -154,6 +156,9 @@ def zpool_create(poolname, vdevs, mountpoint=None, altroot=None,
 
     if altroot:
         options.extend(['-R', altroot])
+
+    if not default_features:
+        options.extend(['-d'])
 
     cmd = ["zpool", "create"] + options + [poolname] + vdevs
     util.subp(cmd, capture=True)

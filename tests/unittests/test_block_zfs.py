@@ -210,6 +210,26 @@ class TestBlockZfsZpoolCreate(CiTestCase):
             self.assertEqual(sorted(expected_args[index]), sorted(args[0]))
             self.assertEqual(expected_kwargs, kwargs)
 
+    def test_zpool_default_features_absent(self):
+        """ when default_features is missing, no -d arg in zpool create """
+        zfs.zpool_create('mypool', ['/dev/disk/by-id/virtio-abcfoo1'])
+        _name, args, _ = self.mock_subp.mock_calls[0]
+        self.assertNotIn('-d', args[0])
+
+    def test_zpool_default_features_true(self):
+        """ when default_features is true, no -d arg in zpool create """
+        zfs.zpool_create('mypool', ['/dev/disk/by-id/virtio-abcfoo1'],
+                         default_features=True)
+        _name, args, _ = self.mock_subp.mock_calls[0]
+        self.assertNotIn('-d', args[0])
+
+    def test_zpool_default_features_false(self):
+        """ when default_features is false, -d arg in zpool create """
+        zfs.zpool_create('mypool', ['/dev/disk/by-id/virtio-abcfoo1'],
+                         default_features=False)
+        _name, args, _ = self.mock_subp.mock_calls[0]
+        self.assertIn('-d', args[0])
+
 
 class TestBlockZfsZfsCreate(CiTestCase):
 

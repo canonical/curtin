@@ -933,6 +933,7 @@ class TestZpoolHandler(CiTestCase):
             info['pool'], [disk_path],
             mountpoint="/",
             altroot="mytarget",
+            default_features=True,
             pool_properties={'ashift': 42},
             zfs_properties={'compression': 'lz4'})
 

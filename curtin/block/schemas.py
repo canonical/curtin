@@ -391,6 +391,7 @@ ZPOOL = {
         'pool': {'$ref': '#/definitions/name'},
         'pool_properties': {'$ref': '#/definitions/params'},
         'fs_properties': {'$ref': '#/definitions/params'},
+        'default_features': {'type': 'boolean'},
         'mountpoint': {
             'type': 'string',
             'oneOf': [

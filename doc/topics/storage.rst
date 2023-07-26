@@ -1121,6 +1121,14 @@ are:
 - canmount: off
 - normalization: formD
 
+**default_features**: *true, false*
+
+If *true*, keep the default features enabled.  For fine-grained control of the
+desired features, set to *false* and enable the desired features with
+pool_properties. This controls the presence or absence of the `-d` flag of
+`zpool create`. Default value is *true*, which means the zpool default feature
+set is used.
+
 **Config Example**::
 
  - type: zpool
