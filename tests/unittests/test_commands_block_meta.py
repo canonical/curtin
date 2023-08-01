@@ -2759,7 +2759,8 @@ class TestMultipathPartitionHandler(CiTestCase):
 
         basepath = 'curtin.commands.block_meta.'
         self.add_patch(basepath + 'get_path_to_storage_volume', 'm_getpath')
-        self.add_patch(basepath + 'util', 'm_util')
+        self.add_patch(basepath + 'util.subp', 'm_subp')
+        self.add_patch(basepath + 'util.del_file', 'm_del_file')
         self.add_patch(basepath + 'make_dname', 'm_dname')
         self.add_patch(basepath + 'block', 'm_block')
         self.add_patch(basepath + 'multipath', 'm_mp')
@@ -2813,11 +2814,11 @@ class TestMultipathPartitionHandler(CiTestCase):
         block_meta.partition_handler(part2, self.storage_config, empty_context)
 
         expected_calls = [
-            call(['sgdisk', '--new', '2:4096:4096', '--typecode=2:8300',
+            call(['sgdisk', '--new', '2:4096:10489855', '--typecode=2:8300',
                   disk_path], capture=True),
             call(['kpartx', '-v', '-a', '-s', '-p', '-part', disk_path]),
         ]
-        self.assertEqual(expected_calls, self.m_util.subp.call_args_list)
+        self.assertEqual(expected_calls, self.m_subp.call_args_list)
 
     @patch('curtin.commands.block_meta.os.path')
     @patch('curtin.commands.block_meta.calc_partition_info')
@@ -2842,13 +2843,13 @@ class TestMultipathPartitionHandler(CiTestCase):
         block_meta.partition_handler(part2, self.storage_config, empty_context)
 
         expected_calls = [
-            call(['sgdisk', '--new', '2:4096:4096', '--typecode=2:8300',
+            call(['sgdisk', '--new', '2:4096:10489855', '--typecode=2:8300',
                   disk_path], capture=True),
             call(['kpartx', '-v', '-a', '-s', '-p', '-part', disk_path]),
         ]
-        self.assertEqual(expected_calls, self.m_util.subp.call_args_list)
+        self.assertEqual(expected_calls, self.m_subp.call_args_list)
         self.assertEqual([call(disk_path + '-part2')],
-                         self.m_util.del_file.call_args_list)
+                         self.m_del_file.call_args_list)
 
 
 class TestCalcPartitionInfo(CiTestCase):
