@@ -1,0 +1,8 @@
+storage:
+  version: 2
+  config:
+    - type: zpool
+      id: zpool-1
+      pool: mypool
+      vdevs: [/dev/sda]
+      default_features: false
