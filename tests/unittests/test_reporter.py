@@ -6,7 +6,7 @@ from __future__ import (
     unicode_literals,
     )
 
-from mock import patch
+from unittest.mock import patch
 
 from curtin.reporter.legacy import (
     EmptyReporter,

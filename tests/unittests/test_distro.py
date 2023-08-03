@@ -1,7 +1,7 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
 
 from unittest import skipIf
-import mock
+from unittest import mock
 import os
 import sys
 

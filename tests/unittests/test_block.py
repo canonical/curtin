@@ -3,7 +3,7 @@
 import functools
 import json
 import os
-import mock
+from unittest import mock
 import sys
 import textwrap
 

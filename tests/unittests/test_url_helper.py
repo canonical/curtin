@@ -2,7 +2,7 @@
 
 import filecmp
 import json
-import mock
+from unittest import mock
 
 from curtin import url_helper
 

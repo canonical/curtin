@@ -1,7 +1,7 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
 
 import os
-from mock import call, patch
+from unittest.mock import call, patch
 import textwrap
 from typing import Optional
 

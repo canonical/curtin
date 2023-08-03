@@ -2,7 +2,7 @@ from collections import namedtuple
 import copy
 from datetime import datetime
 import json
-import mock
+from unittest import mock
 import os
 from textwrap import dedent
 

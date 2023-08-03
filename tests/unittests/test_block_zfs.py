@@ -1,4 +1,4 @@
-import mock
+from unittest import mock
 
 from curtin.config import merge_config
 from curtin.block import zfs

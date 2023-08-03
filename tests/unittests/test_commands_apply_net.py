@@ -1,6 +1,6 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
 
-from mock import patch, call
+from unittest.mock import patch, call
 import copy
 import os
 

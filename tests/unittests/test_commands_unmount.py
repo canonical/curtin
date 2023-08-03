@@ -5,7 +5,7 @@ from curtin.util import FileMissingError
 from .helpers import CiTestCase
 
 import argparse
-import mock
+from unittest import mock
 import os
 
 

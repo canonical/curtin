@@ -1,6 +1,6 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
 
-import mock
+from unittest import mock
 import os
 
 from curtin.block import iscsi

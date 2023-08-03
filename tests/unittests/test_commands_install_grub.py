@@ -7,7 +7,7 @@ from curtin import paths
 from curtin.commands import install_grub
 from .helpers import CiTestCase
 
-import mock
+from unittest import mock
 import os
 
 

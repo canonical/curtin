@@ -3,7 +3,7 @@
 from curtin.block import lvm
 
 from .helpers import CiTestCase
-import mock
+from unittest import mock
 
 
 class TestBlockLvm(CiTestCase):

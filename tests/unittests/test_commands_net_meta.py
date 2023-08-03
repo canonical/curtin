@@ -2,7 +2,7 @@
 
 import os
 
-from mock import MagicMock, call
+from unittest.mock import MagicMock, call
 
 from .helpers import CiTestCase, simple_mocked_open
 

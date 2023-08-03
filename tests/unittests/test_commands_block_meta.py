@@ -3,7 +3,7 @@
 from argparse import Namespace
 from collections import OrderedDict
 import copy
-from mock import (
+from unittest.mock import (
     call,
     Mock,
     patch,

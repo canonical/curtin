@@ -1,7 +1,6 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
 
-from unittest import skipIf
-import mock
+from unittest import mock
 import os
 import stat
 from textwrap import dedent
@@ -717,7 +716,6 @@ class TestLoadFile(CiTestCase):
             self.assertEqual(contents, loaded_contents)
             m_open.assert_called_with(fname, 'rb')
 
-    @skipIf(mock.__version__ < '2.0.0', "mock version < 2.0.0")
     def test_load_file_handles_utf8(self):
         fname = 'test.cfg'
         contents = b'd\xc3\xa9j\xc8\xa7'
@@ -726,7 +724,6 @@ class TestLoadFile(CiTestCase):
                 self.assertEqual(f.read(), contents)
             m_open.assert_called_with(fname, 'rb')
 
-    @skipIf(mock.__version__ < '2.0.0', "mock version < 2.0.0")
     @mock.patch('curtin.util.decode_binary')
     def test_load_file_respects_decode_false(self, mock_decode):
         fname = 'test.cfg'

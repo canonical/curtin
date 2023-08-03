@@ -3,7 +3,7 @@
 import imp
 import importlib
 import logging
-import mock
+from unittest import mock
 import os
 import random
 import shutil

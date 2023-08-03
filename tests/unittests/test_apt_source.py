@@ -9,8 +9,8 @@ import re
 import socket
 
 
-import mock
-from mock import call
+from unittest import mock
+from unittest.mock import call
 
 from aptsources.sourceslist import SourceEntry
 
