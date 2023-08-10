@@ -351,6 +351,7 @@ class TestBlockdevParser(CiTestCase):
             'size': 499122176,
             'flag': 'linux',
             'partition_type': '0fc63daf-8483-4772-8e79-3d69d8477de4',
+            'uuid': '6347e694-3680-481f-b3b9-f13090855467',
         }
         self.assertDictEqual(expected_dict,
                              self.bdevp.asdict(blockdev))

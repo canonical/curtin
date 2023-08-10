@@ -802,6 +802,11 @@ class BlockdevParser(ProbertParser):
             if ptable:
                 entry['size'] *= 512
 
+            if blockdev_data.get('ID_PART_TABLE_TYPE') == 'gpt':
+                part_uuid = blockdev_data.get('ID_PART_ENTRY_UUID')
+                if part_uuid is not None:
+                    entry['uuid'] = part_uuid
+
             ptype = blockdev_data.get('ID_PART_ENTRY_TYPE')
             if ptype is not None:
                 entry['partition_type'] = ptype
