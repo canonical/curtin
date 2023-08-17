@@ -59,6 +59,30 @@ def get_default_mirrors(arch=None):
     raise ValueError("No default mirror known for arch %s" % arch)
 
 
+def want_deb822(target=None):
+    """
+    Return True if we want to use deb822 apt sources on the target, and
+    False otherwise.
+
+    This is determined by the version of Ubuntu: deb822 is the default starting
+    with Ubuntu 23.10 (Mantic Minotaur).
+    """
+    os_release = distro.os_release(target)
+
+    if os_release.get('ID') != 'ubuntu':
+        return False
+
+    try:
+        version = [int(n) for n in os_release.get('VERSION_ID', '').split('.')]
+    except ValueError:
+        return False
+
+    if len(version) != 2:
+        return False
+
+    return version[0] > 23 or (version[0] >= 23 and version[1] >= 10)
+
+
 def handle_apt(cfg, target=None):
     """ handle_apt
         process the config for apt_config. This can be called from
