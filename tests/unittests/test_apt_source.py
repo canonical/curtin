@@ -1237,6 +1237,28 @@ deb-src http://ubuntu.com//ubuntu xenial universe multiverse
         filepath = os.path.join(self.target, 'etc/apt/sources.list')
         write_file.assert_called_with(filepath, expect, mode=0o644)
 
+    @mock.patch('curtin.distro.os_release')
+    def test_want_deb822(self, mock_os_release):
+        testdata = [
+            # (ID, VERSION_ID, want_deb822())
+            ('ubuntu', '22.04', False),
+            ('ubuntu', '22.10', False),
+            ('ubuntu', '23.04', False),
+            ('ubuntu', '23.10', True),
+            ('ubuntu', '24.04', True),
+            ('ubuntu', '24.10', True),
+            ('fedora', '38', False),
+            (None, None, False),
+            ('ubuntu', '', False),
+        ]
+
+        for (distro, version, ret) in testdata:
+            mock_os_release.return_value = {'ID': distro, 'VERSION_ID': version}
+            self.assertEqual(
+                apt_config.want_deb822(),
+                ret,
+                f'want_deb822() != {ret} (ID={distro}, VERSION_ID={version})'
+            )
 
 class TestDebconfSelections(CiTestCase):
 
