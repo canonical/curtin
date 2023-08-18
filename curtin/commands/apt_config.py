@@ -83,6 +83,89 @@ def want_deb822(target=None):
     return version[0] > 23 or (version[0] >= 23 and version[1] >= 10)
 
 
+def parse_deb222_entry(stanza):
+    entry = {}
+
+    key = None
+    for line in stanza.splitlines():
+        if line.startswith(' '):
+            entry[key] += line.strip() + '\n'
+            continue
+
+        (key, _, val) = line.partition(':')
+        entry[key] = val.strip()
+
+    # Canonicalize expected fields.
+    entry['Enabled'] = entry.get('Enabled', True) in (True, 'yes')
+
+    for key in ('Types', 'URIs', 'Suites', 'Components'):
+        try:
+            val = entry[key]
+            entry[key] = list(set(val.split()))
+        except KeyError:
+            LOG.exception(
+                'Source entry is missing required field "{}"'.format(key)
+            )
+            raise
+
+    return entry
+
+
+def parse_deb822_sources(data):
+    return [parse_deb222_entry(s) for s in data.split('\n\n')]
+
+
+def deb822_entry_to_str(entry):
+    def _field_sort_key(name):
+        ordering = ['Enabled', 'Types', 'URIs', 'Suites', 'Components']
+        try:
+            return ordering.index(name)
+        except ValueError:
+            return len(ordering) + 1
+
+    def _component_sort_key(comp):
+        ordering = ['main', 'restricted', 'universe', 'multiverse']
+        try:
+            return ordering.index(comp)
+        except ValueError:
+            return len(ordering) + 1
+
+    def _suite_sort_key(suite):
+        ordering = ['', 'updates', 'security', 'backports', 'proposed']
+        pocket = suite.partition('-')[2]
+        try:
+            return ordering.index(pocket)
+        except ValueError:
+            return len(ordering) + 1
+
+    def _type_sort_key(entry_type):
+        ordering = ['deb', 'deb-src']
+        try:
+            return ordering.index(entry_type)
+        except ValueError:
+            return len(ordering) + 1
+
+    sort_key_fns = {
+        'Types': _type_sort_key,
+        'Suites': _suite_sort_key,
+        'Components': _component_sort_key,
+    }
+
+    stanza = ''
+
+    for (k, v) in sorted(entry.items(), key=_field_sort_key):
+        if k == 'Enabled':
+            if not v:
+                stanza += 'Enabled: no\n'
+        elif isinstance(v, list):
+            key_fn = sort_key_fns.get(k)
+            stanza += '{}: {}\n'.format(k, ' '.join(sorted(v, key=key_fn)))
+        else:
+            stanza += '{}: {}\n'.format(k, v)
+
+    return stanza
+
+
 def handle_apt(cfg, target=None):
     """ handle_apt
         process the config for apt_config. This can be called from
@@ -247,16 +330,19 @@ def rename_apt_lists(new_mirrors, target=None, arch=None):
                 LOG.warn("Failed to rename apt list:", exc_info=True)
 
 
-def update_default_mirrors(entries, mirrors, target, arch=None):
-    """replace existing default repos with the configured mirror"""
-
+def make_mirrors_replacement(mirrors, target, arch=None):
     if arch is None:
         arch = distro.get_architecture(target)
     defaults = get_default_mirrors(arch)
-    mirrors_replacement = {
-        defaults['PRIMARY']: mirrors["MIRROR"],
-        defaults['SECURITY']: mirrors["SECURITY"],
-    }
+    mirrors_replacement = {}
+
+    uri = mirrors.get('MIRROR')
+    if uri is not None:
+        mirrors_replacement[defaults['PRIMARY']] = uri
+
+    uri = mirrors.get('SECURITY')
+    if uri is not None:
+        mirrors_replacement[defaults['SECURITY']] = uri
 
     # allow original file URIs without the trailing slash to match mirror
     # specifications that have it
@@ -266,6 +352,13 @@ def update_default_mirrors(entries, mirrors, target, arch=None):
             noslash[key[:-1]] = mirrors_replacement[key]
 
     mirrors_replacement.update(noslash)
+
+    return mirrors_replacement
+
+
+def update_default_mirrors(entries, mirrors, target, arch=None):
+    """replace existing default repos with the configured mirror"""
+    mirrors_replacement = make_mirrors_replacement(mirrors, target, arch)
 
     for entry in entries:
         entry.uri = mirrors_replacement.get(entry.uri, entry.uri)
@@ -354,7 +447,13 @@ def entries_to_str(entries):
     return ''.join([str(entry) + '\n' for entry in entries])
 
 
-def generate_sources_list(cfg, release, mirrors, target=None, arch=None):
+def _generate_sources_list_compat(
+    cfg,
+    release,
+    mirrors,
+    target=None,
+    arch=None
+):
     """ generate_sources_list
         create a source.list file based on a custom or default template
         by replacing mirrors and release in the template
@@ -385,6 +484,67 @@ def generate_sources_list(cfg, release, mirrors, target=None, arch=None):
     if os.path.exists(orig):
         os.rename(orig, orig + ".curtin.old")
     util.write_file(paths.target_path(target, aptsrc), output, mode=0o644)
+
+
+def _generate_sources_deb822(cfg, release, mirrors, target=None, arch=None):
+    sources = '/etc/apt/sources.list.d/ubuntu.sources'
+
+    tmpl = cfg.get('sources_list', None)
+    from_file = False
+    if tmpl is None:
+        LOG.info('No custom template provided, fall back to modify'
+                 'mirrors in %s on the target system', sources)
+        tmpl = util.load_file(paths.target_path(target, sources))
+        from_file = True
+
+    suites_to_disable = set()
+    if cfg.get('disable_suites') is not None:
+        suites_to_disable = set(
+            [map_known_suites(s, release) for s in cfg.get('disable_suites')]
+        )
+
+    comps_to_disable = set()
+    if cfg.get('disable_components') is not None:
+        comps_to_disable = set(
+            [c for c in cfg.get('disable_components') if c != 'main']
+        )
+
+    mirrors_replacement = make_mirrors_replacement(mirrors, target, arch)
+
+    stanzas = []
+    for entry in parse_deb822_sources(tmpl):
+        if from_file:
+            # when loading from an existing file, we also replace default
+            # URIs with configured mirrors
+            entry['URIs'] = [mirrors_replacement.get(u, u)
+                             for u in entry['URIs']]
+
+        # Update mirrors
+        entry['URIs'] = [util.render_string(u, mirrors)
+                         for u in entry['URIs']]
+        # Update dist
+        entry['Suites'] = [util.render_string(s, {'RELEASE': release})
+                           for s in entry['Suites']]
+
+        # Disable suites and components
+        entry['Suites'] = list(set(entry['Suites']) - suites_to_disable)
+        entry['Components'] = list(set(entry['Components']) - comps_to_disable)
+
+        stanzas.append(deb822_entry_to_str(entry))
+
+    orig = paths.target_path(target, sources)
+    if os.path.exists(orig):
+        os.rename(orig, orig + '.curtin.old')
+
+    output = '\n'.join(stanzas)
+    util.write_file(paths.target_path(target, sources), output, mode=0o644)
+
+
+def generate_sources_list(cfg, release, mirrors, target=None, arch=None):
+    if want_deb822(target):
+        _generate_sources_deb822(cfg, release, mirrors, target, arch)
+    else:
+        _generate_sources_list_compat(cfg, release, mirrors, target, arch)
 
 
 def apply_preserve_sources_list(target):
