@@ -1283,8 +1283,11 @@ deb-src http://ubuntu.com//ubuntu xenial universe multiverse
             ('ubuntu', '', False),
         ]
 
-        for (distro, version, ret) in testdata:
-            mock_os_release.return_value = {'ID': distro, 'VERSION_ID': version}
+        for (dist, version, ret) in testdata:
+            mock_os_release.return_value = {
+                'ID': dist,
+                'VERSION_ID': version,
+            }
             self.assertEqual(
                 apt_config.want_deb822(),
                 ret,
@@ -1292,8 +1295,59 @@ deb-src http://ubuntu.com//ubuntu xenial universe multiverse
             )
 
     @mock_want_deb822(True)
+    @mock.patch("curtin.util.write_file")
+    @mock.patch("curtin.distro.get_architecture")
     def test_generate_with_options_deb822(self, get_arch, write_file):
-        raise Exception('Implement test function')
+        get_arch.return_value = 'amd64'
+
+        orig = """Types: deb
+URIs: http://ubuntu.com/ubuntu
+Suites: $RELEASE $RELEASE-updates $RELEASE-security $RELEASE-backports
+Components: main
+
+Types: deb-src
+URIs: http://ubuntu.com/ubuntu
+Suites: $RELEASE
+Components: universe multiverse
+
+Enabled: no
+Types: deb
+URIs: http://ubuntu.com/ubuntu/
+Suites: $RELEASE-proposed
+Components: main
+"""
+        expect = """Types: deb
+URIs: http://ubuntu.com/ubuntu
+Suites: mantic mantic-updates mantic-security
+Components: main
+
+Types: deb-src
+URIs: http://ubuntu.com/ubuntu
+Suites: mantic
+Components: universe
+
+Enabled: no
+Types: deb
+URIs: http://ubuntu.com/ubuntu/
+Suites: mantic-proposed
+Components: main
+"""
+
+        rel = 'mantic'
+        mirrors = {'MIRROR': 'http://ubuntu.com/ubuntu/'}
+        cfg = {
+            'preserve_sources_list': False,
+            'sources_list': orig,
+            'disable_suites': ['backports'],
+            'disable_components': ['multiverse'],
+        }
+
+        apt_config.generate_sources_list(cfg, rel, mirrors, self.target)
+        filepath = os.path.join(
+            self.target,
+            'etc/apt/sources.list.d/ubuntu.sources'
+        )
+        write_file.assert_called_with(filepath, expect, mode=0o644)
 
     @mock_want_deb822(True)
     def test_apt_src_deb822(self):
