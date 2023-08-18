@@ -90,6 +90,18 @@ def lineify(entries):
     return out
 
 
+def mock_want_deb822(return_value):
+    def inner(test_func):
+        def patched_test_func(*args, **kwargs):
+            with mock.patch('curtin.commands.apt_config.want_deb822') as m:
+                m.return_value = return_value
+                test_func(*args, **kwargs)
+
+        return patched_test_func
+
+    return inner
+
+
 class TestAptSourceConfig(CiTestCase):
     """ TestAptSourceConfig
     Main Class to test apt configs
@@ -145,6 +157,7 @@ class TestAptSourceConfig(CiTestCase):
                                    "main universe multiverse restricted"),
                                   contents, flags=re.IGNORECASE))
 
+    @mock_want_deb822(False)
     def test_apt_src_basic(self):
         """test_apt_src_basic - Test fix deb source string"""
         cfg = {self.aptlistfile: {'source':
@@ -153,6 +166,7 @@ class TestAptSourceConfig(CiTestCase):
                                    ' main universe multiverse restricted')}}
         self._apt_src_basic(self.aptlistfile, cfg)
 
+    @mock_want_deb822(False)
     def test_apt_src_fullpath(self):
         """test_apt_src_fullpath - Test fix deb source string to full path"""
         fullpath = '/my/unique/sources.list'
@@ -163,6 +177,7 @@ class TestAptSourceConfig(CiTestCase):
                            ' main universe multiverse restricted')}}
         self._apt_src_basic(fullpath, cfg)
 
+    @mock_want_deb822(False)
     def test_apt_src_basic_tri(self):
         """test_apt_src_basic_tri - Test multiple fix deb source strings"""
         cfg = {self.aptlistfile: {'source':
@@ -207,11 +222,13 @@ class TestAptSourceConfig(CiTestCase):
                                    "multiverse"),
                                   contents, flags=re.IGNORECASE))
 
+    @mock_want_deb822(False)
     def test_apt_src_replace(self):
         """test_apt_src_replace - Test Autoreplacement of MIRROR and RELEASE"""
         cfg = {self.aptlistfile: {'source': 'deb $MIRROR $RELEASE multiverse'}}
         self._apt_src_replacement(self.aptlistfile, cfg)
 
+    @mock_want_deb822(False)
     def test_apt_src_replace_fn(self):
         """test_apt_src_replace_fn - Test filename being overwritten in dict"""
         cfg = {'ignored': {'source': 'deb $MIRROR $RELEASE multiverse',
@@ -239,6 +256,7 @@ class TestAptSourceConfig(CiTestCase):
                                    "universe"),
                                   contents, flags=re.IGNORECASE))
 
+    @mock_want_deb822(False)
     def test_apt_src_replace_tri(self):
         """test_apt_src_replace_tri - Test multiple replacements/overwrites"""
         cfg = {self.aptlistfile: {'source': 'deb $MIRROR $RELEASE multiverse'},
@@ -296,6 +314,7 @@ class TestAptSourceConfig(CiTestCase):
                                    "xenial", "main"),
                                   contents, flags=re.IGNORECASE))
 
+    @mock_want_deb822(False)
     @mock.patch(ChrootableTargetStr, new=PseudoChrootableTarget)
     def test_apt_src_keyid(self):
         """test_apt_src_keyid - Test source + keyid with filename being set"""
@@ -306,6 +325,7 @@ class TestAptSourceConfig(CiTestCase):
                                   'keyid': "03683F77"}}
         self._apt_src_keyid(self.aptlistfile, cfg)
 
+    @mock_want_deb822(False)
     @mock.patch(ChrootableTargetStr, new=PseudoChrootableTarget)
     def test_apt_src_keyid_bin(self):
         """test_apt_src_keyid - Test source + keyid with filename being set"""
@@ -316,6 +336,7 @@ class TestAptSourceConfig(CiTestCase):
                                   'keyid': "03683F77"}}
         self._apt_src_keyid(self.aptlistfile, cfg, key_type='bin')
 
+    @mock_want_deb822(False)
     @mock.patch(ChrootableTargetStr, new=PseudoChrootableTarget)
     def test_apt_src_keyid_tri(self):
         """test_apt_src_keyid_tri - Test multiple src+keyid+filen overwrites"""
@@ -352,6 +373,7 @@ class TestAptSourceConfig(CiTestCase):
                                    "xenial", "multiverse"),
                                   contents, flags=re.IGNORECASE))
 
+    @mock_want_deb822(False)
     @mock.patch(ChrootableTargetStr, new=PseudoChrootableTarget)
     def test_apt_src_key(self):
         """test_apt_src_key - Test source + key"""
@@ -379,6 +401,7 @@ class TestAptSourceConfig(CiTestCase):
                                    "xenial", "main"),
                                   contents, flags=re.IGNORECASE))
 
+    @mock_want_deb822(False)
     @mock.patch(ChrootableTargetStr, new=PseudoChrootableTarget)
     def test_apt_src_keyonly(self):
         """test_apt_src_keyonly - Test key without source"""
@@ -397,6 +420,7 @@ class TestAptSourceConfig(CiTestCase):
         self.assertFalse(os.path.isfile(
             self._sources_filepath(self.aptlistfile)))
 
+    @mock_want_deb822(False)
     @mock.patch(ChrootableTargetStr, new=PseudoChrootableTarget)
     def test_apt_src_keyidonly(self):
         """test_apt_src_keyidonly - Test keyid without source"""
@@ -440,6 +464,7 @@ class TestAptSourceConfig(CiTestCase):
         self.assertFalse(os.path.isfile(
             self._sources_filepath(self.aptlistfile)))
 
+    @mock_want_deb822(False)
     def test_apt_src_keyid_real(self):
         """test_apt_src_keyid_real - Test keyid including key add"""
         keyid = "03683F77"
@@ -447,6 +472,7 @@ class TestAptSourceConfig(CiTestCase):
 
         self.apt_src_keyid_real(cfg, EXPECTEDKEY)
 
+    @mock_want_deb822(False)
     def test_apt_src_longkeyid_real(self):
         """test_apt_src_longkeyid_real Test long keyid including key add"""
         keyid = "B59D 5F15 97A5 04B7 E230  6DCA 0620 BBCF 0368 3F77"
@@ -454,6 +480,7 @@ class TestAptSourceConfig(CiTestCase):
 
         self.apt_src_keyid_real(cfg, EXPECTEDKEY)
 
+    @mock_want_deb822(False)
     def test_apt_src_longkeyid_ks_real(self):
         """test_apt_src_longkeyid_ks_real Test long keyid from other ks"""
         keyid = "B59D 5F15 97A5 04B7 E230  6DCA 0620 BBCF 0368 3F77"
@@ -462,6 +489,7 @@ class TestAptSourceConfig(CiTestCase):
 
         self.apt_src_keyid_real(cfg, EXPECTEDKEY)
 
+    @mock_want_deb822(False)
     def test_apt_src_keyid_keyserver(self):
         """test_apt_src_keyid_keyserver - Test custom keyserver"""
         keyid = "03683F77"
@@ -485,6 +513,7 @@ class TestAptSourceConfig(CiTestCase):
         self.assertFalse(os.path.isfile(
             self._sources_filepath(self.aptlistfile)))
 
+    @mock_want_deb822(False)
     @mock.patch(ChrootableTargetStr, new=PseudoChrootableTarget)
     def test_apt_src_ppa(self):
         """test_apt_src_ppa - Test specification of a ppa"""
@@ -502,6 +531,7 @@ class TestAptSourceConfig(CiTestCase):
         self.assertFalse(os.path.isfile(
             self._sources_filepath(self.aptlistfile)))
 
+    @mock_want_deb822(False)
     @mock.patch(ChrootableTargetStr, new=PseudoChrootableTarget)
     def test_apt_src_ppa_tri(self):
         """test_apt_src_ppa_tri - Test specification of multiple ppa's"""
@@ -1198,6 +1228,7 @@ deb http://archive.ubuntu.com/ubuntu/ impish-updates main
         result = apt_config.disable_components(disabled, entryify(orig))
         self.assertEqual(expect, lineify(result))
 
+    @mock_want_deb822(False)
     @mock.patch("curtin.util.write_file")
     @mock.patch("curtin.distro.get_architecture")
     def test_generate_with_options(self, get_arch, write_file):
@@ -1259,6 +1290,15 @@ deb-src http://ubuntu.com//ubuntu xenial universe multiverse
                 ret,
                 f'want_deb822() != {ret} (ID={distro}, VERSION_ID={version})'
             )
+
+    @mock_want_deb822(True)
+    def test_generate_with_options_deb822(self, get_arch, write_file):
+        raise Exception('Implement test function')
+
+    @mock_want_deb822(True)
+    def test_apt_src_deb822(self):
+        raise Exception('Implement test function')
+
 
 class TestDebconfSelections(CiTestCase):
 
