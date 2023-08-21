@@ -1351,7 +1351,141 @@ Components: main
 
     @mock_want_deb822(True)
     def test_apt_src_deb822(self):
-        raise Exception('Implement test function')
+        params = self._get_default_params()
+
+        cfg = {
+            'test1.sources': {
+                'source': (
+                    'Types: deb\n'
+                    'URIs: http://test.ubuntu.com/ubuntu\n'
+                    'Suites: $RELEASE\n'
+                    'Components: main universe multiverse restricted\n'
+                    'Signed-By: /usr/share/keyrings/keyring.gpg\n'
+                ),
+            },
+            'unset': {
+                'source': (
+                    'Types: deb\n'
+                    'URIs: http://test.ubuntu.com/ubuntu\n'
+                    'Suites: jammy-backports\n'
+                    'Components: main universe\n'
+                ),
+                'filename': 'test2.sources',
+            },
+            '/tmp/test3.sources': {
+                'source': (
+                    'Types: deb\n'
+                    'URIs: $MIRROR\n'
+                    'Suites: $RELEASE-backports\n'
+                    'Components: main universe multiverse restricted\n'
+                ),
+            },
+            'test4.sources': {
+                'source': 'proposed',
+            },
+            'test5': {
+                'source': (
+                    'Types: deb-src\n'
+                    'URIs: $MIRROR\n'
+                    'Suites: $RELEASE $RELEASE-updates\n'
+                    'Components: main restricted universe multiverse\n'
+                    'Signed-By:\n'
+                    ' -----BEGIN PGP PUBLIC KEY BLOCK-----\n'
+                    ' .\n'
+                    ' zG09Vic7vacENMM/hl6Ms5prLYq0JvykmQIfxTSC6q4MZV35LTZfH3\n'
+                    ' lXTJUU8Pu4C7sDlAFhe+1y3Or3dLWNkMigw/3c57xWlStcEF+LPMdX\n'
+                    ' gT6CNVGo30+4yunYP3IQFQaTjh9BbnPK66iZhpzsynHZ+daAYD8CX2\n'
+                    ' TIsQnGlzozxFiW5pxIiMWAKKC5xGy9MHLqWhsbUUy+dDLN7r58B4pt\n'
+                    ' bcQAJ+wzIvCe2qf5C7yveT/ohGfSL1dX9uFK0TbLqIdSaqzmx3t1+S\n'
+                    ' MoUgSt1N6mEfT0TSG9AMkRGcyb6uHxOVm05L/BjLDH7ZqFKHkm3d0j\n'
+                    ' sTGJerxmpOemf8RAZDwygz5LZ1L5zNfzlkv6beKD60ofBppd28Zxgj\n'
+                    ' FQUK6vxZJ19ygbKJDhylNdwjXUaAaCTKnEzzDHGgtUJO22kIFEKk9/\n'
+                    ' Te7hBKG2nVYMNBWEWb8Tqh8b1NIYgpwmawcdBjuu6QSnqVIi+YvRmM\n'
+                    ' hzaPz2w2nK56ZnCv1f5X0s6MXu9BM7/zLdwEE0K3RHmWvF4G9HN7Xm\n'
+                    ' GDY8Gp885LtGdSIXYV4j7NDvEWcuqgPpyQjvpFEB/vDSyqe8yUNGmN\n'
+                    ' 10Hv2g9cmkeW0qDiRpDg7nHoFcdUSkAyElzxs++Z8CJMVpzl/TJyJt\n'
+                    ' wP8HFWvNcyCGwnk9aYCJRuo+/UgjmQvDnVvoHO+XwrMkjSH7JKJQZv\n'
+                    ' vM9FyHYq3n7u3R+ASMBVwxF9yAex9CfwRg/3OhzOnkbDsu9HwEEOrV\n'
+                    ' 74fIbGkM3hzws0asNoIV1ec52U1X/NP1W8GT9GRX5OX8uTi\n'
+                    ' -----END PGP PUBLIC KEY BLOCK-----\n'
+                ),
+            },
+            'test6': {
+                'source': (
+                    'deb-src $MIRROR $RELEASE main universe\n'
+                ),
+            },
+        }
+
+        expect = {
+            'test1.sources': (
+                'Types: deb\n'
+                'URIs: http://test.ubuntu.com/ubuntu\n'
+                'Suites: {release}\n'
+                'Components: main universe multiverse restricted\n'
+                'Signed-By: /usr/share/keyrings/keyring.gpg\n'
+            ).format(release=params['RELEASE']),
+            'test2.sources': (
+                'Types: deb\n'
+                'URIs: http://test.ubuntu.com/ubuntu\n'
+                'Suites: jammy-backports\n'
+                'Components: main universe\n'
+            ),
+            '/tmp/test3.sources': (
+                'Types: deb\n'
+                'URIs: {mirror}\n'
+                'Suites: {release}-backports\n'
+                'Components: main universe multiverse restricted\n'
+            ).format(release=params['RELEASE'], mirror=params['MIRROR']),
+            'test4.sources': (
+                'Types: deb\n'
+                'URIs: {mirror}\n'
+                'Suites: {release}-proposed\n'
+                'Components: main restricted universe multiverse\n'
+            ).format(release=params['RELEASE'], mirror=params['MIRROR']),
+            'test5.sources': (
+                'Types: deb-src\n'
+                'URIs: {mirror}\n'
+                'Suites: {release} {release}-updates\n'
+                'Components: main restricted universe multiverse\n'
+                'Signed-By:\n'
+                ' -----BEGIN PGP PUBLIC KEY BLOCK-----\n'
+                ' .\n'
+                ' zG09Vic7vacENMM/hl6Ms5prLYq0JvykmQIfxTSC6q4MZV35LTZfH3\n'
+                ' lXTJUU8Pu4C7sDlAFhe+1y3Or3dLWNkMigw/3c57xWlStcEF+LPMdX\n'
+                ' gT6CNVGo30+4yunYP3IQFQaTjh9BbnPK66iZhpzsynHZ+daAYD8CX2\n'
+                ' TIsQnGlzozxFiW5pxIiMWAKKC5xGy9MHLqWhsbUUy+dDLN7r58B4pt\n'
+                ' bcQAJ+wzIvCe2qf5C7yveT/ohGfSL1dX9uFK0TbLqIdSaqzmx3t1+S\n'
+                ' MoUgSt1N6mEfT0TSG9AMkRGcyb6uHxOVm05L/BjLDH7ZqFKHkm3d0j\n'
+                ' sTGJerxmpOemf8RAZDwygz5LZ1L5zNfzlkv6beKD60ofBppd28Zxgj\n'
+                ' FQUK6vxZJ19ygbKJDhylNdwjXUaAaCTKnEzzDHGgtUJO22kIFEKk9/\n'
+                ' Te7hBKG2nVYMNBWEWb8Tqh8b1NIYgpwmawcdBjuu6QSnqVIi+YvRmM\n'
+                ' hzaPz2w2nK56ZnCv1f5X0s6MXu9BM7/zLdwEE0K3RHmWvF4G9HN7Xm\n'
+                ' GDY8Gp885LtGdSIXYV4j7NDvEWcuqgPpyQjvpFEB/vDSyqe8yUNGmN\n'
+                ' 10Hv2g9cmkeW0qDiRpDg7nHoFcdUSkAyElzxs++Z8CJMVpzl/TJyJt\n'
+                ' wP8HFWvNcyCGwnk9aYCJRuo+/UgjmQvDnVvoHO+XwrMkjSH7JKJQZv\n'
+                ' vM9FyHYq3n7u3R+ASMBVwxF9yAex9CfwRg/3OhzOnkbDsu9HwEEOrV\n'
+                ' 74fIbGkM3hzws0asNoIV1ec52U1X/NP1W8GT9GRX5OX8uTi\n'
+                ' -----END PGP PUBLIC KEY BLOCK-----\n'
+            ).format(release=params['RELEASE'], mirror=params['MIRROR']),
+            'test6.list': (
+                'deb-src {mirror} {release} main universe\n'
+            ).format(release=params['RELEASE'], mirror=params['MIRROR']),
+        }
+
+        self._add_apt_sources(
+            cfg,
+            self.target,
+            template_params=params,
+            aa_repo_match=self.matcher
+        )
+
+        for filename, entry in expect.items():
+            contents = load_tfile(self._sources_filepath(filename))
+            self.assertTrue(
+                entry in contents,
+                '\nExpected:\n{}\nActual:\n{}'.format(entry, contents)
+            )
 
 
 class TestDebconfSelections(CiTestCase):

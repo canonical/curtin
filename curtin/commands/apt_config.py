@@ -45,6 +45,13 @@ PORTS_ARCHES = ['s390x', 'arm64', 'armhf', 'powerpc', 'ppc64el', 'riscv64']
 APT_SOURCES_PROPOSED = (
     "deb $MIRROR $RELEASE-proposed main restricted universe multiverse")
 
+APT_SOURCES_PROPOSED_DEB822 = (
+    'Types: deb\n'
+    'URIs: $MIRROR\n'
+    'Suites: $RELEASE-proposed\n'
+    'Components: main restricted universe multiverse\n'
+)
+
 
 def get_default_mirrors(arch=None):
     """returns the default mirrors for the target. These depend on the
@@ -628,6 +635,8 @@ def add_apt_sources(srcdict, target=None, template_params=None,
     if not isinstance(srcdict, dict):
         raise TypeError('unknown apt format: %s' % (srcdict))
 
+    target_wants_deb822 = want_deb822(target)
+
     for filename in srcdict:
         ent = srcdict[filename]
         if 'filename' not in ent:
@@ -638,18 +647,9 @@ def add_apt_sources(srcdict, target=None, template_params=None,
         keyname = os.path.basename(ent['filename'])
         add_apt_key(keyname, ent, target)
 
-        if 'source' not in ent:
+        source = ent.get('source')
+        if source is None:
             continue
-        source = ent['source']
-        if source == 'proposed':
-            source = APT_SOURCES_PROPOSED
-        source = util.render_string(source, template_params)
-
-        if not ent['filename'].startswith("/"):
-            ent['filename'] = os.path.join("/etc/apt/sources.list.d/",
-                                           ent['filename'])
-        if not ent['filename'].endswith(".list"):
-            ent['filename'] += ".list"
 
         if aa_repo_match(source):
             with util.ChrootableTarget(
@@ -661,6 +661,32 @@ def add_apt_sources(srcdict, target=None, template_params=None,
                     LOG.exception("add-apt-repository failed.")
                     raise
             continue
+
+        if source == 'proposed':
+            if target_wants_deb822:
+                source = APT_SOURCES_PROPOSED_DEB822
+            else:
+                source = APT_SOURCES_PROPOSED
+
+        source = util.render_string(source, template_params)
+
+        if not ent['filename'].startswith("/"):
+            ent['filename'] = os.path.join("/etc/apt/sources.list.d/",
+                                           ent['filename'])
+
+        ext = os.path.splitext(ent['filename'])[1]
+        if ext not in ('.list', '.sources'):
+            # If the extension is not specified, try to figure out if the
+            # sources are deb822 format or .list format. If the source parses
+            # fine with SourceEntry(), assume it is .list, and deb822
+            # otherwise.
+            e = SourceEntry(source)
+            if target_wants_deb822 and e.invalid:
+                ext = '.sources'
+            else:
+                ext = '.list'
+
+            ent['filename'] += ext
 
         sourcefn = paths.target_path(target, ent['filename'])
         try:
