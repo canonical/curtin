@@ -139,6 +139,7 @@ class TestAptSourceConfig(CiTestCase):
         params['RELEASE'] = distro.lsb_release()['codename']
         arch = distro.get_architecture()
         params['MIRROR'] = apt_config.get_default_mirrors(arch)["PRIMARY"]
+        params['SECURITY'] = apt_config.get_default_mirrors(arch)["SECURITY"]
         return params
 
     def _apt_src_basic(self, filename, cfg):
@@ -1300,54 +1301,254 @@ deb-src http://ubuntu.com//ubuntu xenial universe multiverse
     def test_generate_with_options_deb822(self, get_arch, write_file):
         get_arch.return_value = 'amd64'
 
-        orig = """Types: deb
-URIs: http://ubuntu.com/ubuntu
-Suites: $RELEASE $RELEASE-updates $RELEASE-security $RELEASE-backports
-Components: main
-
-Types: deb-src
-URIs: http://ubuntu.com/ubuntu
-Suites: $RELEASE
-Components: universe multiverse
-
-Enabled: no
-Types: deb
-URIs: http://ubuntu.com/ubuntu/
-Suites: $RELEASE-proposed
-Components: main
-"""
-        expect = """Types: deb
-URIs: http://ubuntu.com/ubuntu
-Suites: mantic mantic-updates mantic-security
-Components: main
-
-Types: deb-src
-URIs: http://ubuntu.com/ubuntu
-Suites: mantic
-Components: universe
-
-Enabled: no
-Types: deb
-URIs: http://ubuntu.com/ubuntu/
-Suites: mantic-proposed
-Components: main
-"""
-
-        rel = 'mantic'
-        mirrors = {'MIRROR': 'http://ubuntu.com/ubuntu/'}
-        cfg = {
-            'preserve_sources_list': False,
-            'sources_list': orig,
-            'disable_suites': ['backports'],
-            'disable_components': ['multiverse'],
+        # input_filename: (in_data, expect_data)
+        data = {
+            'etc/apt/sources.list.d/ubuntu.sources': ((
+                'Types: deb\n'
+                'URIs: $MIRROR\n'
+                'Suites: $RELEASE $RELEASE-updates $RELEASE-backports\n'
+                'Components: main\n'
+                'Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg\n'
+                '\n'
+                'Types: deb-src\n'
+                'URIs: $MIRROR\n'
+                'Suites: $RELEASE\n'
+                'Components: universe multiverse\n'
+                'Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg\n'
+                '\n'
+                'Enabled: no\n'
+                'Types: deb\n'
+                'URIs: {mirror}\n'
+                'Suites: $RELEASE-proposed\n'
+                'Components: main\n'
+                'Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg\n'
+            ), (
+                'Types: deb\n'
+                'URIs: http://ubuntu.com/ubuntu\n'
+                'Suites: mantic mantic-updates\n'
+                'Components: main\n'
+                'Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg\n'
+                '\n'
+                'Types: deb-src\n'
+                'URIs: http://ubuntu.com/ubuntu\n'
+                'Suites: mantic\n'
+                'Components: universe\n'
+                'Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg\n'
+                '\n'
+                'Enabled: no\n'
+                'Types: deb\n'
+                'URIs: http://ubuntu.com/ubuntu\n'
+                'Suites: mantic-proposed\n'
+                'Components: main\n'
+                'Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg\n'
+            )),
+            'etc/apt/sources.list': ((
+                'deb $MIRROR $RELEASE main universe\n'
+                'deb-src {mirror} $RELEASE main universe\n'
+                'deb $MIRROR $RELEASE-updates main universe\n'
+                'deb $MIRROR $RELEASE-backports main universe\n'
+            ), (
+                'Types: deb\n'
+                'URIs: http://ubuntu.com/ubuntu\n'
+                'Suites: mantic mantic-updates\n'
+                'Components: main universe\n'
+                'Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg\n'
+                '\n'
+                'Types: deb-src\n'
+                'URIs: http://ubuntu.com/ubuntu\n'
+                'Suites: mantic\n'
+                'Components: main universe\n'
+                'Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg\n'
+            )),
         }
 
-        apt_config.generate_sources_list(cfg, rel, mirrors, self.target)
-        filepath = os.path.join(
+        rel = 'mantic'
+        mirrors = {'MIRROR': 'http://ubuntu.com/ubuntu'}
+
+        # Test when sources_list is specified in config.
+        for (orig, expect) in data.values():
+            cfg = {
+                'preserve_sources_list': False,
+                'sources_list': orig.format(mirror='$MIRROR'),
+                'disable_suites': ['backports'],
+                'disable_components': ['multiverse'],
+            }
+
+            apt_config.generate_sources_list(cfg, rel, mirrors, self.target)
+            filepath = os.path.join(
+                self.target,
+                'etc/apt/sources.list.d/ubuntu.sources'
+            )
+            write_file.assert_called_with(filepath, expect, mode=0o644)
+
+        default_mirror = apt_config.get_default_mirrors()['PRIMARY']
+
+        # Make sure that default mirrors are replaced correctly when reading
+        # from a file.
+        for mirror in (default_mirror, default_mirror.rstrip('/')):
+            for (in_path, (orig, expect)) in data.items():
+                cfg = {
+                    'preserve_sources_list': False,
+                    'sources_list': None,
+                    'disable_suites': ['backports'],
+                    'disable_components': ['multiverse'],
+                }
+
+                target_path = os.path.join(self.target, in_path)
+
+                os.makedirs(os.path.dirname(target_path), exist_ok=True)
+                with open(target_path, 'w') as f:
+                    f.write(orig.format(mirror=mirror))
+
+                apt_config.generate_sources_list(
+                    cfg,
+                    rel,
+                    mirrors,
+                    self.target
+                )
+
+                filepath = os.path.join(
+                    self.target,
+                    'etc/apt/sources.list.d/ubuntu.sources'
+                )
+
+                if in_path == 'etc/apt/sources.list':
+                    write_file.assert_has_calls([
+                        mock.call(filepath, expect, mode=0o644),
+                        mock.call(
+                            target_path,
+                            '# Ubuntu sources have moved to '
+                            '/etc/apt/sources.list.d/ubuntu.sources\n',
+                            mode=0o644
+                        )
+                    ])
+                else:
+                    write_file.assert_called_with(filepath, expect, mode=0o644)
+
+                if os.path.exists(target_path):
+                    os.remove(target_path)
+
+    @mock_want_deb822(True)
+    @mock.patch("curtin.util.write_file")
+    @mock.patch("curtin.distro.get_architecture")
+    def test_generate_no_cfg_deb822(self, get_arch, write_file):
+        get_arch.return_value = 'amd64'
+
+        orig = (
+            '# See http://help.ubuntu.com/community/UpgradeNotes '
+            'for how to upgrade to\n'
+            '# newer versions of the distribution.\n'
+            'deb http://archive.ubuntu.com/ubuntu/ '
+            'mantic main restricted\n'
+            '# deb-src http://archive.ubuntu.com/ubuntu/ '
+            'mantic main restricted\n'
+            '\n'
+            '## Major bug fix updates produced after the final release '
+            'of the\n'
+            '## distribution.\n'
+            'deb http://archive.ubuntu.com/ubuntu/ '
+            'mantic-updates main restricted\n'
+            '# deb-src http://archive.ubuntu.com/ubuntu/ '
+            'mantic-updates main restricted\n'
+            '\n'
+            '## N.B. software from this repository is ENTIRELY UNSUPPORTED '
+            'by the Ubuntu\n'
+            '## team. Also, please note that software in universe '
+            'WILL NOT receive any\n'
+            '## review or updates from the Ubuntu security team.\n'
+            'deb http://archive.ubuntu.com/ubuntu/ '
+            'mantic universe\n'
+            '# deb-src http://archive.ubuntu.com/ubuntu/ '
+            'mantic universe\n'
+            'deb http://archive.ubuntu.com/ubuntu/ '
+            'mantic-updates universe\n'
+            '# deb-src http://archive.ubuntu.com/ubuntu/ '
+            'mantic-updates universe\n'
+            '\n'
+            '## N.B. software from this repository is ENTIRELY UNSUPPORTED '
+            'by the Ubuntu\n'
+            '## team, and may not be under a free licence. '
+            'Please satisfy yourself as to\n'
+            '## your rights to use the software. Also, please note that '
+            'software in\n'
+            '## multiverse WILL NOT receive any review or '
+            'updates from the Ubuntu\n'
+            '## security team.\n'
+            'deb http://archive.ubuntu.com/ubuntu/ '
+            'mantic multiverse\n'
+            '# deb-src http://archive.ubuntu.com/ubuntu/ '
+            'mantic multiverse\n'
+            'deb http://archive.ubuntu.com/ubuntu/ '
+            'mantic-updates multiverse\n'
+            '# deb-src http://archive.ubuntu.com/ubuntu/ '
+            'mantic-updates multiverse\n'
+            '\n'
+            '## N.B. software from this repository may not have '
+            'been tested as\n'
+            '## extensively as that contained in the main release'
+            ', although it includes\n'
+            '## newer versions of some applications which may provide '
+            'useful features.\n'
+            '## Also, please note that software in backports '
+            'WILL NOT receive any review\n'
+            '## or updates from the Ubuntu security team.\n'
+            'deb http://archive.ubuntu.com/ubuntu/ '
+            'mantic-backports main restricted universe multiverse\n'
+            '# deb-src http://archive.ubuntu.com/ubuntu/ '
+            'mantic-backports main restricted universe multiverse\n'
+            '\n'
+            'deb http://security.ubuntu.com/ubuntu/ '
+            'mantic-security main restricted\n'
+            '# deb-src http://security.ubuntu.com/ubuntu/ '
+            'mantic-security main restricted\n'
+            'deb http://security.ubuntu.com/ubuntu/ '
+            'mantic-security universe\n'
+            '# deb-src http://security.ubuntu.com/ubuntu/ '
+            'mantic-security universe\n'
+            'deb http://security.ubuntu.com/ubuntu/ '
+            'mantic-security multiverse\n'
+            '# deb-src http://security.ubuntu.com/ubuntu/ '
+            'mantic-security multiverse\n'
+        )
+
+        expect = (
+            'Types: deb\n'
+            'URIs: http://archive.ubuntu.com/ubuntu/\n'
+            'Suites: mantic mantic-updates mantic-backports\n'
+            'Components: main restricted universe multiverse\n'
+            'Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg\n'
+            '\n'
+            'Types: deb\n'
+            'URIs: http://security.ubuntu.com/ubuntu/\n'
+            'Suites: mantic-security\n'
+            'Components: main restricted universe multiverse\n'
+            'Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg\n'
+        )
+
+        sources_list = os.path.join(self.target, 'etc/apt/sources.list')
+        ubuntu_sources = os.path.join(
             self.target,
             'etc/apt/sources.list.d/ubuntu.sources'
         )
-        write_file.assert_called_with(filepath, expect, mode=0o644)
+
+        os.makedirs(os.path.dirname(sources_list), exist_ok=True)
+        with open(sources_list, 'w') as f:
+            f.write(orig)
+
+        apt_config.generate_sources_list({}, 'mantic', {}, self.target)
+
+        write_file.assert_has_calls([
+            mock.call(ubuntu_sources, expect, mode=0o644),
+            mock.call(
+                sources_list,
+                '# Ubuntu sources have moved to '
+                '/etc/apt/sources.list.d/ubuntu.sources\n',
+                mode=0o644
+            )
+        ])
+
+        if os.path.exists(sources_list):
+            os.remove(sources_list)
 
     @mock_want_deb822(True)
     def test_apt_src_deb822(self):
@@ -1415,6 +1616,13 @@ Components: main
                     'deb-src $MIRROR $RELEASE main universe\n'
                 ),
             },
+            'test7.list': {
+                'source': (
+                    'deb $MIRROR $RELEASE main universe\n'
+                    'deb $MIRROR $RELEASE-updates main universe\n'
+                    'deb $SECURITY $RELEASE-security main\n'
+                ),
+            },
         }
 
         expect = {
@@ -1442,6 +1650,7 @@ Components: main
                 'URIs: {mirror}\n'
                 'Suites: {release}-proposed\n'
                 'Components: main restricted universe multiverse\n'
+                'Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg\n'
             ).format(release=params['RELEASE'], mirror=params['MIRROR']),
             'test5.sources': (
                 'Types: deb-src\n'
@@ -1468,9 +1677,30 @@ Components: main
                 ' 74fIbGkM3hzws0asNoIV1ec52U1X/NP1W8GT9GRX5OX8uTi\n'
                 ' -----END PGP PUBLIC KEY BLOCK-----\n'
             ).format(release=params['RELEASE'], mirror=params['MIRROR']),
-            'test6.list': (
-                'deb-src {mirror} {release} main universe\n'
+            'test6.sources': (
+                'Types: deb-src\n'
+                'URIs: {mirror}\n'
+                'Suites: {release}\n'
+                'Components: main universe\n'
+                'Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg\n'
             ).format(release=params['RELEASE'], mirror=params['MIRROR']),
+            'test7.sources': (
+                'Types: deb\n'
+                'URIs: {mirror}\n'
+                'Suites: {release} {release}-updates\n'
+                'Components: main universe\n'
+                'Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg\n'
+                '\n'
+                'Types: deb\n'
+                'URIs: {security}\n'
+                'Suites: {release}-security\n'
+                'Components: main\n'
+                'Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg\n'
+            ).format(
+                release=params['RELEASE'],
+                mirror=params['MIRROR'],
+                security=params['SECURITY']
+            ),
         }
 
         self._add_apt_sources(
@@ -1481,10 +1711,17 @@ Components: main
         )
 
         for filename, entry in expect.items():
-            contents = load_tfile(self._sources_filepath(filename))
+            path = self._sources_filepath(filename)
             self.assertTrue(
-                entry in contents,
-                '\nExpected:\n{}\nActual:\n{}'.format(entry, contents)
+                os.path.exists(path),
+                f'No such file or directory: {path}'
+            )
+            contents = load_tfile(path)
+            self.assertEqual(
+                entry,
+                contents,
+                '{}\nExpected:\n{}\nActual:\n{}'
+                .format(filename, entry, contents)
             )
 
 
