@@ -25,9 +25,9 @@ Features
 
   - adding ppa's
 
-  - replacing mirror, security mirror and release in sources.list
+  - replacing mirror, security mirror and release in default sources
 
-  - able to provide a fully custom template for sources.list
+  - able to provide a fully custom template for default sources
 
   - add arbitrary apt.conf settings
 
@@ -55,11 +55,14 @@ So for exmaple a global specification of a ``primary`` mirror will apply to all 
 
 Then there is a section ``sources`` which can hold any number of source subelements itself.
 The key is the filename and will be prepended by /etc/apt/sources.list.d/ if it doesn't start with a ``/``.
-There are certain cases - where no content is written into a source.list file where the filename will be ignored - yet it can still be used as index for merging.
+The filename should be appropriate to the apt source format that is used.
+For classic one-line source entries, the ``.list`` extension should be used.
+For deb822 source entries, use the ``.sources`` extension.
+There are certain cases - where no content is written into a sources file where the filename will be ignored - yet it can still be used as index for merging.
 
 The values inside the entries consist of the following optional entries
 
-* ``source``: a sources.list entry (some variable replacements apply)
+* ``source``: an apt source entry, either in classic one-line format, or in deb822 format (some variable replacements apply)
 
 * ``keyid``: providing a key to import via shortid or fingerprint
 
@@ -128,6 +131,27 @@ That would be specified as ::
 
 The file examples/apt-source.yaml holds various further examples that can be configured with this feature.
 
+deb822 sources on Ubuntu >= 23.10
+---------------------------------
+
+By default, Ubuntu 23.10 and newer use the deb822 format for apt sources.
+When processing the apt configuration for a target system that should use deb822 sources, curtin will migrate legacy one-line sources to deb822 on-the-fly.
+The resulting configuration is functionally equivalent, but the sources on the target system will be formatted differently than provided in the configuration.
+
+For example, a configuration snippet that looks like ::
+
+ apt:
+   sources:
+     proposed.list:
+       source: |
+         deb http://archive.ubuntu.com/ubuntu/ mantic-proposed main restricted universe multiverse
+
+will result in a file on the target system called ``/etc/apt/sources.list.d/proposed.sources`` that looks like ::
+
+ Types: deb
+ URIs: http://archive.ubuntu.com/ubuntu/
+ Suites: mantic-proposed
+ Components: main restricted universe multiverse
 
 Common snippets
 ~~~~~~~~~~~~~~~
@@ -155,6 +179,19 @@ This is a collection of additional ideas people can use the feature for customiz
          deb http://ddebs.ubuntu.com $RELEASE-updates main restricted universe multiverse
          deb http://ddebs.ubuntu.com $RELEASE-security main restricted universe multiverse
          deb http://ddebs.ubuntu.com $RELEASE-proposed main restricted universe multiverse
+
+* Or, to achieve the same with deb822 sources:
+
+::
+
+ apt:
+   sources:
+     ddebs.sources:
+       source: |
+         Types: deb
+         URIs: http://ddebs.ubuntu.com
+         Suites: $RELEASE $RELEASE-updates $RELEASE-security $RELEASE-proposed
+         Components: main restricted universe multiverse
 
 Timing
 ~~~~~~
