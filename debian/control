@@ -31,6 +31,7 @@ Depends: bcache-tools,
          parted,
          probert-storage | probert,
          python3-curtin (= ${binary:Version}),
+         python3-debian,
          udev,
          xfsprogs,
          ${misc:Depends}
