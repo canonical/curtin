@@ -13,6 +13,8 @@ import sys
 
 from aptsources.sourceslist import SourceEntry
 
+from debian.deb822 import Deb822
+
 from curtin.log import LOG
 from curtin import (config, distro, gpg, paths, util)
 
@@ -91,36 +93,8 @@ def want_deb822(target=None):
     return version[0] > 23 or (version[0] >= 23 and version[1] >= 10)
 
 
-def parse_deb222_entry(stanza):
-    entry = {}
-
-    key = None
-    for line in stanza.splitlines():
-        if line.startswith(' '):
-            entry[key] += line.strip() + '\n'
-            continue
-
-        (key, _, val) = line.partition(':')
-        entry[key] = val.strip()
-
-    # Canonicalize expected fields.
-    entry['Enabled'] = entry.get('Enabled', True) in (True, 'yes')
-
-    for key in ('Types', 'URIs', 'Suites', 'Components'):
-        try:
-            val = entry[key]
-            entry[key] = list(set(val.split()))
-        except KeyError:
-            LOG.exception(
-                'Source entry is missing required field "{}"'.format(key)
-            )
-            raise
-
-    return entry
-
-
-def parse_deb822_sources(data):
-    return [parse_deb222_entry(s) for s in data.split('\n\n')]
+class Deb822SourceFormatException(Exception):
+    pass
 
 
 def deb822_field_sort_key(name):
@@ -156,21 +130,52 @@ def deb_type_sort_key(entry_type):
         return (1, entry_type)
 
 
+def _normalize_deb822_key(key):
+    if key.lower() == 'uris':
+        return 'URIs'
+
+    return key.title()
+
+
+def parse_deb822_sources(data):
+    sources = []
+
+    for para in Deb822.iter_paragraphs(data):
+        # debian.deb822.Deb822 does not actually support iterable
+        # values, so we need to put this back in a plain dict.
+        entry = {_normalize_deb822_key(k): v for (k, v) in para.items()}
+
+        for key in ('Types', 'URIs', 'Suites', 'Components'):
+            try:
+                entry[key] = entry[key].split()
+            except KeyError:
+                raise Deb822SourceFormatException(
+                    'Source entry is missing required field "{}"'.format(key)
+                )
+
+        sources.append(entry)
+
+    if not sources:
+        raise Deb822SourceFormatException('No valid sources found')
+
+    return sources
+
+
 def deb822_entry_to_str(entry):
+    stanza = ''
+
     sort_key_fns = {
         'Types': deb_type_sort_key,
         'Suites': suite_sort_key,
         'Components': component_sort_key,
     }
 
-    stanza = ''
-
     for k in sorted(entry.keys(), key=deb822_field_sort_key):
         v = entry[k]
         if k == 'Enabled':
-            if not v:
+            if v.lower() == 'no':
                 stanza += 'Enabled: no\n'
-        elif isinstance(v, list):
+        elif isinstance(v, set) or isinstance(v, list):
             key_fn = sort_key_fns.get(k)
             stanza += '{}: {}\n'.format(k, ' '.join(sorted(v, key=key_fn)))
         else:
@@ -184,7 +189,7 @@ def maybe_convert_sources_to_deb822(sources):
         parse_deb822_sources(sources)
 
         return sources
-    except KeyError:  # Missing required fields
+    except Deb822SourceFormatException:
         return convert_sources_to_deb822(sources)
 
 
@@ -206,16 +211,14 @@ def convert_sources_to_deb822(sources):
         key = (entry.disabled, entry.type, entry.uri, entry.dist)
         try:
             e = index[key]
-            e['Components'] = list(set(e['Components'] + entry.comps))
-            e['Components'].sort(key=component_sort_key)
+            e['Components'] |= set(entry.comps)
         except KeyError:
             e = {}
-            e['Enabled'] = not entry.disabled
-            e['Types'] = [entry.type]
-            e['URIs'] = [entry.uri]
-            e['Suites'] = [entry.dist]
-            e['Components'] = list(set(entry.comps))
-            e['Components'].sort(key=component_sort_key)
+            e['Enabled'] = 'no' if entry.disabled else 'yes'
+            e['Types'] = set([entry.type])
+            e['URIs'] = set([entry.uri])
+            e['Suites'] = set([entry.dist])
+            e['Components'] = set(entry.comps)
             index[key] = e
 
     for suite in [k[-1] for k in index.keys()]:
@@ -224,8 +227,7 @@ def convert_sources_to_deb822(sources):
                 e = index[(*k[:-1], suite)]
 
                 if e['Components'] == index[k]['Components']:
-                    e['Suites'] += index[k]['Suites']
-                    e['Suites'].sort(key=suite_sort_key)
+                    e['Suites'] |= index[k]['Suites']
 
                     del index[k]
             except KeyError:
@@ -240,7 +242,7 @@ def convert_sources_to_deb822(sources):
             can_combine &= se['Components'] == be['Components']
 
             if can_combine:
-                be['Types'] = ['deb', 'deb-src']
+                be['Types'] = set(['deb', 'deb-src'])
                 del index[ks]
 
     # Add Signed-By field if URI is default or will render to a configured one.
@@ -252,7 +254,7 @@ def convert_sources_to_deb822(sources):
         if entry.get('Signed-By'):
             continue
 
-        if not set(entry['URIs']) - set(mirrors):
+        if not entry['URIs'] - set(mirrors):
             entry['Signed-By'] = (
                 '/usr/share/keyrings/ubuntu-archive-keyring.gpg'
             )
