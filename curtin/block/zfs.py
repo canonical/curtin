@@ -56,11 +56,11 @@ def _join_flags(optflag, params):
             return 'on'
         return 'off'
 
-    return [] if not params else (
-        [param for opt in zip([optflag] * len(params),
-                              ["%s=%s" % (k, _b2s(v))
-                               for (k, v) in params.items()])
-         for param in opt])
+    r = []
+    for k, v in params.items():
+        r.append(optflag)
+        r.append("%s=%s" % (k, _b2s(v)))
+    return r
 
 
 def _join_pool_volume(poolname, volume):
