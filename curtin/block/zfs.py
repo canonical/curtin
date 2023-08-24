@@ -58,8 +58,9 @@ def _join_flags(optflag, params):
 
     r = []
     for k, v in params.items():
-        r.append(optflag)
-        r.append("%s=%s" % (k, _b2s(v)))
+        if v is not None:
+            r.append(optflag)
+            r.append("%s=%s" % (k, _b2s(v)))
     return r
 
 
@@ -120,11 +121,14 @@ def zpool_create(poolname, vdevs, mountpoint=None, altroot=None,
                             to `zpool create` with the `-o` flag as properties
                             of the zpool.  If value is None, then
                             ZPOOL_DEFAULT_PROPERTIES will be used.
+                            `key: null` may be use to unset a
+                            ZPOOL_DEFAULT_PROPERTIES value.
     :param zfs_properties: A dictionary of key, value pairs to be passed
                            to `zpool create` with the `-O` flag as properties
                            of the filesystems created under the pool.  If the
                            value is None, then ZFS_DEFAULT_PROPERTIES will be
-                           used.
+                           used. `key: null` may be use to unset a
+                            ZFS_DEFAULT_PROPERTIES value.
     :returns: None on success.
     :raises: ValueError: raises exceptions on missing/badd input
     :raises: ProcessExecutionError: raised on unhandled exceptions from

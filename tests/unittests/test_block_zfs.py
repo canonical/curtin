@@ -163,11 +163,27 @@ class TestBlockZfsZpoolCreate(CiTestCase):
 
     def test_zpool_create_override_a_default_pool_property(self):
         """zpool_create allows users to override default pool properties"""
-        zpool_params = ["%s=%s" % (k, v) for k, v in
-                        zfs.ZPOOL_DEFAULT_PROPERTIES.items()]
-        zfs.zpool_create('mypool', ['/dev/disk/by-id/virtio-abcfoo1'])
+        zpool_defaults = zfs.ZPOOL_DEFAULT_PROPERTIES.copy()
+        version = zpool_defaults.pop('version')
+        zpool_params = ["%s=%s" % (k, v) for k, v in zpool_defaults.items()]
+        pool_properties = {'version': None}
+        zfs.zpool_create('mypool', ['/dev/disk/by-id/virtio-abcfoo1'],
+                         pool_properties=pool_properties)
         _name, args, _ = self.mock_subp.mock_calls[0]
         self.assertTrue(set(zpool_params).issubset(set(args[0])))
+        self.assertNotIn(f"version={version}", args[0])
+
+    def test_zpool_create_override_a_default_fs_property(self):
+        """zpool_create allows users to override default fs properties"""
+        zfs_defaults = zfs.ZFS_DEFAULT_PROPERTIES.copy()
+        normalization = zfs_defaults.pop('normalization')
+        zpool_params = ["%s=%s" % (k, v) for k, v in zfs_defaults.items()]
+        zfs_properties = {'normalization': None}
+        zfs.zpool_create('mypool', ['/dev/disk/by-id/virtio-abcfoo1'],
+                         zfs_properties=zfs_properties)
+        _name, args, _ = self.mock_subp.mock_calls[0]
+        self.assertTrue(set(zpool_params).issubset(set(args[0])))
+        self.assertNotIn(f"normalization={normalization}", args[0])
 
     def test_zpool_create_set_mountpoint(self):
         """ zpool_create uses mountpoint """

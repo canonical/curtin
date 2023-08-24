@@ -1110,6 +1110,9 @@ The default pool properties are:
 - ashift: 12
 - version: 28
 
+Use ``ashift: null`` or ``version: null``
+to use the default value for these properties as decided by ``zpool create``.
+
 **fs_properties**: *{<key=value>}*
 
 The ``fs_properties`` key specifies a dictionary of key=value pairs which
@@ -1120,6 +1123,9 @@ are:
 - atime: off
 - canmount: off
 - normalization: formD
+
+Use ``$key: null``, where ``$key`` is one of the default fs_property keys,
+to use the default value for these properties as decided by ``zpool create``.
 
 **default_features**: *true, false*
 
