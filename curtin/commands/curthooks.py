@@ -1288,12 +1288,13 @@ def install_missing_packages(cfg, target, osfamily=DISTROS.debian):
             if pkg not in needed_packages:
                 needed_packages.add(pkg)
 
+    arch = distro.get_architecture()
+
     # UEFI requires grub-efi-{arch}. If a signed version of that package
     # exists then it will be installed.
     if util.is_uefi_bootable():
         uefi_pkgs = ['efibootmgr']
         if osfamily == DISTROS.redhat:
-            arch = distro.get_architecture()
             if arch == 'amd64':
                 # centos/redhat doesn't support 32-bit?
                 if 'grub2-efi-x64-modules' not in installed_packages:
@@ -1310,7 +1311,6 @@ def install_missing_packages(cfg, target, osfamily=DISTROS.debian):
                     uefi_pkgs.extend(['grub2-efi-aa64-modules',
                                       'grub2-efi-aa64', 'shim-aa64'])
         elif osfamily == DISTROS.debian:
-            arch = distro.get_architecture()
             if arch == 'i386':
                 arch = 'ia32'
             uefi_pkgs.append('grub-efi-%s' % arch)
@@ -1326,7 +1326,6 @@ def install_missing_packages(cfg, target, osfamily=DISTROS.debian):
                 uefi_pkgs.append("shim-signed")
         elif osfamily == DISTROS.suse:
             uefi_pkgs.extend(['grub2', 'grub2-branding-SLE'])
-            arch = distro.get_architecture()
             if arch == 'amd64':
                 arch = 'x86_64'
             uefi_pkgs.append('grub2-%s-efi' % arch)
@@ -1335,6 +1334,10 @@ def install_missing_packages(cfg, target, osfamily=DISTROS.debian):
                              osfamily)
         needed_packages.update([pkg for pkg in uefi_pkgs
                                 if pkg not in installed_packages])
+    else:
+        if arch == 'amd64' and osfamily == DISTROS.debian:
+            if 'grub-pc' not in installed_packages:
+                needed_packages.add('grub-pc')
 
     # Filter out ifupdown network packages on netplan enabled systems.
     has_netplan = ('nplan' in installed_packages or
