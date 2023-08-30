@@ -1645,6 +1645,8 @@ def dm_crypt_handler(info, storage_config, context):
     else:
         raise ValueError("encryption key or keyfile must be specified")
 
+    recovery_keyfile = info.get('recovery_keyfile')
+
     create_dmcrypt = True
     if preserve:
         dm_crypt_verify(dmcrypt_dev, volume_path)
@@ -1688,7 +1690,19 @@ def dm_crypt_handler(info, storage_config, context):
             if keysize:
                 cmd.extend(["--key-size", keysize])
             cmd.extend(["luksFormat", volume_path, keyfile])
+
             util.subp(cmd)
+
+            # Should this be done as well if we are using zkey?
+            if recovery_keyfile is not None:
+                LOG.debug("Adding recovery key to %s", volume_path)
+
+                cmd = [
+                    "cryptsetup", "luksAddKey",
+                    "--key-file", keyfile,
+                    volume_path, recovery_keyfile]
+
+                util.subp(cmd)
 
         cmd = ["cryptsetup", "open", "--type", luks_type, volume_path, dm_name,
                "--key-file", keyfile]

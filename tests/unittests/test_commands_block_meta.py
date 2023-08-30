@@ -2100,6 +2100,58 @@ class TestDmCryptHandler(CiTestCase):
         self.m_subp.assert_has_calls(expected_calls)
         self.assertEqual(len(util.load_file(self.crypttab).splitlines()), 1)
 
+    def test_dm_crypt_calls_cryptsetup_with_recovery_key(self):
+        """ verify dm_crypt calls (format, addKey, open) w/ correct params"""
+        volume_path = self.random_string()
+        self.m_getpath.return_value = volume_path
+
+        recovery_keyfile = self.random_string()
+        config = {
+            'storage': {
+                'version': 1,
+                'config': [
+                    {'grub_device': True,
+                     'id': 'sda',
+                     'name': 'sda',
+                     'path': '/wark/xxx',
+                     'ptable': 'msdos',
+                     'type': 'disk',
+                     'wipe': 'superblock'},
+                    {'device': 'sda',
+                     'id': 'sda-part1',
+                     'name': 'sda-part1',
+                     'number': 1,
+                     'size': '511705088B',
+                     'type': 'partition'},
+                    {'id': 'dmcrypt0',
+                     'type': 'dm_crypt',
+                     'dm_name': 'cryptroot',
+                     'volume': 'sda-part1',
+                     'cipher': self.cipher,
+                     'keysize': self.keysize,
+                     'keyfile': self.keyfile,
+                     'recovery_keyfile': recovery_keyfile},
+                ],
+            }
+        }
+        storage_config = block_meta.extract_storage_ordered_dict(config)
+
+        info = storage_config['dmcrypt0']
+
+        block_meta.dm_crypt_handler(info, storage_config, empty_context)
+        expected_calls = [
+            call(['cryptsetup', '--cipher', self.cipher,
+                  '--key-size', self.keysize,
+                  'luksFormat', volume_path, self.keyfile]),
+            call(['cryptsetup', 'luksAddKey',
+                  '--key-file', self.keyfile,
+                  volume_path, recovery_keyfile]),
+            call(['cryptsetup', 'open', '--type', 'luks', volume_path,
+                  info['dm_name'], '--key-file', self.keyfile])
+        ]
+        self.m_subp.assert_has_calls(expected_calls)
+        self.assertEqual(len(util.load_file(self.crypttab).splitlines()), 1)
+
     def test_dm_crypt_defaults_dm_name_to_id(self):
         """ verify dm_crypt_handler falls back to id with no dm_name. """
         volume_path = self.random_string()
