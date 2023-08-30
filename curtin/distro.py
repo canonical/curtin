@@ -3,8 +3,6 @@ import glob
 from collections import namedtuple
 import os
 import re
-import shutil
-import tempfile
 import textwrap
 from typing import Optional, Sequence
 
@@ -229,14 +227,7 @@ def apt_update(target=None, env=None, force=False, comment=None,
 
     restore_perms = []
 
-    abs_tmpdir = tempfile.mkdtemp(dir=target_path(target, "/tmp"))
     try:
-        abs_slist = abs_tmpdir + "/sources.list"
-        abs_slistd = abs_tmpdir + "/sources.list.d"
-        ch_tmpdir = "/tmp/" + os.path.basename(abs_tmpdir)
-        ch_slist = ch_tmpdir + "/sources.list"
-        ch_slistd = ch_tmpdir + "/sources.list.d"
-
         # this file gets executed on apt-get update sometimes. (LP: #1527710)
         motd_update = target_path(
             target, "/usr/lib/update-notifier/update-motd-updates-available")
@@ -244,23 +235,9 @@ def apt_update(target=None, env=None, force=False, comment=None,
         if pmode is not None:
             restore_perms.append((motd_update, pmode),)
 
-        # create tmpdir/sources.list with all lines other than deb-src
-        # avoid apt complaining by using existing and empty dir for sourceparts
-        os.mkdir(abs_slistd)
-        with open(abs_slist, "w") as sfp:
-            for sfile in listfiles:
-                with open(sfile, "r") as fp:
-                    contents = fp.read()
-                for line in contents.splitlines():
-                    line = line.lstrip()
-                    if not line.startswith("deb-src"):
-                        sfp.write(line + "\n")
-
         update_cmd = [
             'apt-get', '--quiet',
             '--option=Acquire::Languages=none',
-            '--option=Dir::Etc::sourcelist=%s' % ch_slist,
-            '--option=Dir::Etc::sourceparts=%s' % ch_slistd,
             'update']
 
         # do not using 'run_apt_command' so we can use 'retries' to subp
@@ -269,8 +246,6 @@ def apt_update(target=None, env=None, force=False, comment=None,
     finally:
         for fname, perms in restore_perms:
             os.chmod(fname, perms)
-        if abs_tmpdir:
-            shutil.rmtree(abs_tmpdir)
 
     with open(marker, "w") as fp:
         fp.write(comment + "\n")
