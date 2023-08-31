@@ -1,5 +1,4 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
-import glob
 from collections import namedtuple
 import os
 import re
@@ -9,7 +8,6 @@ from typing import Optional, Sequence
 from .paths import target_path
 from .util import (
     ChrootableTarget,
-    find_newer,
     load_file,
     load_shell_content,
     ProcessExecutionError,
@@ -196,34 +194,10 @@ def _lsb_release(target=None):
     return data
 
 
-def apt_update(target=None, env=None, force=False, comment=None,
-               retries=None):
-
-    marker = "tmp/curtin.aptupdate"
-
+def apt_update(target=None, env=None):
+    LOG.debug("Updating apt sources in %s", target)
     if env is None:
         env = os.environ.copy()
-
-    if retries is None:
-        # by default run apt-update up to 3 times to allow
-        # for transient failures
-        retries = (1, 2, 3)
-
-    if comment is None:
-        comment = "no comment provided"
-
-    if comment.endswith("\n"):
-        comment = comment[:-1]
-
-    marker = target_path(target, marker)
-    # if marker exists, check if there are files that would make it obsolete
-    listfiles = [target_path(target, "/etc/apt/sources.list")]
-    listfiles += glob.glob(
-        target_path(target, "etc/apt/sources.list.d/*.list"))
-
-    if os.path.exists(marker) and not force:
-        if len(find_newer(marker, listfiles)) == 0:
-            return
 
     restore_perms = []
 
@@ -242,13 +216,10 @@ def apt_update(target=None, env=None, force=False, comment=None,
 
         # do not using 'run_apt_command' so we can use 'retries' to subp
         with ChrootableTarget(target, allow_daemons=True) as inchroot:
-            inchroot.subp(update_cmd, env=env, retries=retries)
+            inchroot.subp(update_cmd, env=env, retries=(1, 2, 3))
     finally:
         for fname, perms in restore_perms:
             os.chmod(fname, perms)
-
-    with open(marker, "w") as fp:
-        fp.write(comment + "\n")
 
 
 def run_apt_command(mode, args=None, opts=None, env=None, target=None,
@@ -278,7 +249,7 @@ def run_apt_command(mode, args=None, opts=None, env=None, target=None,
         return env, cmd
 
     if not assume_downloaded:
-        apt_update(target, env=env, comment=' '.join(cmd))
+        apt_update(target, env=env)
     if mode in ['dist-upgrade', 'install', 'upgrade']:
         cmd_rv = apt_install(mode, args, opts=opts, env=env, target=target,
                              allow_daemons=allow_daemons,
