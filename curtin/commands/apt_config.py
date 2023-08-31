@@ -798,8 +798,7 @@ def add_apt_sources(srcdict, target=None, template_params=None,
             LOG.exception("failed write to file %s: %s", sourcefn, detail)
             raise
 
-    distro.apt_update(target=target, force=True,
-                      comment="apt-source changed config")
+    distro.apt_update(target=target)
 
     return
 
