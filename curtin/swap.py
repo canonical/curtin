@@ -7,6 +7,7 @@ from .log import LOG
 from . import util
 from curtin import paths
 from curtin import distro
+from curtin.util import bytes2human
 
 
 def suggested_swapsize(memsize=None, maxsize=None, fsys=None, avail=None):
@@ -27,6 +28,21 @@ def suggested_swapsize(memsize=None, maxsize=None, fsys=None, avail=None):
     projections when the filesystem hasn't yet been populated.  If avail and
     fsys are both supplied, fsys takes precedence.  Optional.
     """
+    def log_swap_diagnostic(suggested, reason):
+        def b2h(val):
+            try:
+                return bytes2human(val)
+            except:  # noqa: E722
+                return val
+        LOG.debug(
+            "swap suggestion analysis: "
+            f"available: {b2h(avail)} "
+            f"maxsize: {b2h(maxsize)} "
+            f"memsize: {b2h(memsize)} "
+            f"size before decision: {b2h(size)} "
+            f"suggested size: {b2h(suggested)} "
+            f"reason: {reason}")
+
     if memsize is None:
         memsize = util.get_meminfo()['total']
 
@@ -65,9 +81,12 @@ def suggested_swapsize(memsize=None, maxsize=None, fsys=None, avail=None):
         if memsize <= top:
             size = min(func(memsize), maxsize)
             if size < (memsize / 2) and size < 4 * GB:
+                log_swap_diagnostic(0, "size < memsize/2 and size < 4GiB")
                 return 0
+            log_swap_diagnostic(size, "lesser of formula or maxsize")
             return size
 
+    log_swap_diagnostic(maxsize, "exceeded formula table so maxsize")
     return maxsize
 
 
