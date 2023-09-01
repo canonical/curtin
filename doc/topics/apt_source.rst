@@ -134,7 +134,8 @@ The file examples/apt-source.yaml holds various further examples that can be con
 deb822 sources on Ubuntu >= 23.10
 ---------------------------------
 
-By default, Ubuntu 23.10 and newer use the deb822 format for apt sources.
+By default, Ubuntu 23.10 and newer use the
+`deb822 format for apt sources <https://manpages.ubuntu.com/manpages/en/man5/sources.list.5.html>`_.
 When processing the apt configuration for a target system that should use deb822 sources, curtin will migrate legacy one-line sources to deb822 on-the-fly.
 The resulting configuration is functionally equivalent, but the sources on the target system will be formatted differently than provided in the configuration.
 
