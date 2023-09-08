@@ -1306,7 +1306,14 @@ deb-src http://ubuntu.com//ubuntu xenial universe multiverse
             'etc/apt/sources.list.d/ubuntu.sources': ((
                 'Types: deb\n'
                 'URIs: $MIRROR\n'
-                'Suites: $RELEASE $RELEASE-updates $RELEASE-backports\n'
+                'Suites: $RELEASE $RELEASE-updates\n'
+                'components: main\n'
+                'signed-by: /usr/share/keyrings/ubuntu-archive-keyring.gpg\n'
+                '\n'
+                # This section should be skipped because -backports is disabled
+                'Types: deb\n'
+                'URIs: $MIRROR\n'
+                'Suites: $RELEASE-backports\n'
                 'components: main\n'
                 'signed-by: /usr/share/keyrings/ubuntu-archive-keyring.gpg\n'
                 '\n'

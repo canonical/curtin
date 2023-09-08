@@ -638,6 +638,11 @@ def _generate_sources_deb822(cfg, release, mirrors, target=None, arch=None):
         entry['Suites'] = list(set(entry['Suites']) - suites_to_disable)
         entry['Components'] = list(set(entry['Components']) - comps_to_disable)
 
+        if not entry['Suites']:
+            # It is invalid for a stanza to have zero suite configured. In
+            # practise, it can happen when -security is disabled.
+            continue
+
         stanzas.append(deb822_entry_to_str(entry))
 
     target_path = paths.target_path(target, sources_deb822)
