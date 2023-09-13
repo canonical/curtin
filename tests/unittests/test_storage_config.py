@@ -603,6 +603,14 @@ class TestBlockdevParser(CiTestCase):
             'type': 'disk'}
         self.assertDictEqual(expected_dict, self.bdevp.asdict(blockdev))
 
+    def test_blockdev_asdict_4k_sector_size(self):
+        """ existing part on 4k logical sector size disk with size 5000 MiB """
+        self.probe_data = _get_data('probert_storage_4ksectors.json')
+        self.bdevp = BlockdevParser(self.probe_data)
+        blockdev = self.bdevp.blockdev_data['/dev/sda1']
+        actual = self.bdevp.asdict(blockdev)
+        self.assertEqual(5000 << 20, actual['size'])
+
 
 class TestFilesystemParser(CiTestCase):
 

@@ -792,15 +792,19 @@ class BlockdevParser(ProbertParser):
             else:
                 part = attrs
 
-            # sectors 512B sector units in both attrs and ptable
-            offset_val = int(part['start']) * 512
+            # sector units are used in both attrs and ptable
+            parent_attrs = parent_blockdev.get('attrs', {})
+            logical_sector_size = int(
+                parent_attrs.get('queue/logical_block_size', 512)
+            )
+
+            offset_val = int(part['start']) * logical_sector_size
             if offset_val > 0:
                 entry['offset'] = offset_val
 
-            # ptable size field is in sectors
             entry['size'] = int(part['size'])
             if ptable:
-                entry['size'] *= 512
+                entry['size'] *= logical_sector_size
 
             if blockdev_data.get('ID_PART_TABLE_TYPE') == 'gpt':
                 part_uuid = blockdev_data.get('ID_PART_ENTRY_UUID')
