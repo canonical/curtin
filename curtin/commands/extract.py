@@ -114,6 +114,7 @@ class LayeredSourceHandler(AbstractSourceHandler):
 
     def setup(self):
         self._tmpdir = tempfile.mkdtemp()
+        LOG.debug(f"Setting up Layered Source for stack {self.image_stack}")
         try:
             self._download()
             # Check that all images exists on disk and are not empty
@@ -158,6 +159,7 @@ class TrivialSourceHandler(AbstractSourceHandler):
         self.path = path
 
     def setup(self):
+        LOG.debug(f"Setting up Trivial Source for stack {self.path}")
         return self.path
 
     def cleanup(self):
