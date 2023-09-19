@@ -21,6 +21,7 @@ DEPS=(
   python3-apt
   python3-attr
   python3-coverage
+  python3-debian
   python3-jsonschema
   python3-nose
   python3-oauthlib
