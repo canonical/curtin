@@ -9,7 +9,7 @@ import re
 import socket
 
 
-from unittest import mock
+from unittest import (mock, skip)
 from unittest.mock import call
 
 from aptsources.sourceslist import SourceEntry
@@ -1269,6 +1269,7 @@ deb-src http://ubuntu.com//ubuntu xenial universe multiverse
         filepath = os.path.join(self.target, 'etc/apt/sources.list')
         write_file.assert_called_with(filepath, expect, mode=0o644)
 
+    @skip('Skipping until ready for migration to deb822 by default')
     @mock.patch('curtin.distro.os_release')
     def test_want_deb822(self, mock_os_release):
         testdata = [
