@@ -61,6 +61,10 @@ class JammyTestNetworkIPV6(relbase.jammy, TestNetworkIPV6Abs):
     __test__ = True
 
 
+class ManticTestNetworkIPV6(relbase.mantic, TestNetworkIPV6Abs):
+    __test__ = True
+
+
 class Centos70TestNetworkIPV6(centos_relbase.centos70_xenial,
                               CentosTestNetworkIPV6Abs):
     __test__ = True

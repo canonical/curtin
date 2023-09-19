@@ -48,4 +48,11 @@ class JammyTestUefiReuseEsp(relbase.jammy, TestUefiReuseEspAbs):
         return super().test_efiboot_menu_has_one_distro_entry()
 
 
+class ManticTestUefiReuseEsp(relbase.mantic, TestUefiReuseEspAbs):
+    __test__ = True
+
+    def test_efiboot_menu_has_one_distro_entry(self):
+        return super().test_efiboot_menu_has_one_distro_entry()
+
+
 # vi: ts=4 expandtab syntax=python

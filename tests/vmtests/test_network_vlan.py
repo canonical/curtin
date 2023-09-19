@@ -84,6 +84,10 @@ class JammyTestNetworkVlan(relbase.jammy, TestNetworkVlanAbs):
     __test__ = True
 
 
+class ManticTestNetworkVlan(relbase.mantic, TestNetworkVlanAbs):
+    __test__ = True
+
+
 class Centos70TestNetworkVlan(centos_relbase.centos70_xenial,
                               CentosTestNetworkVlanAbs):
     __test__ = True

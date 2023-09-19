@@ -166,6 +166,10 @@ class JammyTestMultipathBasic(relbase.jammy, TestMultipathBasicAbs):
     __test__ = True
 
 
+class ManticTestMultipathBasic(relbase.mantic, TestMultipathBasicAbs):
+    __test__ = True
+
+
 class TestMultipathReuseAbs(TestMultipathBasicAbs):
     conf_file = "examples/tests/multipath-reuse.yaml"
 
@@ -175,6 +179,10 @@ class FocalTestMultipathReuse(relbase.focal, TestMultipathReuseAbs):
 
 
 class JammyTestMultipathReuse(relbase.jammy, TestMultipathReuseAbs):
+    __test__ = True
+
+
+class ManticTestMultipathReuse(relbase.mantic, TestMultipathReuseAbs):
     __test__ = True
 
 

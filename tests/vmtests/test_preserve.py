@@ -33,4 +33,8 @@ class JammyTestPreserve(relbase.jammy, TestPreserve):
     __test__ = True
 
 
+class ManticTestPreserve(relbase.mantic, TestPreserve):
+    __test__ = True
+
+
 # vi: ts=4 expandtab syntax=python

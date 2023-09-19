@@ -42,4 +42,8 @@ class JammyTestNetworkOvs(relbase.jammy, TestNetworkOvsAbs):
     __test__ = True
 
 
+class ManticTestNetworkOvs(relbase.mantic, TestNetworkOvsAbs):
+    __test__ = True
+
+
 # vi: ts=4 expandtab syntax=python

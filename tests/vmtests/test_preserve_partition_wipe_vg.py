@@ -33,6 +33,10 @@ class JammyTestPreserveWipeLvm(relbase.jammy, TestPreserveWipeLvm):
     __test__ = True
 
 
+class ManticTestPreserveWipeLvm(relbase.mantic, TestPreserveWipeLvm):
+    __test__ = True
+
+
 class TestPreserveWipeLvmSimple(VMBaseClass):
     conf_file = "examples/tests/preserve-partition-wipe-vg-simple.yaml"
     uefi = False
@@ -53,6 +57,12 @@ class FocalTestPreserveWipeLvmSimple(relbase.focal, TestPreserveWipeLvmSimple):
 
 
 class JammyTestPreserveWipeLvmSimple(relbase.jammy, TestPreserveWipeLvmSimple):
+    __test__ = True
+
+
+class ManticTestPreserveWipeLvmSimple(
+    relbase.mantic, TestPreserveWipeLvmSimple
+):
     __test__ = True
 
 

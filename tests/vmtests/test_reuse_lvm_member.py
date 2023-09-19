@@ -31,4 +31,9 @@ class JammyTestReuseLVMMemberPartition(relbase.jammy,
     __test__ = True
 
 
+class ManticTestReuseLVMMemberPartition(relbase.mantic,
+                                        TestReuseLVMMemberPartition):
+    __test__ = True
+
+
 # vi: ts=4 expandtab syntax=python

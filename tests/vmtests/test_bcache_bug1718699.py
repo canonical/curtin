@@ -27,4 +27,8 @@ class JammyTestBcacheBug1718699(relbase.jammy, TestBcacheBug1718699):
     __test__ = True
 
 
+class ManticTestBcacheBug1718699(relbase.mantic, TestBcacheBug1718699):
+    __test__ = True
+
+
 # vi: ts=4 expandtab syntax=python

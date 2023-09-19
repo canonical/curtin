@@ -33,4 +33,8 @@ class JammyTestInstallPanic(relbase.jammy, TestInstallPanic):
     __test__ = True
 
 
+class ManticTestInstallPanic(relbase.mantic, TestInstallPanic):
+    __test__ = True
+
+
 # vi: ts=4 expandtab syntax=python

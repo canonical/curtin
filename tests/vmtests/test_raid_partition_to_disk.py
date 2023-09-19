@@ -26,4 +26,8 @@ class JammyTestRAIDPartitionToDisk(relbase.jammy, TestRAIDPartitionToDisk):
     __test__ = True
 
 
+class ManticTestRAIDPartitionToDisk(relbase.mantic, TestRAIDPartitionToDisk):
+    __test__ = True
+
+
 # vi: ts=4 expandtab syntax=python

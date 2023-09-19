@@ -482,6 +482,10 @@ class JammyTestNetworkBasic(relbase.jammy, TestNetworkBasicAbs):
     __test__ = True
 
 
+class ManticTestNetworkBasic(relbase.mantic, TestNetworkBasicAbs):
+    __test__ = True
+
+
 class Centos70TestNetworkBasic(centos_relbase.centos70_xenial,
                                CentosTestNetworkBasicAbs):
     __test__ = True

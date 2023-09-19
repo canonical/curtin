@@ -36,6 +36,10 @@ class JammyTestReuseRAIDMember(relbase.jammy, TestReuseRAIDMember):
     __test__ = True
 
 
+class ManticTestReuseRAIDMember(relbase.mantic, TestReuseRAIDMember):
+    __test__ = True
+
+
 class BionicTestReuseRAIDMemberPartition(relbase.bionic,
                                          TestReuseRAIDMemberPartition):
     __test__ = True
@@ -48,6 +52,11 @@ class FocalTestReuseRAIDMemberPartition(relbase.focal,
 
 class JammyTestReuseRAIDMemberPartition(relbase.jammy,
                                         TestReuseRAIDMemberPartition):
+    __test__ = True
+
+
+class ManticTestReuseRAIDMemberPartition(relbase.mantic,
+                                         TestReuseRAIDMemberPartition):
     __test__ = True
 
 

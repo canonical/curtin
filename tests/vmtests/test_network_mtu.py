@@ -197,6 +197,10 @@ class JammyTestNetworkMtu(relbase.jammy, TestNetworkMtuNetworkdAbs):
     __test__ = True
 
 
+class ManticTestNetworkMtu(relbase.mantic, TestNetworkMtuNetworkdAbs):
+    __test__ = True
+
+
 class Centos70TestNetworkMtu(centos_relbase.centos70_xenial,
                              CentosTestNetworkMtuAbs):
     __test__ = True

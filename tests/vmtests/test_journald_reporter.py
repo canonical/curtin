@@ -40,4 +40,8 @@ class JammyTestJournaldReporter(relbase.jammy, TestJournaldReporter):
     __test__ = True
 
 
+class ManticTestJournaldReporter(relbase.mantic, TestJournaldReporter):
+    __test__ = True
+
+
 # vi: ts=4 expandtab syntax=python

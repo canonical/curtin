@@ -64,6 +64,10 @@ class JammyTestMultipathLvm(relbase.jammy, TestMultipathLvmAbs):
     __test__ = True
 
 
+class ManticTestMultipathLvm(relbase.mantic, TestMultipathLvmAbs):
+    __test__ = True
+
+
 class TestMultipathLvmPartWipeAbs(TestMultipathLvmAbs):
     conf_file = "examples/tests/multipath-lvm-part-wipe.yaml"
 
@@ -75,6 +79,11 @@ class FocalTestMultipathLvmPartWipe(relbase.focal,
 
 class JammyTestMultipathLvmPartWipe(relbase.jammy,
                                     TestMultipathLvmPartWipeAbs):
+    __test__ = True
+
+
+class ManticTestMultipathLvmPartWipe(relbase.mantic,
+                                     TestMultipathLvmPartWipeAbs):
     __test__ = True
 
 

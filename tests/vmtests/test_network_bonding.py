@@ -65,6 +65,10 @@ class JammyTestBonding(relbase.jammy, TestNetworkBondingAbs):
     __test__ = True
 
 
+class ManticTestBonding(relbase.mantic, TestNetworkBondingAbs):
+    __test__ = True
+
+
 class Centos70TestNetworkBonding(centos_relbase.centos70_xenial,
                                  CentosTestNetworkBondingAbs):
     __test__ = True

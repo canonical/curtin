@@ -83,4 +83,18 @@ class JammyCurtinDisableCloudInitNetworkingVersion1(relbase.jammy, TestKlass3):
     __test__ = True
 
 
+class ManticCurtinDisableNetworkRendering(relbase.mantic, TestKlass1):
+    __test__ = True
+
+
+class ManticCurtinDisableCloudInitNetworking(relbase.mantic, TestKlass2):
+    __test__ = True
+
+
+class ManticCurtinDisableCloudInitNetworkingVersion1(
+    relbase.mantic, TestKlass3
+):
+    __test__ = True
+
+
 # vi: ts=4 expandtab syntax=python

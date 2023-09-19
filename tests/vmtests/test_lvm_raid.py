@@ -63,4 +63,8 @@ class JammyTestLvmOverRaid(relbase.jammy, TestLvmOverRaidAbs):
     __test__ = True
 
 
+class ManticTestLvmOverRaid(relbase.mantic, TestLvmOverRaidAbs):
+    __test__ = True
+
+
 # vi: ts=4 expandtab syntax=python

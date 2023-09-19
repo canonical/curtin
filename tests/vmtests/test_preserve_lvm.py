@@ -77,4 +77,8 @@ class JammyTestLvmPreserve(relbase.jammy, TestLvmPreserveAbs):
     __test__ = True
 
 
+class ManticTestLvmPreserve(relbase.mantic, TestLvmPreserveAbs):
+    __test__ = True
+
+
 # vi: ts=4 expandtab syntax=python

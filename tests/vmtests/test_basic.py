@@ -238,6 +238,10 @@ class JammyTestBasic(relbase.jammy, TestBasicAbs):
     __test__ = True
 
 
+class ManticTestBasic(relbase.mantic, TestBasicAbs):
+    __test__ = True
+
+
 class TestBasicScsiAbs(TestBasicAbs):
     arch_skip = [
         'arm64',  # arm64 is UEFI only
@@ -355,6 +359,10 @@ class FocalTestScsiBasic(relbase.focal, TestBasicScsiAbs):
 
 
 class JammyTestScsiBasic(relbase.jammy, TestBasicScsiAbs):
+    __test__ = True
+
+
+class ManticTestScsiBasic(relbase.mantic, TestBasicScsiAbs):
     __test__ = True
 
 
