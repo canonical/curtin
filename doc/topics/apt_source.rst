@@ -131,28 +131,29 @@ That would be specified as ::
 
 The file examples/apt-source.yaml holds various further examples that can be configured with this feature.
 
-deb822 sources on Ubuntu >= 23.10
----------------------------------
+..
+    deb822 sources on Ubuntu >= 23.10
+    ---------------------------------
 
-By default, Ubuntu 23.10 and newer use the
-`deb822 format for apt sources <https://manpages.ubuntu.com/manpages/en/man5/sources.list.5.html>`_.
-When processing the apt configuration for a target system that should use deb822 sources, curtin will migrate legacy one-line sources to deb822 on-the-fly.
-The resulting configuration is functionally equivalent, but the sources on the target system will be formatted differently than provided in the configuration.
+    By default, Ubuntu 23.10 and newer use the
+    `deb822 format for apt sources <https://manpages.ubuntu.com/manpages/en/man5/sources.list.5.html>`_.
+    When processing the apt configuration for a target system that should use deb822 sources, curtin will migrate legacy one-line sources to deb822 on-the-fly.
+    The resulting configuration is functionally equivalent, but the sources on the target system will be formatted differently than provided in the configuration.
 
-For example, a configuration snippet that looks like ::
+    For example, a configuration snippet that looks like ::
 
- apt:
-   sources:
-     proposed.list:
-       source: |
-         deb http://archive.ubuntu.com/ubuntu/ mantic-proposed main restricted universe multiverse
+     apt:
+       sources:
+         proposed.list:
+           source: |
+             deb http://archive.ubuntu.com/ubuntu/ mantic-proposed main restricted universe multiverse
 
-will result in a file on the target system called ``/etc/apt/sources.list.d/proposed.sources`` that looks like ::
+    will result in a file on the target system called ``/etc/apt/sources.list.d/proposed.sources`` that looks like ::
 
- Types: deb
- URIs: http://archive.ubuntu.com/ubuntu/
- Suites: mantic-proposed
- Components: main restricted universe multiverse
+     Types: deb
+     URIs: http://archive.ubuntu.com/ubuntu/
+     Suites: mantic-proposed
+     Components: main restricted universe multiverse
 
 Common snippets
 ~~~~~~~~~~~~~~~

@@ -77,6 +77,13 @@ def want_deb822(target=None):
     This is determined by the version of Ubuntu: deb822 is the default starting
     with Ubuntu 23.10 (Mantic Minotaur).
     """
+
+    """
+    FIXME: The deb822-by-default goal was delayed in 23.10.
+    Re-enable/update this code (and the test case in
+    tests/unittests/test_apt_source.py) when we are ready for deb822 by
+    default.
+
     os_release = distro.os_release(target)
 
     if os_release.get('ID') != 'ubuntu':
@@ -91,6 +98,9 @@ def want_deb822(target=None):
         return False
 
     return version[0] > 23 or (version[0] >= 23 and version[1] >= 10)
+    """
+
+    return False
 
 
 class Deb822SourceFormatException(Exception):
