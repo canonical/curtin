@@ -122,6 +122,10 @@ def find_testcases(**kwargs):
     filter_attrs = [attr for attr, value in kwargs.items() if value]
     for mts in module_test_suites:
         for class_test_suite in mts:
+            if hasattr(class_test_suite, '_exception'):
+                # if the test fails to load, it may have an _exception with the
+                # underlying issue.
+                raise class_test_suite._exception
             for test_case in class_test_suite:
                 # skip disabled tests
                 if not getattr(test_case, '__test__', False):
