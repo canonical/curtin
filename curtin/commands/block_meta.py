@@ -1693,16 +1693,15 @@ def dm_crypt_handler(info, storage_config, context):
 
             util.subp(cmd)
 
-            # Should this be done as well if we are using zkey?
-            if recovery_keyfile is not None:
-                LOG.debug("Adding recovery key to %s", volume_path)
+        if recovery_keyfile is not None:
+            LOG.debug("Adding recovery key to %s", volume_path)
 
-                cmd = [
-                    "cryptsetup", "luksAddKey",
-                    "--key-file", keyfile,
-                    volume_path, recovery_keyfile]
+            cmd = [
+                "cryptsetup", "luksAddKey",
+                "--key-file", keyfile,
+                volume_path, recovery_keyfile]
 
-                util.subp(cmd)
+            util.subp(cmd)
 
         cmd = ["cryptsetup", "open", "--type", luks_type, volume_path, dm_name,
                "--key-file", keyfile]
