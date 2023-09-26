@@ -101,13 +101,6 @@ class JammyTestLvmRootExt4(relbase.jammy, TestLvmRootAbs):
     }
 
 
-class ManticTestLvmRootExt4(relbase.mantic, TestLvmRootAbs):
-    __test__ = True
-    conf_replace = {
-        '__ROOTFS_FORMAT__': 'ext4',
-    }
-
-
 class XenialTestLvmRootXfs(relbase.xenial, TestLvmRootAbs):
     __test__ = True
     conf_replace = {
@@ -155,14 +148,6 @@ class FocalTestUefiLvmRootExt4(relbase.focal, TestUefiLvmRootAbs):
 
 
 class JammyTestUefiLvmRootExt4(relbase.jammy, TestUefiLvmRootAbs):
-    __test__ = True
-    conf_replace = {
-        '__BOOTFS_FORMAT__': 'ext4',
-        '__ROOTFS_FORMAT__': 'ext4',
-    }
-
-
-class ManticTestUefiLvmRootExt4(relbase.mantic, TestUefiLvmRootAbs):
     __test__ = True
     conf_replace = {
         '__BOOTFS_FORMAT__': 'ext4',

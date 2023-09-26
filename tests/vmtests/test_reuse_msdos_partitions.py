@@ -28,9 +28,4 @@ class JammyTestReuseMSDOSPartitions(relbase.jammy,
     __test__ = True
 
 
-class ManticTestReuseMSDOSPartitions(relbase.mantic,
-                                     TestReuseMSDOSPartitions):
-    __test__ = True
-
-
 # vi: ts=4 expandtab syntax=python

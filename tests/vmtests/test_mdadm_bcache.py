@@ -162,10 +162,6 @@ class JammyTestMdadmBcache(relbase.jammy, TestMdadmBcacheAbs):
     __test__ = True
 
 
-class ManticTestMdadmBcache(relbase.mantic, TestMdadmBcacheAbs):
-    __test__ = True
-
-
 class TestMirrorbootAbs(TestMdadmAbs):
     # alternative config for more complex setup
     conf_file = "examples/tests/mirrorboot.yaml"
@@ -208,10 +204,6 @@ class FocalTestMirrorboot(relbase.focal, TestMirrorbootAbs):
 
 
 class JammyTestMirrorboot(relbase.jammy, TestMirrorbootAbs):
-    __test__ = True
-
-
-class ManticTestMirrorboot(relbase.mantic, TestMirrorbootAbs):
     __test__ = True
 
 
@@ -262,11 +254,6 @@ class FocalTestMirrorbootPartitions(relbase.focal,
 
 class JammyTestMirrorbootPartitions(relbase.jammy,
                                     TestMirrorbootPartitionsAbs):
-    __test__ = True
-
-
-class ManticTestMirrorbootPartitions(relbase.mantic,
-                                     TestMirrorbootPartitionsAbs):
     __test__ = True
 
 
@@ -365,11 +352,6 @@ class JammyTestMirrorbootPartitionsUEFI(relbase.jammy,
     __test__ = True
 
 
-class ManticTestMirrorbootPartitionsUEFI(relbase.mantic,
-                                         TestMirrorbootPartitionsUEFIAbs):
-    __test__ = True
-
-
 class TestRaid5bootAbs(TestMdadmAbs):
     # alternative config for more complex setup
     conf_file = "examples/tests/raid5boot.yaml"
@@ -415,10 +397,6 @@ class FocalTestRaid5boot(relbase.focal, TestRaid5bootAbs):
 
 
 class JammyTestRaid5boot(relbase.jammy, TestRaid5bootAbs):
-    __test__ = True
-
-
-class ManticTestRaid5boot(relbase.mantic, TestRaid5bootAbs):
     __test__ = True
 
 
@@ -483,10 +461,6 @@ class JammyTestRaid6boot(relbase.jammy, TestRaid6bootAbs):
     __test__ = True
 
 
-class ManticTestRaid6boot(relbase.mantic, TestRaid6bootAbs):
-    __test__ = True
-
-
 class TestRaid10bootAbs(TestMdadmAbs):
     # alternative config for more complex setup
     conf_file = "examples/tests/raid10boot.yaml"
@@ -531,10 +505,6 @@ class FocalTestRaid10boot(relbase.focal, TestRaid10bootAbs):
 
 
 class JammyTestRaid10boot(relbase.jammy, TestRaid10bootAbs):
-    __test__ = True
-
-
-class ManticTestRaid10boot(relbase.mantic, TestRaid10bootAbs):
     __test__ = True
 
 
@@ -639,10 +609,6 @@ class FocalTestAllindata(relbase.focal, TestAllindataAbs):
 
 
 class JammyTestAllindata(relbase.jammy, TestAllindataAbs):
-    __test__ = True
-
-
-class ManticTestAllindata(relbase.mantic, TestAllindataAbs):
     __test__ = True
 
 

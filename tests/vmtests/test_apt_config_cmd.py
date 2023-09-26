@@ -72,8 +72,4 @@ class JammyTestAptConfigCMDCMD(relbase.jammy, TestAptConfigCMD):
     __test__ = True
 
 
-class ManticTestAptConfigCMDCMD(relbase.mantic, TestAptConfigCMD):
-    __test__ = True
-
-
 # vi: ts=4 expandtab syntax=python

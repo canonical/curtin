@@ -38,11 +38,6 @@ class JammyTestNetworkStaticRoutes(relbase.jammy,
     __test__ = True
 
 
-class ManticTestNetworkStaticRoutes(relbase.mantic,
-                                    TestNetworkStaticRoutesAbs):
-    __test__ = True
-
-
 class Centos70TestNetworkStaticRoutes(centos_relbase.centos70_xenial,
                                       CentosTestNetworkStaticRoutesAbs):
     __test__ = False

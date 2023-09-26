@@ -85,8 +85,4 @@ class JammyTestLvm(relbase.jammy, TestLvmAbs):
     __test__ = True
 
 
-class ManticTestLvm(relbase.mantic, TestLvmAbs):
-    __test__ = True
-
-
 # vi: ts=4 expandtab syntax=python

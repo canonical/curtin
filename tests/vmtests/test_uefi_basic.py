@@ -104,10 +104,6 @@ class JammyUefiTestBasic(relbase.jammy, TestBasicAbs):
     __test__ = True
 
 
-class ManticUefiTestBasic(relbase.mantic, TestBasicAbs):
-    __test__ = True
-
-
 class Centos70UefiTestBasic4k(centos_relbase.centos70_xenial, TestBasicAbs):
     __test__ = True
     disk_block_size = 4096
@@ -129,11 +125,6 @@ class FocalUefiTestBasic4k(relbase.focal, TestBasicAbs):
 
 
 class JammyUefiTestBasic4k(relbase.jammy, TestBasicAbs):
-    __test__ = True
-    disk_block_size = 4096
-
-
-class ManticUefiTestBasic4k(relbase.mantic, TestBasicAbs):
     __test__ = True
     disk_block_size = 4096
 

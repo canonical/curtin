@@ -80,8 +80,4 @@ class JammyTestIscsiBasic(relbase.jammy, TestBasicIscsiAbs):
     __test__ = True
 
 
-class ManticTestIscsiBasic(relbase.mantic, TestBasicIscsiAbs):
-    __test__ = True
-
-
 # vi: ts=4 expandtab syntax=python

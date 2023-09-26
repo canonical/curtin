@@ -55,8 +55,4 @@ class JammyTestNetworkAlias(relbase.jammy, TestNetworkAliasAbs):
     __test__ = True
 
 
-class ManticTestNetworkAlias(relbase.mantic, TestNetworkAliasAbs):
-    __test__ = True
-
-
 # vi: ts=4 expandtab syntax=python

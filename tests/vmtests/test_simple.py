@@ -54,13 +54,6 @@ class JammyTestSimple(relbase.jammy, TestSimple):
         self.output_files_exist(["netplan.yaml"])
 
 
-class ManticTestSimple(relbase.mantic, TestSimple):
-    __test__ = True
-
-    def test_output_files_exist(self):
-        self.output_files_exist(["netplan.yaml"])
-
-
 class TestSimpleStorage(VMBaseClass):
     """ Test curtin runs clear-holders when mode=simple with storage cfg. """
     conf_file = "examples/tests/simple-storage.yaml"
@@ -117,13 +110,6 @@ class JammyTestSimpleStorage(relbase.jammy, TestSimpleStorage):
         self.output_files_exist(["netplan.yaml"])
 
 
-class ManticTestSimpleStorage(relbase.mantic, TestSimpleStorage):
-    __test__ = True
-
-    def test_output_files_exist(self):
-        self.output_files_exist(["netplan.yaml"])
-
-
 class TestGrubNoDefaults(VMBaseClass):
     """ Test that curtin does not emit any grub configuration files. """
     conf_file = "examples/tests/no-grub-file.yaml"
@@ -151,13 +137,6 @@ class FocalTestGrubNoDefaults(relbase.focal, TestGrubNoDefaults):
 
 
 class JammyTestGrubNoDefaults(relbase.jammy, TestGrubNoDefaults):
-    __test__ = True
-
-    def test_output_files_exist(self):
-        self.output_files_exist(["netplan.yaml"])
-
-
-class ManticTestGrubNoDefaults(relbase.mantic, TestGrubNoDefaults):
     __test__ = True
 
     def test_output_files_exist(self):

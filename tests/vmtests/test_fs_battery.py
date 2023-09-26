@@ -247,8 +247,4 @@ class JammyTestFsBattery(relbase.jammy, TestFsBattery):
     __test__ = True
 
 
-class ManticTestFsBattery(relbase.mantic, TestFsBattery):
-    __test__ = True
-
-
 # vi: ts=4 expandtab syntax=python

@@ -83,10 +83,6 @@ class JammyTestBcacheCeph(relbase.jammy, TestBcacheCeph):
     __test__ = True
 
 
-class ManticTestBcacheCeph(relbase.mantic, TestBcacheCeph):
-    __test__ = True
-
-
 class TestBcacheCephLvm(TestBcacheCeph):
     test_type = 'storage'
     nr_cpus = 2
@@ -114,10 +110,6 @@ class FocalTestBcacheCephLvm(relbase.focal, TestBcacheCephLvm):
 
 
 class JammyTestBcacheCephLvm(relbase.jammy, TestBcacheCephLvm):
-    __test__ = True
-
-
-class ManticTestBcacheCephLvm(relbase.mantic, TestBcacheCephLvm):
     __test__ = True
 
 

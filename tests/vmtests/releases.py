@@ -172,13 +172,6 @@ class _JammyBase(_UbuntuBase):
         subarch = "ga-22.04"
 
 
-class _ManticBase(_UbuntuBase):
-    release = "mantic"
-    target_release = "mantic"
-    if _UbuntuBase.arch == "arm64":
-        subarch = "ga-23.10"
-
-
 class _Releases(object):
     trusty = _TrustyBase
     precise = _PreciseBase
@@ -198,7 +191,6 @@ class _Releases(object):
     eoan = _EoanBase
     focal = _FocalBase
     jammy = _JammyBase
-    mantic = _ManticBase
 
 
 class _CentosReleases(object):
