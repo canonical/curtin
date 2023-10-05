@@ -453,7 +453,8 @@ def cmd_install(args):
 
     LOG.info(INSTALL_START_MSG)
     LOG.debug('LANG=%s', os.environ.get('LANG'))
-    LOG.debug("merged config: %s" % cfg)
+    # disabled - logs wifi PSK and probably other things to syslog
+    # LOG.debug("merged config: %s" % cfg)
 
     migrate_proxy_settings(cfg)
     for k in ('http_proxy', 'https_proxy', 'no_proxy'):
