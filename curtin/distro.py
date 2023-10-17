@@ -24,7 +24,7 @@ from .log import LOG
 
 DistroInfo = namedtuple('DistroInfo', ('variant', 'family'))
 DISTRO_NAMES = ['arch', 'centos', 'debian', 'fedora', 'freebsd', 'gentoo',
-                'opensuse', 'redhat', 'rhel', 'sles', 'suse', 'ubuntu',
+                'ol', 'opensuse', 'redhat', 'rhel', 'sles', 'suse', 'ubuntu',
                 'rocky']
 
 
@@ -38,8 +38,8 @@ DISTROS = distro_enum(*DISTRO_NAMES)
 
 OS_FAMILIES = {
     DISTROS.debian: [DISTROS.debian, DISTROS.ubuntu],
-    DISTROS.redhat: [DISTROS.centos, DISTROS.fedora, DISTROS.redhat,
-                     DISTROS.rhel, DISTROS.rocky],
+    DISTROS.redhat: [DISTROS.centos, DISTROS.fedora, DISTROS.ol,
+                     DISTROS.redhat, DISTROS.rhel, DISTROS.rocky],
     DISTROS.gentoo: [DISTROS.gentoo],
     DISTROS.freebsd: [DISTROS.freebsd],
     DISTROS.suse: [DISTROS.opensuse, DISTROS.sles, DISTROS.suse],
