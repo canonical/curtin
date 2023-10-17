@@ -290,8 +290,8 @@ def gen_uefi_install_commands(grub_name, grub_target, grub_cmd, update_nvram,
         install_cmds.append(['dpkg-reconfigure', grub_name])
         install_cmds.append(['update-grub'])
     elif distroinfo.family == distro.DISTROS.redhat:
-        # RHEL distros uses 'redhat' for bootid
-        if bootid == 'rhel':
+        # RHEL and OL distros uses 'redhat' for bootid
+        if bootid in ['rhel', 'ol']:
             bootid = 'redhat'
         loader = find_efi_loader(target, bootid)
         if loader:
