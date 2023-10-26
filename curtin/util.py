@@ -904,6 +904,48 @@ def is_uefi_bootable():
     return os.path.exists('/sys/firmware/efi') is True
 
 
+class EFIVarFSBug:
+    """A regression was introduced in the Linux 6.5 kernel affecting systems
+    where the QueryVariableInfo UEFI function is not available. This includes
+    various systems with Apple hardware.
+    On affected systems, calls to statfs("/sys/firmware/efi/efivars") fail
+    with EINVAL. As a consequence, libefivar (and therefore efibootmgr!) assume
+    that EFI variables are not supported.
+
+    Command: ['efibootmgr', '-v']
+    Exit code: 2
+    Reason: -
+    Stdout: ''
+    Stderr: EFI variables are not supported on this system.
+
+    Fortunately, libefivar supports the LIBEFIVAR_OPS variable, which can be
+    used to "force" the library to use "/sys/firmware/efi/efivars" without
+    relying on statfs(2).
+
+    See LP: #2040190"""
+    @staticmethod
+    def is_system_affected() -> bool:
+        """Try to determine is the bug affects the current system."""
+        try:
+            os.statvfs("/sys/firmware/efi/efivars")
+        except OSError as ose:
+            if ose.errno == errno.EINVAL:
+                return True
+        except Exception:
+            pass
+        return False
+
+    @staticmethod
+    def apply_workaround() -> None:
+        os.environ["LIBEFIVAR_OPS"] = "efivarfs"
+
+    @staticmethod
+    def apply_workaround_if_affected() -> None:
+        if EFIVarFSBug.is_system_affected():
+            LOG.warning("current system seems affected by statfs efivarfs bug")
+            EFIVarFSBug.apply_workaround()
+
+
 @attr.s(auto_attribs=True)
 class EFIBootEntry:
     name: str

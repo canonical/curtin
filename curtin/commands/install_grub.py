@@ -467,6 +467,9 @@ def install_grub_main(args):
     cfg = config.load_command_config(args, state)
     stack_prefix = state.get('report_stack_prefix', '')
     uefi = util.is_uefi_bootable()
+
+    util.EFIVarFSBug.apply_workaround_if_affected()
+
     grubcfg = config.fromdict(config.GrubConfig, cfg.get('grub'))
     with events.ReportEventStack(
             name=stack_prefix, reporting_enabled=True, level="INFO",

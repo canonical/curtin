@@ -1,6 +1,7 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
 
 from unittest import mock
+import errno
 import os
 import stat
 from textwrap import dedent
@@ -1194,5 +1195,49 @@ class TestNotExclusiveRetry(CiTestCase):
         with self.assertRaises(OSError):
             util.not_exclusive_retry(f, 1, 2, 3)
         sleep.assert_called_once()
+
+
+class TestEFIVarFSBug(CiTestCase):
+    def test_is_system_affected__unaffected(self):
+        # os.statvfs succeeds
+        with mock.patch("os.statvfs", return_value=None):
+            self.assertFalse(util.EFIVarFSBug.is_system_affected())
+
+        # os.statvfs fails with PermissionError (e.g., EPERM)
+        with mock.patch("os.statvfs", side_effect=PermissionError):
+            self.assertFalse(util.EFIVarFSBug.is_system_affected())
+
+        # os.statvfs fails with FileNotFoundError (e.g., ENOENT)
+        with mock.patch("os.statvfs", side_effect=FileNotFoundError):
+            self.assertFalse(util.EFIVarFSBug.is_system_affected())
+
+        # os.statvfs fails with OSError (but not EINVAL)
+        ose = OSError(errno.EBADFD, "Bad file descriptor")
+        with mock.patch("os.statvfs", side_effect=ose):
+            self.assertFalse(util.EFIVarFSBug.is_system_affected())
+
+    def test_is_system_affected__affected(self):
+        ose = OSError(errno.EINVAL, "Invalid argument")
+        with mock.patch("os.statvfs", side_effect=ose):
+            self.assertTrue(util.EFIVarFSBug.is_system_affected())
+
+    def test_apply_workaround(self):
+        with mock.patch.dict(os.environ, clear=True):
+            util.EFIVarFSBug.apply_workaround()
+            self.assertEqual(os.environ["LIBEFIVAR_OPS"], "efivarfs")
+
+    def test_apply_workaround_if_affected(self):
+        with mock.patch.object(util.EFIVarFSBug,
+                               "apply_workaround") as apply_wa:
+            with mock.patch.object(util.EFIVarFSBug, "is_system_affected",
+                                   return_value=True):
+                util.EFIVarFSBug.apply_workaround_if_affected()
+            apply_wa.assert_called_once()
+
+            apply_wa.reset_mock()
+            with mock.patch.object(util.EFIVarFSBug, "is_system_affected",
+                                   return_value=False):
+                util.EFIVarFSBug.apply_workaround_if_affected()
+            apply_wa.assert_not_called()
 
 # vi: ts=4 expandtab syntax=python
