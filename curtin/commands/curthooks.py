@@ -1919,6 +1919,8 @@ def curthooks(args):
     stack_prefix = state.get('report_stack_prefix', '')
     curthooks_mode = cfg.get('curthooks', {}).get('mode', 'auto')
 
+    util.EFIVarFSBug.apply_workaround_if_affected()
+
     # UC is special, handle it first.
     if distro.is_ubuntu_core(target):
         LOG.info('Detected Ubuntu-Core image, running hooks')
