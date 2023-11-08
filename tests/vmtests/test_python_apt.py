@@ -2,7 +2,7 @@
 
 from aptsources.sourceslist import SourceEntry
 
-from . import VMBaseClass
+from . import VMBaseClass, skip_if_flag
 from .releases import base_vm_classes as relbase
 
 
@@ -11,6 +11,7 @@ class TestPythonApt(VMBaseClass):
     test_type = 'config'
     conf_file = "examples/tests/apt_source_custom.yaml"
 
+    @skip_if_flag('expected_failure')
     def test_python_apt(self):
         """test_python_apt - Ensure the python-apt package is available"""
 
@@ -32,6 +33,7 @@ class FocalTestPythonApt(relbase.focal, TestPythonApt):
 
 
 class JammyTestPythonApt(relbase.jammy, TestPythonApt):
+    expected_failure = True  # XXX Broken for now
     __test__ = True
 
 

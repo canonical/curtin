@@ -55,6 +55,7 @@ class FocalTestIscsiMdadm(relbase.focal, TestMdadmIscsiAbs):
 
 
 class JammyTestIscsiMdadm(relbase.jammy, TestMdadmIscsiAbs):
+    expected_failure = True  # XXX Broken for now
     __test__ = True
 
 

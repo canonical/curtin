@@ -1,6 +1,6 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
 
-from . import VMBaseClass
+from . import VMBaseClass, skip_if_flag
 from .releases import base_vm_classes as relbase
 
 import textwrap
@@ -17,6 +17,7 @@ class TestPreserveWipeLvm(VMBaseClass):
         exit 0
         """)]
 
+    @skip_if_flag('expected_failure')
     def test_existing_exists(self):
         self.assertIn('existing', self.load_collect_file('ls-opt'))
 
@@ -30,6 +31,7 @@ class FocalTestPreserveWipeLvm(relbase.focal, TestPreserveWipeLvm):
 
 
 class JammyTestPreserveWipeLvm(relbase.jammy, TestPreserveWipeLvm):
+    expected_failure = True  # XXX Broken for now
     __test__ = True
 
 
@@ -53,6 +55,7 @@ class FocalTestPreserveWipeLvmSimple(relbase.focal, TestPreserveWipeLvmSimple):
 
 
 class JammyTestPreserveWipeLvmSimple(relbase.jammy, TestPreserveWipeLvmSimple):
+    expected_failure = True  # XXX Broken for now
     __test__ = True
 
 

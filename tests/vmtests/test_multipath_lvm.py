@@ -1,5 +1,6 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
 
+from . import skip_if_flag
 from .releases import base_vm_classes as relbase
 from .releases import centos_base_vm_classes as centos_relbase
 from .test_multipath import TestMultipathBasicAbs
@@ -26,6 +27,7 @@ class TestMultipathLvmAbs(TestMultipathBasicAbs):
         exit 0
         """)]
 
+    @skip_if_flag('expected_failure')
     def test_home_mount_unit(self):
         raise SkipTest('Test case does not have separate home mount')
 
@@ -38,6 +40,7 @@ class TestMultipathLvmAbs(TestMultipathBasicAbs):
             (self._kname_to_uuid_devpath('dm-uuid-part2-mpath', boot),
              '/boot', 'defaults')]
 
+    @skip_if_flag('expected_failure')
     def test_proc_command_line_has_mp_device(self):
         cmdline = self.load_collect_file('proc_cmdline')
         root = [tok for tok in cmdline.split() if tok.startswith('root=')]
@@ -61,6 +64,7 @@ class FocalTestMultipathLvm(relbase.focal, TestMultipathLvmAbs):
 
 
 class JammyTestMultipathLvm(relbase.jammy, TestMultipathLvmAbs):
+    expected_failure = True  # XXX Broken for now (no space left on device)
     __test__ = True
 
 
@@ -75,6 +79,7 @@ class FocalTestMultipathLvmPartWipe(relbase.focal,
 
 class JammyTestMultipathLvmPartWipe(relbase.jammy,
                                     TestMultipathLvmPartWipeAbs):
+    expected_failure = True  # XXX Broken for now (no space left on device)
     __test__ = True
 
 

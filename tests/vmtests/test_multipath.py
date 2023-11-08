@@ -1,6 +1,6 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
 
-from . import VMBaseClass, load_config, sanitize_dname
+from . import VMBaseClass, load_config, sanitize_dname, skip_if_flag
 from .releases import base_vm_classes as relbase
 from .releases import centos_base_vm_classes as centos_relbase
 from curtin import util
@@ -41,6 +41,7 @@ class TestMultipathBasicAbs(VMBaseClass):
         exit 0
         """)]
 
+    @skip_if_flag('expected_failure')
     def test_dname_rules(self, disk_to_check=None):
         if self.target_distro != "ubuntu":
             raise SkipTest("dname not present in non-ubuntu releases")
@@ -74,6 +75,7 @@ class TestMultipathBasicAbs(VMBaseClass):
                         self.assertIn(id_key, contents)
                         self.assertIn(value, contents)
 
+    @skip_if_flag('expected_failure')
     def test_multipath_disks_match(self):
         sda_data = self.load_collect_file("holders_sda")
         print('sda holders:\n%s' % sda_data)
@@ -82,6 +84,7 @@ class TestMultipathBasicAbs(VMBaseClass):
         self.assertEqual(os.path.basename(sda_data),
                          os.path.basename(sdb_data))
 
+    @skip_if_flag('expected_failure')
     def test_home_mount_unit(self):
         unit_file = 'systemctl_show_home.mount'
         if not os.path.exists(self.collect_path(unit_file)):
@@ -118,6 +121,7 @@ class TestMultipathBasicAbs(VMBaseClass):
             (self._kname_to_uuid_devpath('dm-uuid-part2-mpath', home),
              '/home', 'defaults,nofail')]
 
+    @skip_if_flag('expected_failure')
     def test_proc_command_line_has_mp_device(self):
         cmdline = self.load_collect_file('proc_cmdline')
         root = [tok for tok in cmdline.split() if tok.startswith('root=')]

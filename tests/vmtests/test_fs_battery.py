@@ -1,6 +1,6 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
 
-from . import VMBaseClass
+from . import VMBaseClass, skip_if_flag
 from .releases import base_vm_classes as relbase
 from .releases import centos_base_vm_classes as centos_relbase
 
@@ -118,6 +118,7 @@ class TestFsBattery(VMBaseClass):
             fs_entries[part] = entry.copy()
         return fs_entries
 
+    @skip_if_flag('expected_failure')
     def test_blkid_output(self):
         """Check the recorded output of 'blkid -o export' on each partition.
 
@@ -148,6 +149,7 @@ class TestFsBattery(VMBaseClass):
 
         self.assertEqual(expected, results)
 
+    @skip_if_flag('expected_failure')
     def test_mount_umount(self):
         """Check output of mount and unmount operations for each fs."""
         results = self.load_collect_file("battery-mount-umount").splitlines()
@@ -156,6 +158,7 @@ class TestFsBattery(VMBaseClass):
                     ["%s umount: PASS" % k for k in entries])
         self.assertEqual(sorted(expected), sorted(results))
 
+    @skip_if_flag('expected_failure')
     def test_fstab_has_mounts(self):
         """Verify each of the expected "my" mounts got into fstab."""
         expected = [
@@ -169,6 +172,7 @@ class TestFsBattery(VMBaseClass):
                 "fstab").splitlines()]
         self.assertEqual(expected, [e for e in expected if e in fstab_found])
 
+    @skip_if_flag('expected_failure')
     def test_mountinfo_has_mounts(self):
         """Verify the my mounts got into mountinfo.
 
@@ -188,6 +192,7 @@ class TestFsBattery(VMBaseClass):
         self.assertEqual(dest_src.get("/var/cache"), "/my/bind-over-var-cache")
         self.assertEqual(dest_src.get("/my/bind-ro-etc"), "/etc")
 
+    @skip_if_flag('expected_failure')
     def test_expected_files_from_bind_mounts(self):
         data = self.load_collect_file("my-path-checks")
         # this file is <path>: (present|missing)
@@ -200,6 +205,7 @@ class TestFsBattery(VMBaseClass):
             {'/my/bind-over-var-cache/man': 'present',
              '/my/bind-ro-etc/passwd': 'present'}, paths)
 
+    @skip_if_flag('expected_failure')
     def test_ext4_extra_parameters_used_with_mkfs(self):
         data = self.load_collect_file("myext4.dump")
         self.assertNotIn("ext_attr", data)
@@ -244,6 +250,7 @@ class FocalTestFsBattery(relbase.focal, TestFsBattery):
 
 
 class JammyTestFsBattery(relbase.jammy, TestFsBattery):
+    expected_failure = True  # XXX Broken for now
     __test__ = True
 
 

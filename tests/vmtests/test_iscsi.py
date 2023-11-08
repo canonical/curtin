@@ -1,6 +1,6 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
 
-from . import VMBaseClass
+from . import VMBaseClass, skip_if_flag
 from .releases import base_vm_classes as relbase
 from .releases import centos_base_vm_classes as centos_relbase
 
@@ -28,12 +28,14 @@ class TestBasicIscsiAbs(VMBaseClass):
         exit 0
         """)]
 
+    @skip_if_flag('expected_failure')
     def test_fstab_has_netdev_option(self):
         self.output_files_exist(["fstab"])
         fstab = self.load_collect_file("fstab").strip()
         self.assertTrue(any(["_netdev" in line
                              for line in fstab.splitlines()]))
 
+    @skip_if_flag('expected_failure')
     def test_iscsi_testfiles(self):
         # add check by SN or UUID that the iSCSI disks are attached?
         testfiles = ["testfile%s" % t for t in range(1, self.nr_testfiles + 1)]

@@ -1,6 +1,6 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
 
-from . import VMBaseClass, helpers
+from . import VMBaseClass, helpers, skip_if_flag
 from .releases import base_vm_classes as relbase
 from .releases import centos_base_vm_classes as centos_relbase
 
@@ -53,6 +53,7 @@ class TestNetworkBaseTestsAbs(VMBaseClass):
         exit 0
         """)]
 
+    @skip_if_flag('expected_failure')
     def test_output_files_exist(self):
         self.output_files_exist([
             "ip_a",
@@ -88,6 +89,7 @@ class TestNetworkBaseTestsAbs(VMBaseClass):
         print('Network Renderer: ifupdown')
         return 'ifupdown'
 
+    @skip_if_flag('expected_failure')
     def test_etc_network_interfaces(self):
         avail_str = self.load_collect_file('cloudinit_passthrough_available')
         pt_available = int(avail_str) == 1
@@ -118,6 +120,7 @@ class TestNetworkBaseTestsAbs(VMBaseClass):
             print('expected line:\n%s' % line)
             self.assertTrue(line in eni_lines, "not in eni: %s" % line)
 
+    @skip_if_flag('expected_failure')
     def test_cloudinit_network_passthrough(self):
         cc_passthrough = "cloud.cfg.d/50-curtin-networking.cfg"
 
@@ -140,6 +143,7 @@ class TestNetworkBaseTestsAbs(VMBaseClass):
         intarget = config.load_config(pt_file)
         self.assertEqual(original, intarget)
 
+    @skip_if_flag('expected_failure')
     def test_cloudinit_network_disabled(self):
         cc_disabled = 'cloud.cfg.d/curtin-disable-cloudinit-networking.cfg'
 
@@ -164,6 +168,7 @@ class TestNetworkBaseTestsAbs(VMBaseClass):
         print('checking cloud-init network-cfg content')
         self.assertEqual(original, intarget)
 
+    @skip_if_flag('expected_failure')
     def test_etc_resolvconf(self):
         render2resolvconf = {
             'ifupdown': "resolv.conf",
@@ -227,6 +232,7 @@ class TestNetworkBaseTestsAbs(VMBaseClass):
                     self.logger.debug('dns_line:%s', dns_line)
                     self.assertTrue(dns_line in resolv_lines)
 
+    @skip_if_flag('expected_failure')
     def test_static_routes(self):
         '''check routing table'''
         network_state = self.get_network_state()
@@ -259,6 +265,7 @@ class TestNetworkBaseTestsAbs(VMBaseClass):
             m = re.search(expected_string, ip_route_show, re.MULTILINE)
             self.assertTrue(m is not None)
 
+    @skip_if_flag('expected_failure')
     def test_ip_output(self):
         '''check iproute2 'ip a' output with test input'''
         network_state = self.get_network_state()

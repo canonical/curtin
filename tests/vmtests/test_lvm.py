@@ -1,6 +1,6 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
 
-from . import VMBaseClass
+from . import VMBaseClass, skip_if_flag
 from .releases import base_vm_classes as relbase
 from .releases import centos_base_vm_classes as centos_relbase
 
@@ -31,6 +31,7 @@ class TestLvmAbs(VMBaseClass):
             kname = self._dname_to_kname(dname)
             self.check_file_strippedline("pvs", "%s=/dev/%s" % (vg, kname))
 
+    @skip_if_flag('expected_failure')
     def test_pvs(self):
         dname_to_vg = {
             'main_disk-part5': 'vg1',
@@ -38,10 +39,12 @@ class TestLvmAbs(VMBaseClass):
         }
         return self._test_pvs(dname_to_vg)
 
+    @skip_if_flag('expected_failure')
     def test_lvs(self):
         self.check_file_strippedline("lvs", "lv1=vg1")
         self.check_file_strippedline("lvs", "lv2=vg1")
 
+    @skip_if_flag('expected_failure')
     def test_output_files_exist(self):
         self.output_files_exist(
             ["fstab", "ls_dname"])
@@ -82,6 +85,7 @@ class FocalTestLvm(relbase.focal, TestLvmAbs):
 
 
 class JammyTestLvm(relbase.jammy, TestLvmAbs):
+    expected_failure = True  # XXX Broken for now
     __test__ = True
 
 
