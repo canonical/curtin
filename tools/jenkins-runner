@@ -44,6 +44,23 @@ cleanup() {
         esac
     fi
 }
+usage() {
+    echo -e "Curtin jenkins-runner"
+    echo -e ""
+    echo -e "This script is just a wrapper for calling underlying nosetests3 tests."
+    echo -e "Filtering options are passed to that tool, so you may want to have a look at its usage too."
+    echo -e ""
+    echo -e "USAGE:"
+    echo -e "\tjenkins-runner [OPTIONS] [PATH ...]"
+    echo -e ""
+    echo -e "ARGS:"
+    echo -e "\t<PATH>...\n\t\tA list of tests/vmtest* files to run"
+    echo -e "OPTIONS:"
+    echo -e "\tCURTIN_VMTEST_*\t\tSet some CURTIN_VMTEST_ variables from command line"
+    echo -e "\t--skip-images-dirlock\tSkip image directory lock"
+    echo -e "\t--filter\t\tFilter the tests to run"
+    echo -e "\t-p, --parallel\t\tSet the number of parallel jobs"
+}
 
 if [ "$reuse" != "1" ]; then
     if [ -d "$topdir" ]; then
@@ -70,6 +87,10 @@ tests=( )
 skip_images_dirlock=0
 while [ $# -ne 0 ]; do
     case "$1" in
+        -h|--help)
+            usage
+            exit 0
+            ;;
         # allow setting these environment variables on cmdline.
         CURTIN_VMTEST_*=*) export "$1";;
         --filter=*) ntfilters[${#ntfilters[@]}]="${1#--filter=}";;
