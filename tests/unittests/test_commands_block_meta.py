@@ -2474,6 +2474,47 @@ class TestCrypttab(DmCryptCommon):
             data
         )
 
+    def test_cryptoswap(self):
+        """ Check the keyfile and options features needed for cryptoswap """
+
+        self.setUpStorageConfig({
+            'storage': {
+                'version': 1,
+                'config': [
+                    {'grub_device': True,
+                     'id': 'sda',
+                     'name': 'sda',
+                     'path': '/wark/xxx',
+                     'ptable': 'msdos',
+                     'type': 'disk',
+                     'wipe': 'superblock'},
+                    {'device': 'sda',
+                     'id': 'sda-part1',
+                     'name': 'sda-part1',
+                     'number': 1,
+                     'size': '511705088B',
+                     'type': 'partition'},
+                    {'id': 'dmcrypt0',
+                     'type': 'dm_crypt',
+                     'dm_name': 'cryptswap',
+                     'volume': 'sda-part1',
+                     'options': ["swap", "initramfs"],
+                     'keyfile': "/dev/urandom"},
+                ],
+            }
+        })
+
+        self.m_getpath.return_value = self.random_string()
+        block_meta.dm_crypt_handler(
+            self.storage_config['dmcrypt0'], self.storage_config, empty_context
+        )
+
+        uuid = self.block_uuids[0]
+        self.assertEqual(
+            f"cryptswap UUID={uuid} /dev/urandom swap,initramfs\n",
+            util.load_file(self.crypttab),
+        )
+
 
 class TestRaidHandler(CiTestCase):
 

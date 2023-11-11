@@ -1618,6 +1618,8 @@ def dm_crypt_handler(info, storage_config, context):
     keysize = info.get('keysize')
     cipher = info.get('cipher')
     dm_name = info.get('dm_name')
+    options = ','.join(info.get('options', ['luks']))
+    crypttab_keyfile = 'none'
     if not dm_name:
         dm_name = info.get('id')
     dmcrypt_dev = os.path.join("/dev", "mapper", dm_name)
@@ -1634,8 +1636,13 @@ def dm_crypt_handler(info, storage_config, context):
     if 'keyfile' in info:
         if 'key' in info:
             raise ValueError("cannot specify both key and keyfile")
-        keyfile_is_tmp = False
         keyfile = info['keyfile']
+        if keyfile in ("/dev/random", "/dev/urandom"):
+            crypttab_keyfile = keyfile
+            keyfile = tempfile.mkstemp()[1]
+            keyfile_is_tmp = True
+        else:
+            keyfile_is_tmp = False
     elif 'key' in info:
         # TODO: this is insecure, find better way to do this
         key = info.get('key')
@@ -1727,8 +1734,9 @@ def dm_crypt_handler(info, storage_config, context):
         state_dir = os.path.dirname(state['fstab'])
         crypt_tab_location = os.path.join(state_dir, "crypttab")
         uuid = block.get_volume_uuid(volume_path)
-        util.write_file(crypt_tab_location,
-                        "%s UUID=%s none luks\n" % (dm_name, uuid), omode="a")
+        util.write_file(
+            crypt_tab_location,
+            f"{dm_name} UUID={uuid} {crypttab_keyfile} {options}\n", omode="a")
     else:
         LOG.info("fstab configuration is not present in environment, so \
             cannot locate an appropriate directory to write crypttab in \

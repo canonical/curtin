@@ -6,6 +6,7 @@ import contextlib
 import json
 import os
 from parameterized import parameterized
+from pathlib import Path
 import re
 import sys
 from typing import Optional
@@ -192,6 +193,15 @@ class StorageConfigBuilder:
         for action in self.config:
             action['preserve'] = True
 
+    def add_dmcrypt(self, *, volume, dm_name=None, **kw):
+        if dm_name is None:
+            dm_name = CiTestCase.random_string()
+        return self._add(
+            type='dm_crypt',
+            volume=volume['id'],
+            dm_name=dm_name,
+            **kw)
+
 
 class TestBlockMeta(IntegrationTestCase):
     def setUp(self):
@@ -239,15 +249,17 @@ class TestBlockMeta(IntegrationTestCase):
         with open(config_path, 'w') as fp:
             yaml.dump(config, fp)
 
+        self.fstab_dir = self.tmp_dir()
         cmd_env = kwargs.pop('env', {})
         cmd_env.update({
             'PATH': os.environ['PATH'],
             'CONFIG': config_path,
             'WORKING_DIR': '/tmp',
-            'OUTPUT_FSTAB': self.tmp_path('fstab'),
+            'OUTPUT_FSTAB': self.tmp_path('fstab', _dir=self.fstab_dir),
             'OUTPUT_INTERFACES': '',
             'OUTPUT_NETWORK_STATE': '',
             'OUTPUT_NETWORK_CONFIG': '',
+            'TARGET_MOUNT_POINT': self.tmp_dir(),
         })
 
         cmd = [
@@ -1283,6 +1295,38 @@ table-length: 256'''.encode()
         self.assertPartitions(
             PartData(number=1, offset=1 << 20, size=1 << 20, boot=False,
                      partition_type='82'))
+
+    @parameterized.expand(((1,), (2,)))
+    def test_cryptoswap(self, sv=2):
+        self.img = self.tmp_path('image.img')
+        config = StorageConfigBuilder(version=sv)
+        config.add_image(path=self.img, create=True, size='200M',
+                         ptable='msdos')
+        p1 = config.add_part(
+            number=1, offset=1 << 20, size=19 << 20, flag='swap'
+        )
+        cryptoswap = f"cryptoswap-{self.random_string(length=6)}"
+        dmc1 = config.add_dmcrypt(
+            volume=p1,
+            dm_name=cryptoswap,
+            keyfile="/dev/urandom",
+            options=["swap", "initramfs"],
+        )
+        config.add_format(part=dmc1, fstype="swap")
+        self.run_bm(config.render())
+
+        self.assertPartitions(
+            PartData(number=1, offset=1 << 20, size=19 << 20, boot=False,
+                     partition_type='82'))
+
+        crypttab_path = Path(self.fstab_dir) / "crypttab"
+        with open(crypttab_path) as fp:
+            crypttab = fp.read()
+        tokens = re.split(r'\s+', crypttab)
+        self.assertEqual(cryptoswap, tokens[0])
+        self.assertTrue(tokens[1].startswith("UUID="))
+        self.assertEqual("/dev/urandom", tokens[2])
+        self.assertEqual("swap,initramfs", tokens[3])
 
     @parameterized.expand(((1,), (2,)))
     def test_msftres(self, sv):

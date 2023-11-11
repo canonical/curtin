@@ -886,6 +886,15 @@ system will prompt for this password in order to mount the disk.
 The ``keyfile`` contains the password of the encryption key.  The target
 system will prompt for this password in order to mount the disk.
 
+A special case of ``keyfile`` are the values ``/dev/urandom`` and
+``/dev/random``, which indicate that this ``keyfile`` value will be used in
+entirety to decrypt the device.  In this case, the keyfile is passed along to
+the crypttab, as the third field.
+
+.. note::
+  ``/dev/urandom`` and ``/dev/random`` are functionally equivalent on modern
+  systems.
+
 Exactly one of **key** and **keyfile** must be supplied.
 
 **preserve**: *true, false*
@@ -893,13 +902,16 @@ Exactly one of **key** and **keyfile** must be supplied.
 If the ``preserve`` option is True, curtin will verify the dm-crypt device
 specified is composed of the device specified in ``volume``.
 
-
 **wipe**: *superblock, superblock-recursive, pvremove, zero, random*
 
 If ``wipe`` option is set, and ``preserve`` is False, curtin will wipe the
 contents of the dm-crypt device.  Curtin skips wipe settings if it creates
 the dm-crypt volume.
 
+**options**: *<list of man 5 crypttab options strings>*
+
+Options to pass to crypttab, as the fourth field.  See man 5 crypttab for
+details. The default is ``[luks]``.
 
 .. note::
 
