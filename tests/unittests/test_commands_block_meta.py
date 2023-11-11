@@ -2030,10 +2030,10 @@ class TestLvmPartitionHandler(CiTestCase):
         self.assertEqual(0, self.m_subp.call_count)
 
 
-class TestDmCryptHandler(CiTestCase):
+class DmCryptCommon(CiTestCase):
 
     def setUp(self):
-        super(TestDmCryptHandler, self).setUp()
+        super().setUp()
 
         basepath = 'curtin.commands.block_meta.'
         self.add_patch(basepath + 'get_path_to_storage_volume', 'm_getpath')
@@ -2047,7 +2047,26 @@ class TestDmCryptHandler(CiTestCase):
         self.keyfile = self.random_string()
         self.cipher = self.random_string()
         self.keysize = self.random_string()
-        self.config = {
+        self.m_block.zkey_supported.return_value = False
+        self.block_uuids = [random_uuid() for unused in range(2)]
+        self.m_block.get_volume_uuid.side_effect = self.block_uuids
+
+        self.m_which.return_value = False
+        self.fstab = self.tmp_path('fstab')
+        self.crypttab = os.path.join(os.path.dirname(self.fstab), 'crypttab')
+        self.m_load_env.return_value = {'fstab': self.fstab,
+                                        'target': self.target}
+
+    def setUpStorageConfig(self, config):
+        self.config = config
+        self.storage_config = block_meta.extract_storage_ordered_dict(config)
+
+
+class TestDmCryptHandler(DmCryptCommon):
+
+    def setUp(self):
+        super().setUp()
+        self.setUpStorageConfig({
             'storage': {
                 'version': 1,
                 'config': [
@@ -2073,15 +2092,7 @@ class TestDmCryptHandler(CiTestCase):
                      'keyfile': self.keyfile},
                 ],
             }
-        }
-        self.storage_config = (
-            block_meta.extract_storage_ordered_dict(self.config))
-        self.m_block.zkey_supported.return_value = False
-        self.m_which.return_value = False
-        self.fstab = self.tmp_path('fstab')
-        self.crypttab = os.path.join(os.path.dirname(self.fstab), 'crypttab')
-        self.m_load_env.return_value = {'fstab': self.fstab,
-                                        'target': self.target}
+        })
 
     def test_dm_crypt_calls_cryptsetup(self):
         """ verify dm_crypt calls (format, open) w/ correct params"""
@@ -2400,6 +2411,68 @@ class TestDmCryptHandler(CiTestCase):
         with self.assertRaises(RuntimeError):
             block_meta.dm_crypt_handler(
                 info, self.storage_config, empty_context)
+
+
+class TestCrypttab(DmCryptCommon):
+
+    def test_multi_dm_crypt(self):
+        """ verify that multiple dm_crypt calls result in the data for both
+        being present in crypttab"""
+
+        self.setUpStorageConfig({
+            'storage': {
+                'version': 1,
+                'config': [
+                    {'grub_device': True,
+                     'id': 'sda',
+                     'name': 'sda',
+                     'path': '/wark/xxx',
+                     'ptable': 'msdos',
+                     'type': 'disk',
+                     'wipe': 'superblock'},
+                    {'device': 'sda',
+                     'id': 'sda-part1',
+                     'name': 'sda-part1',
+                     'number': 1,
+                     'size': '511705088B',
+                     'type': 'partition'},
+                    {'id': 'dmcrypt0',
+                     'type': 'dm_crypt',
+                     'dm_name': 'cryptroot',
+                     'volume': 'sda-part1',
+                     'cipher': self.cipher,
+                     'keysize': self.keysize,
+                     'keyfile': self.keyfile},
+                    {'device': 'sda',
+                     'id': 'sda-part2',
+                     'name': 'sda-part2',
+                     'number': 2,
+                     'size': '511705088B',
+                     'type': 'partition'},
+                    {'id': 'dmcrypt1',
+                     'type': 'dm_crypt',
+                     'dm_name': 'cryptfoo',
+                     'volume': 'sda-part2',
+                     'cipher': self.cipher,
+                     'keysize': self.keysize,
+                     'keyfile': self.keyfile},
+                ],
+            }
+        })
+
+        for i in range(2):
+            self.m_getpath.return_value = self.random_string()
+            info = self.storage_config['dmcrypt' + str(i)]
+            block_meta.dm_crypt_handler(
+                info, self.storage_config, empty_context
+            )
+
+        data = util.load_file(self.crypttab)
+        self.assertEqual(
+            f"cryptroot UUID={self.block_uuids[0]} none luks\n"
+            f"cryptfoo UUID={self.block_uuids[1]} none luks\n",
+            data
+        )
 
 
 class TestRaidHandler(CiTestCase):
