@@ -9,8 +9,11 @@ Build-Depends: debhelper (>= 7),
                python3-apt,
                python3-attr,
                python3-coverage,
+               python3-debian,
+               python3-jsonschema,
                python3-nose,
                python3-oauthlib,
+               python3-parameterized,
                python3-setuptools,
                python3-yaml
 Homepage: http://launchpad.net/curtin
