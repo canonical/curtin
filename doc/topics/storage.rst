@@ -71,6 +71,7 @@ commands include:
 - Bcache Command (``bcache``)
 - Zpool Command (``zpool``) **Experimental**
 - ZFS Command (``zfs``)) **Experimental**
+- NVMe Controller Command (``nvme_controller``) **Experimental**
 - Device "Command" (``device``)
 
 Any action that refers to a block device (so things like ``partition``
@@ -331,6 +332,11 @@ configuration dictionary.  Currently the value is informational only.
 Curtin already detects whether disks are part of a multipath and selects
 one member path to operate upon.
 
+**nvme_controller**: *<NVMe controller id>*
+
+If the disk is a NVMe SSD, the ``nvme_controller`` key can be set to the
+identifier of a ``nvme_controller`` object. This will help to determine the
+type of transport used (e.g., PCIe vs TCP).
 
 **Config Example**::
 
@@ -1204,6 +1210,42 @@ passed to the ZFS dataset creation command.
    properties:
      canmount: noauto
      mountpoint: /
+
+NVMe Controller Command
+~~~~~~~~~~~~~~~~~~~~~~~
+NVMe Controller Commands (and NVMe over TCP support in general) are
+**experimental**.
+
+The nvme_controller command describes how to communicate with a given NVMe
+controller.
+
+**transport**: *pcie, tcp*
+
+The ``transport`` key specifies whether the communication with the NVMe
+controller operates over PCIe or over TCP. Other transports like RDMA and FC
+(aka. Fiber Channel) are not supported at the moment.
+
+**tcp_addr**: *<ip address>*
+
+The ``tcp_addr`` key specifies the IP where the NVMe controller can be reached.
+This key is only meaningful in conjunction with ``transport: tcp``.
+
+**tcp_port**: *port*
+
+The ``tcp_port`` key specifies the TCP port where the NVMe controller can be
+reached. This key is only meaningful in conjunction with ``transport: tcp``.
+
+**Config Example**::
+
+ - type: nvme_controller
+   id: nvme-controller-nvme0
+   transport: pcie
+
+ - type: nvme_controller
+   id: nvme-controller-nvme1
+   transport: tcp
+   tcp_addr: 172.16.82.78
+   tcp_port: 4420
 
 Device "Command"
 ~~~~~~~~~~~~~~~~

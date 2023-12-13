@@ -2026,6 +2026,11 @@ def zpool_handler(info, storage_config, context):
                      zfs_properties=fs_properties)
 
 
+def nvme_controller_handler(info, storage_config, context):
+    '''Handle the NVMe Controller storage section. This is currently a no-op,
+    the section is handled in curthooks.'''
+
+
 def zfs_handler(info, storage_config, context):
     """
     Create a zfs filesystem
@@ -2215,6 +2220,7 @@ def meta_custom(args):
         'bcache': bcache_handler,
         'zfs': zfs_handler,
         'zpool': zpool_handler,
+        'nvme_controller': nvme_controller_handler,
     }
 
     if args.testmode:

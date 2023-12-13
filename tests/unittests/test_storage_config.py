@@ -1087,6 +1087,7 @@ class TestExtractStorageConfig(CiTestCase):
             'serial': 'SAMSUNG MZPLL3T2HAJQ-00005_S4CCNE0M300015',
             'type': 'disk',
             'wwn': 'eui.344343304d3000150025384500000004',
+            'nvme_controller': 'nvme-controller-nvme0',
         }
         self.assertEqual(1, len(disks))
         self.assertEqual(expected_dict, disks[0])
@@ -1104,6 +1105,7 @@ class TestExtractStorageConfig(CiTestCase):
             'serial': 'SAMSUNG MZPLL3T2HAJQ-00005_S4CCNE0M300015',
             'type': 'disk',
             'wwn': 'uuid.344343304d3000150025384500000004',
+            'nvme_controller': 'nvme-controller-nvme0',
         }
         self.assertEqual(1, len(disks))
         self.assertEqual(expected_dict, disks[0])
