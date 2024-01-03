@@ -86,6 +86,7 @@ The section "sources" is is a dictionary (unlike most block/net configs which ar
 Here is just one of the most common examples for this feature: install with curtin in an isolated environment (derived repository):
 
 For that we need to:
+
 * insert the PGP key of the local repository to be trusted
 
   - since you are locked down you can't pull from keyserver.ubuntu.com
