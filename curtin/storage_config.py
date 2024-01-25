@@ -212,7 +212,7 @@ def _validate_dep_type(source_id, dep_key, dep_id, sconfig):
         'lvm_partition': {'lvm_volgroup'},
         'lvm_volgroup': {'bcache', 'disk', 'dm_crypt', 'partition', 'raid'},
         'mount': {'format'},
-        'partition': {'bcache', 'disk', 'raid', 'partition'},
+        'partition': {'bcache', 'disk', 'dm_crypt', 'raid', 'partition'},
         'raid': {'bcache', 'disk', 'dm_crypt', 'lvm_partition',
                  'partition', 'raid'},
         'zfs': {'zpool'},
