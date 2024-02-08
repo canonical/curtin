@@ -134,7 +134,7 @@ def partition_kname(disk_kname, partition_number):
                                                     partition_number)))
 
     # follow the same rules the kernel check_partition() does
-    # https://github.com/torvalds/linux/blob/0fac198/block/partitions/core.c#L141
+    # https://github.com/torvalds/linux/blob/0473719/block/partitions/core.c#L330
     if disk_kname[-1:].isdigit():
         partition_number = "p%s" % partition_number
     return "%s%s" % (disk_kname, partition_number)
