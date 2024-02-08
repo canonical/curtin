@@ -1,14 +1,16 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
 
 import copy
+import contextlib
 import glob
 import os
+import pathlib
 import platform
 import re
 import sys
 import shutil
 import textwrap
-from typing import List, Tuple
+from typing import List, Set, Tuple
 
 from curtin import config
 from curtin import block
@@ -1498,6 +1500,58 @@ def configure_mdadm(cfg, state_etcd, target, osfamily=DISTROS.debian):
                 data=None, target=target)
 
 
+def get_nvme_stas_controller_directives(cfg) -> Set[str]:
+    """Parse the storage configuration and return a set of "controller ="
+    directives to write in the [Controllers] section of a nvme-stas
+    configuration file."""
+    directives = set()
+    if 'storage' not in cfg or not isinstance(cfg['storage'], dict):
+        return directives
+    storage = cfg['storage']
+    if 'config' not in storage or storage['config'] == 'disabled':
+        return directives
+    config = storage['config']
+    for item in config:
+        if item['type'] != 'nvme_controller':
+            continue
+        if item['transport'] != 'tcp':
+            continue
+        controller_props = {
+            'transport': 'tcp',
+            'traddr': item["tcp_addr"],
+            'trsvcid': item["tcp_port"],
+        }
+
+        props_str = ';'.join([f'{k}={v}' for k, v in controller_props.items()])
+        directives.add(f'controller = {props_str}')
+
+    return directives
+
+
+def configure_nvme_stas(cfg, target):
+    """If any NVMe controller using the TCP transport is present in the storage
+    configuration, create a nvme-stas configuration so that the remote drives
+    can be made available at boot."""
+    controllers = get_nvme_stas_controller_directives(cfg)
+
+    if not controllers:
+        return
+
+    LOG.info('NVMe-over-TCP configuration found'
+             ' , writing nvme-stas configuration')
+    target = pathlib.Path(target)
+    stas_dir = target / 'etc' / 'stas'
+    stas_dir.mkdir(parents=True, exist_ok=True)
+    with (stas_dir / 'stafd-curtin.conf').open('w', encoding='utf-8') as fh:
+        print('[Controllers]', file=fh)
+        for controller in controllers:
+            print(controller, file=fh)
+
+    with contextlib.suppress(FileNotFoundError):
+        (stas_dir / 'stafd.conf').replace(stas_dir / '.stafd.conf.bak')
+    (stas_dir / 'stafd.conf').symlink_to('stafd-curtin.conf')
+
+
 def handle_cloudconfig(cfg, base_dir=None):
     """write cloud-init configuration files into base_dir.
 
@@ -1759,6 +1813,12 @@ def builtin_curthooks(cfg, target, state):
             reporting_enabled=True, level="INFO",
             description="configuring raid (mdadm) service"):
         configure_mdadm(cfg, state_etcd, target, osfamily=osfamily)
+
+    with events.ReportEventStack(
+            name=stack_prefix + '/configuring-nvme-stas-service',
+            reporting_enabled=True, level="INFO",
+            description="configuring NVMe STorage Appliance Services"):
+        configure_nvme_stas(cfg, target)
 
     if osfamily == DISTROS.debian:
         with events.ReportEventStack(

@@ -144,6 +144,7 @@ DISK = {
             'minimum': 0,
             'maximum': 1
         },
+        'nvme_controller': {'$ref': '#/definitions/ref_id'},
     },
 }
 DM_CRYPT = {
@@ -273,6 +274,23 @@ MOUNT = {
                  'pattern': r'[0-9]'},
         'passno': {'type': ['integer', 'string'],
                    'pattern': r'[0-9]'},
+    },
+}
+NVME = {
+    '$schema': 'http://json-schema.org/draft-07/schema#',
+    'name': 'CURTIN-NVME',
+    'title': 'curtin storage configuration for NVMe controllers',
+    'description': ('Declarative syntax for specifying NVMe controllers.'),
+    'definitions': definitions,
+    'required': ['id', 'type', 'transport'],
+    'type': 'object',
+    'additionalProperties': False,
+    'properties': {
+        'id': {'$ref': '#/definitions/id'},
+        'type': {'const': 'nvme_controller'},
+        'transport': {'type': 'string'},
+        'tcp_port': {'type': 'integer'},
+        'tcp_addr': {'type': 'string'},
     },
 }
 PARTITION = {

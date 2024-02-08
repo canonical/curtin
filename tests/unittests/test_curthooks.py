@@ -2017,6 +2017,83 @@ class TestCurthooksGrubDebconf(CiTestCase):
         self.m_debconf.assert_called_with(expectedcfg, target)
 
 
+class TestCurthooksNVMeStas(CiTestCase):
+    def test_get_nvme_stas_controller_directives__no_nvme_controller(self):
+        self.assertFalse(curthooks.get_nvme_stas_controller_directives({
+            "storage": {
+                "config": [
+                    {"type": "partition"},
+                    {"type": "mount"},
+                    {"type": "disk"},
+                ],
+            },
+        }))
+
+    def test_get_nvme_stas_controller_directives__pcie_controller(self):
+        self.assertFalse(curthooks.get_nvme_stas_controller_directives({
+            "storage": {
+                "config": [
+                    {"type": "nvme_controller", "transport": "pcie"},
+                ],
+            },
+        }))
+
+    def test_get_nvme_stas_controller_directives__tcp_controller(self):
+        expected = {"controller = transport=tcp;traddr=1.2.3.4;trsvcid=1111"}
+
+        result = curthooks.get_nvme_stas_controller_directives({
+            "storage": {
+                "config": [
+                    {
+                        "type": "nvme_controller",
+                        "transport": "tcp",
+                        "tcp_addr": "1.2.3.4",
+                        "tcp_port": "1111",
+                    },
+                ],
+            },
+        })
+        self.assertEqual(expected, result)
+
+    def test_get_nvme_stas_controller_directives__three_nvme_controllers(self):
+        expected = {"controller = transport=tcp;traddr=1.2.3.4;trsvcid=1111",
+                    "controller = transport=tcp;traddr=4.5.6.7;trsvcid=1212"}
+
+        result = curthooks.get_nvme_stas_controller_directives({
+            "storage": {
+                "config": [
+                    {
+                        "type": "nvme_controller",
+                        "transport": "tcp",
+                        "tcp_addr": "1.2.3.4",
+                        "tcp_port": "1111",
+                    }, {
+                        "type": "nvme_controller",
+                        "transport": "tcp",
+                        "tcp_addr": "4.5.6.7",
+                        "tcp_port": "1212",
+                    }, {
+                        "type": "nvme_controller",
+                        "transport": "pcie",
+                    },
+                ],
+            },
+        })
+        self.assertEqual(expected, result)
+
+    def test_get_nvme_stas_controller_directives__empty_conf(self):
+        self.assertFalse(curthooks.get_nvme_stas_controller_directives({}))
+        self.assertFalse(curthooks.get_nvme_stas_controller_directives(
+            {"storage": False}))
+        self.assertFalse(curthooks.get_nvme_stas_controller_directives(
+            {"storage": {}}))
+        self.assertFalse(curthooks.get_nvme_stas_controller_directives({
+            "storage": {
+                "config": "disabled",
+            },
+        }))
+
+
 class TestUefiFindGrubDeviceIds(CiTestCase):
 
     def _sconfig(self, cfg):

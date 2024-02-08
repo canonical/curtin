@@ -50,6 +50,8 @@ STORAGE_CONFIG_TYPES = {
     'bcache': StorageConfig(type='bcache', schema=schemas.BCACHE),
     'dasd': StorageConfig(type='dasd', schema=schemas.DASD),
     'disk': StorageConfig(type='disk', schema=schemas.DISK),
+    'nvme_controller': StorageConfig(type='nvme_controller',
+                                     schema=schemas.NVME),
     'dm_crypt': StorageConfig(type='dm_crypt', schema=schemas.DM_CRYPT),
     'format': StorageConfig(type='format', schema=schemas.FORMAT),
     'lvm_partition': StorageConfig(type='lvm_partition',
@@ -159,12 +161,13 @@ def _stype_to_deps(stype):
     depends_keys = {
         'bcache': {'backing_device', 'cache_device'},
         'dasd': set(),
-        'disk': set(),
+        'disk': {'nvme_controller'},
         'dm_crypt': {'volume'},
         'format': {'volume'},
         'lvm_partition': {'volgroup'},
         'lvm_volgroup': {'devices'},
         'mount': {'device'},
+        'nvme_controller': set(),
         'partition': {'device'},
         'raid': {'devices', 'spare_devices', 'container'},
         'zfs': {'pool'},
@@ -184,6 +187,7 @@ def _stype_to_order_key(stype):
         'lvm_partition': {'name'},
         'lvm_volgroup': {'name'},
         'mount': {'path'},
+        'nvme_controller': default_sort,
         'partition': {'number'},
         'raid': default_sort,
         'zfs': {'volume'},
@@ -204,7 +208,7 @@ def _validate_dep_type(source_id, dep_key, dep_id, sconfig):
         'bcache': {'bcache', 'disk', 'dm_crypt', 'lvm_partition',
                    'partition', 'raid'},
         'dasd': {},
-        'disk': {'dasd'},
+        'disk': {'dasd', 'nvme_controller'},
         'dm_crypt': {'bcache', 'disk', 'dm_crypt', 'lvm_partition',
                      'partition', 'raid'},
         'format': {'bcache', 'disk', 'dm_crypt', 'lvm_partition',
@@ -212,6 +216,7 @@ def _validate_dep_type(source_id, dep_key, dep_id, sconfig):
         'lvm_partition': {'lvm_volgroup'},
         'lvm_volgroup': {'bcache', 'disk', 'dm_crypt', 'partition', 'raid'},
         'mount': {'format'},
+        'nvme_controller': {},
         'partition': {'bcache', 'disk', 'raid', 'partition'},
         'raid': {'bcache', 'disk', 'dm_crypt', 'lvm_partition',
                  'partition', 'raid'},
@@ -231,7 +236,7 @@ def _validate_dep_type(source_id, dep_key, dep_id, sconfig):
     if source_type not in depends:
         raise ValueError('Invalid source_type: %s' % source_type)
     if dep_type not in depends:
-        raise ValueError('Invalid type in depedency: %s' % dep_type)
+        raise ValueError('Invalid type in dependency: %s' % dep_type)
 
     source_deps = depends[source_type]
     result = dep_type in source_deps
@@ -753,6 +758,11 @@ class BlockdevParser(ProbertParser):
                     entry['ptable'] = ptype
                 else:
                     entry['ptable'] = schemas._ptable_unsupported
+
+            match = re.fullmatch(r'/dev/(?P<ctrler>nvme\d+)n\d', devname)
+            if match is not None:
+                entry['nvme_controller'] = f'nvme-controller-{match["ctrler"]}'
+
             return entry
 
         if entry['type'] == 'partition':
@@ -1174,6 +1184,39 @@ class MountParser(ProbertParser):
         return (configs, errors)
 
 
+class NVMeParser(ProbertParser):
+
+    probe_data_key = 'nvme'
+
+    def asdict(self, ctrler_id: str, ctrler_props):
+        action = {
+            'type': 'nvme_controller',
+            'id': f'nvme-controller-{ctrler_id}',
+            'transport': ctrler_props['NVME_TRTYPE'],
+        }
+        if action['transport'] == 'tcp':
+            action['tcp_addr'] = ctrler_props['NVME_TRADDR']
+            action['tcp_port'] = int(ctrler_props['NVME_TRSVCID'])
+
+        return action
+
+    def parse(self):
+        """ parse probert 'nvme' data format """
+
+        errors = []
+        configs = []
+        for ctrler_id, ctrler_props in self.class_data.items():
+            entry = self.asdict(ctrler_id, ctrler_props)
+            if entry:
+                try:
+                    validate_config(entry)
+                except ValueError as e:
+                    errors.append(e)
+                    continue
+                configs.append(entry)
+        return configs, errors
+
+
 class ZfsParser(ProbertParser):
 
     probe_data_key = 'zfs'
@@ -1318,6 +1361,7 @@ def extract_storage_config(probe_data, strict=False):
         'lvm': LvmParser,
         'raid': RaidParser,
         'mount': MountParser,
+        'nvme': NVMeParser,
         'zfs': ZfsParser,
     }
     configs = []
@@ -1339,11 +1383,12 @@ def extract_storage_config(probe_data, strict=False):
     raids = [cfg for cfg in configs if cfg.get('type') == 'raid']
     dmcrypts = [cfg for cfg in configs if cfg.get('type') == 'dm_crypt']
     mounts = [cfg for cfg in configs if cfg.get('type') == 'mount']
+    nvmes = [cfg for cfg in configs if cfg.get('type') == 'nvme_controller']
     bcache = [cfg for cfg in configs if cfg.get('type') == 'bcache']
     zpool = [cfg for cfg in configs if cfg.get('type') == 'zpool']
     zfs = [cfg for cfg in configs if cfg.get('type') == 'zfs']
 
-    ordered = (dasd + disk + part + format + lvols + lparts + raids +
+    ordered = (nvmes + dasd + disk + part + format + lvols + lparts + raids +
                dmcrypts + mounts + bcache + zpool + zfs)
 
     final_config = {'storage': {'version': 2, 'config': ordered}}
