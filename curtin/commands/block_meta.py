@@ -1633,6 +1633,8 @@ def dm_crypt_handler(info, storage_config, context):
     volume_path = get_path_to_storage_volume(volume, storage_config)
     volume_byid_path = block.disk_to_byid_path(volume_path)
 
+    create_dmcrypt = True
+    open_dmcrypt = False
     if 'keyfile' in info:
         if 'key' in info:
             raise ValueError("cannot specify both key and keyfile")
@@ -1654,7 +1656,6 @@ def dm_crypt_handler(info, storage_config, context):
 
     recovery_keyfile = info.get('recovery_keyfile')
 
-    create_dmcrypt = True
     if preserve:
         dm_crypt_verify(dmcrypt_dev, volume_path)
         LOG.debug('dm_crypt %s already present, skipping create', dmcrypt_dev)
@@ -1664,6 +1665,7 @@ def dm_crypt_handler(info, storage_config, context):
         # if zkey is available, attempt to generate and use it; if it's not
         # available or fails to setup properly, fallback to normal cryptsetup
         # passing strict=False downgrades log messages to warnings
+        open_dmcrypt = True
         zkey_used = None
         if block.zkey_supported(strict=False):
             volume_name = "%s:%s" % (volume_byid_path, dm_name)
@@ -1710,6 +1712,7 @@ def dm_crypt_handler(info, storage_config, context):
 
             util.subp(cmd)
 
+    if open_dmcrypt:
         cmd = ["cryptsetup", "open", "--type", luks_type, volume_path, dm_name,
                "--key-file", keyfile]
 
