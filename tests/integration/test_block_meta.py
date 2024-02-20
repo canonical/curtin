@@ -1327,6 +1327,13 @@ table-length: 256'''.encode()
         self.assertEqual("/dev/urandom", tokens[2])
         self.assertEqual("swap,initramfs", tokens[3])
 
+        cmd = ["cryptsetup", "status", cryptoswap]
+        status = util.subp(cmd, capture=True)[0]
+        for line in status.splitlines():
+            key, _, value = line.strip().partition(':')
+            if key == "type":
+                self.assertEqual("PLAIN", value.strip())
+
     @parameterized.expand(((1,), (2,)))
     def test_msftres(self, sv):
         self.img = self.tmp_path('image.img')

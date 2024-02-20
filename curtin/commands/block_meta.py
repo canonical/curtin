@@ -1641,10 +1641,10 @@ def dm_crypt_handler(info, storage_config, context):
         keyfile = info['keyfile']
         if keyfile in ("/dev/random", "/dev/urandom"):
             crypttab_keyfile = keyfile
-            keyfile = tempfile.mkstemp()[1]
-            keyfile_is_tmp = True
-        else:
-            keyfile_is_tmp = False
+            luks_type = "plain"
+            open_dmcrypt = True
+            create_dmcrypt = False
+        keyfile_is_tmp = False
     elif 'key' in info:
         # TODO: this is insecure, find better way to do this
         key = info.get('key')
