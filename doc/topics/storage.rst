@@ -890,7 +890,8 @@ system will prompt for this password in order to mount the disk.
 **keyfile**: *<keyfile>*
 
 The ``keyfile`` contains the password of the encryption key.  The target
-system will prompt for this password in order to mount the disk.
+system will prompt for this password in order to mount the disk.  This keyfile
+must exist at the time curtin is run.
 
 A special case of ``keyfile`` are the values ``/dev/urandom`` and
 ``/dev/random``, which indicate that this ``keyfile`` value will be used in
@@ -1161,6 +1162,30 @@ set is used.
    vdevs:
     - sda1
    mountpoint: /
+
+**encryption_style**: *luks_keystore, null*
+
+If set to **luks_keystore**, an encrypted pool is created using a LUKS backed
+keystore system.  When **encryption_style** is not null, **keyfile** is
+required.
+
+This works as follows:
+* A LUKS device is created as a ZFS dataset in the ZPool.
+* The supplied passphrase (see **keyfile**) is used to encrypt the LUKS device.
+* The real key for the ZFS dataset is contained in the LUKS device as a simple
+  file.
+* The zpool is decrypted using this simple file inside the encrypted LUKS
+  device.
+
+Default value is **null**, which means the resulting zpool is unencrypted.
+
+**keyfile**: *<keyfile>*
+
+The ``keyfile`` contains the password of the encryption key.  The target
+system will prompt for this password in order to mount the disk.  This keyfile
+must exist at the time curtin is run.  In the **luks_keystore** scheme, this
+key is used to unlock the keystore, and inside the keystore is a system.key
+file which is supplied to ZFS to unlock the pool.
 
 ZFS Command
 ~~~~~~~~~~~~~~

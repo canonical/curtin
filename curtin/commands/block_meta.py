@@ -2009,6 +2009,8 @@ def zpool_handler(info, storage_config, context):
     pool_properties = info.get('pool_properties', {})
     fs_properties = info.get('fs_properties', {})
     default_features = info.get('default_features', True)
+    encryption_style = info.get('encryption_style', None)
+    keyfile = info.get('keyfile', None)
     altroot = state['target']
 
     if not vdevs or not poolname:
@@ -2028,10 +2030,13 @@ def zpool_handler(info, storage_config, context):
 
     LOG.info('Creating zpool %s with vdevs %s', poolname, vdevs_byid)
     zfs.zpool_create(poolname, vdevs_byid,
+                     storage_config, context,
                      mountpoint=mountpoint, altroot=altroot,
                      default_features=default_features,
                      pool_properties=pool_properties,
-                     zfs_properties=fs_properties)
+                     zfs_properties=fs_properties,
+                     encryption_style=encryption_style,
+                     keyfile=keyfile)
 
 
 def nvme_controller_handler(info, storage_config, context):

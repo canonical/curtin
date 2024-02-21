@@ -931,11 +931,15 @@ class TestZpoolHandler(CiTestCase):
         block_meta.zpool_handler(info, storage_config, empty_context)
         m_zfs.zpool_create.assert_called_with(
             info['pool'], [disk_path],
+            storage_config,
+            empty_context,
             mountpoint="/",
             altroot="mytarget",
             default_features=True,
             pool_properties={'ashift': 42},
-            zfs_properties={'compression': 'lz4'})
+            zfs_properties={'compression': 'lz4'},
+            encryption_style=None,
+            keyfile=None)
 
 
 class TestZFSRootUpdates(CiTestCase):

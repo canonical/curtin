@@ -8,6 +8,7 @@ import os
 from parameterized import parameterized
 from pathlib import Path
 import re
+import stat
 import sys
 from typing import Optional
 from unittest import skipIf
@@ -1333,6 +1334,43 @@ table-length: 256'''.encode()
             key, _, value = line.strip().partition(':')
             if key == "type":
                 self.assertEqual("PLAIN", value.strip())
+
+    def test_zfs_luks_keystore(self):
+        self.img = self.tmp_path('image.img')
+        keyfile = self.tmp_path('zfs-luks-keystore-keyfile')
+        with open(keyfile, "w") as fp:
+            fp.write(self.random_string())
+        config = StorageConfigBuilder(version=2)
+        config.add_image(path=self.img, create=True, size='200M', ptable='gpt')
+        p1 = config.add_part(number=1, offset=1 << 20, size=198 << 20)
+        poolname = self.random_string()
+        config._add(
+            type='zpool',
+            pool=poolname,
+            vdevs=[p1["id"]],
+            mountpoint="/",
+            pool_properties=dict(ashift=12, autotrim="on", version=None),
+            encryption_style="luks_keystore",
+            keyfile=keyfile,
+        )
+        self.run_bm(config.render())
+
+        keystore_volume = f"/dev/zvol/{poolname}/keystore"
+        dm_name = f"keystore-{poolname}"
+        dmpath = f"/dev/mapper/{dm_name}"
+        util.subp([
+            "cryptsetup", "open", "--type", "luks", keystore_volume,
+            dm_name, "--key-file", keyfile,
+        ])
+        mntdir = self.tmp_dir()
+        try:
+            with util.mount(dmpath, mntdir):
+                system_key = Path(mntdir) / "system.key"
+                st_mode = system_key.stat().st_mode
+                self.assertEqual(0o400, stat.S_IMODE(st_mode))
+                self.assertTrue(stat.S_ISREG(st_mode))
+        finally:
+            util.subp(["cryptsetup", "close", dmpath])
 
     @parameterized.expand(((1,), (2,)))
     def test_msftres(self, sv):
