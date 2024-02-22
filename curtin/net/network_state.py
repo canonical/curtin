@@ -304,7 +304,7 @@ class NetworkState:
         dns = self.network_state.get('dns')
         if 'address' in command:
             addrs = command['address']
-            if not type(addrs) == list:
+            if not isinstance(addrs, list):
                 addrs = [addrs]
             for addr in addrs:
                 dns['nameservers'].append(addr)

@@ -272,7 +272,7 @@ def chzdev_import(data=None, persistent=True, noroot=True, base=None,
     if noroot:
         cmd.extend(['--no-root-update'])
     if base:
-        if type(base) == dict:
+        if isinstance(base, dict):
             cmd.extend(
                 ['--base'] + ["%s=%s" % (k, v) for k, v in base.items()])
         else:

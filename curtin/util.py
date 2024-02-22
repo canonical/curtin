@@ -401,7 +401,7 @@ class ProcessExecutionError(IOError):
         IOError.__init__(self, message)
 
     def _indent_text(self, text):
-        if type(text) == bytes:
+        if isinstance(text, bytes):
             text = text.decode()
         return text.replace('\n', '\n' + ' ' * self.stdout_indent_level)
 
