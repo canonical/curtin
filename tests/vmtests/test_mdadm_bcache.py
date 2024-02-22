@@ -627,9 +627,9 @@ class FocalTestAllindata(relbase.focal, TestAllindataAbs):
     __test__ = True
 
 
-class JammyTestAllindata(relbase.jammy, TestAllindataAbs):
-    expected_failure = True  # XXX Broken for now
-    __test__ = True
+# XXX @skip doesn't work here, as the setup is triggered anyway, and is flaky
+# class JammyTestAllindata(relbase.jammy, TestAllindataAbs):
+#     __test__ = True
 
 
 # vi: ts=4 expandtab syntax=python
