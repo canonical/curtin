@@ -168,7 +168,7 @@ class TestBridgeNetworkAbs(TestNetworkBaseTestsAbs):
                     return
 
             print('key=%s value=%s' % (param, value))
-            if type(value) == list:
+            if isinstance(value, list):
                 for subval in value:
                     (port, pval) = subval.split(" ")
                     print('param=%s port=%s pval=%s' % (param, port, pval))

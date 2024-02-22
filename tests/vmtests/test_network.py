@@ -319,7 +319,7 @@ class TestNetworkBaseTestsAbs(VMBaseClass):
         # FIXME: remove check?
         # initial check, do we have the correct iface ?
         print('ifname={}'.format(ifname))
-        self.assertTrue(type(ipcfg) == dict, "%s is not dict" % (ipcfg))
+        self.assertTrue(isinstance(ipcfg, dict), "%s is not dict" % (ipcfg))
         print("ipcfg['interface']={}".format(ipcfg['interface']))
         self.assertEqual(ifname, ipcfg['interface'])
 

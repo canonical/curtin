@@ -307,7 +307,7 @@ def iface_add_subnet(iface, subnet):
     ]
     for key, value in subnet.items():
         if value and key in valid_map:
-            if type(value) == list:
+            if isinstance(value, list):
                 value = " ".join(value)
             if '_' in key:
                 key = key.replace('_', '-')
@@ -345,7 +345,7 @@ def iface_add_attrs(iface, index):
     ]
 
     def add_entry(key, value):
-        if type(value) == list:
+        if isinstance(value, list):
             value = " ".join([str(v) for v in value])
         return "    {} {}\n".format(key, value)
 

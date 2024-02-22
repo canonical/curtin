@@ -19,7 +19,7 @@ class TestBlockMkfs(CiTestCase):
         print("expected:\n{}".format(expected))
 
         for flag in expected:
-            if type(flag) == list:
+            if isinstance(flag, list):
                 flag_name = flag[0]
                 flag_val = flag[1]
                 self.assertIn(flag_name, call)
