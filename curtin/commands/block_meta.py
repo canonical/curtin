@@ -1644,12 +1644,12 @@ def dm_crypt_handler(info, storage_config, context):
             luks_type = "plain"
             open_dmcrypt = True
             create_dmcrypt = False
-        keyfile_is_tmp = False
+        remove_keyfile = False
     elif 'key' in info:
         # TODO: this is insecure, find better way to do this
         key = info.get('key')
         keyfile = tempfile.mkstemp()[1]
-        keyfile_is_tmp = True
+        remove_keyfile = True
         util.write_file(keyfile, key, mode=0o600)
     else:
         raise ValueError("encryption key or keyfile must be specified")
@@ -1718,7 +1718,7 @@ def dm_crypt_handler(info, storage_config, context):
 
         util.subp(cmd)
 
-        if keyfile_is_tmp:
+        if remove_keyfile:
             os.remove(keyfile)
 
     wipe_mode = info.get('wipe')
