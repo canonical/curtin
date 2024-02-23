@@ -369,14 +369,14 @@ def validate_bcache_ready(bcache_device, bcache_sys_path):
                 raise OSError(msg)
         else:
             msg = 'didnt find "dev" attribute on: %s', bcache_dev
-            return OSError(msg)
+            raise OSError(msg)
 
     else:
         LOG.debug("Failed to validate bcache device '%s' from sys_path"
                   " '%s'", bcache_device, bcache_sys_path)
         msg = ('sysfs path %s does not appear to be a bcache device' %
                bcache_sys_path)
-        return ValueError(msg)
+        raise ValueError(msg)
 
 
 def ensure_bcache_is_registered(bcache_device, expected, retry=None):
