@@ -2413,6 +2413,108 @@ class TestDmCryptHandler(DmCryptCommon):
                 info, self.storage_config, empty_context)
 
 
+class TestDmCryptKeyfileRemoval(DmCryptCommon):
+    def setUp(self):
+        super().setUp()
+        self.tempkey = self.tmp_path('test_dm_crypt_key')
+        basepath = 'curtin.commands.block_meta.'
+        self.add_patch(basepath + 'os.remove', 'm_os_remove')
+
+    @patch('curtin.commands.block_meta.tempfile.mkstemp')
+    def test_dm_crypt_removes_tmpfile_if_key(self, m_mkstemp):
+        m_mkstemp.return_value = (None, self.tempkey)
+        self.setUpStorageConfig({
+            'storage': {
+                'version': 1,
+                'config': [
+                    {'grub_device': True,
+                     'id': 'sda',
+                     'name': 'sda',
+                     'path': '/wark/xxx',
+                     'ptable': 'msdos',
+                     'type': 'disk',
+                     'wipe': 'superblock'},
+                    {'device': 'sda',
+                     'id': 'sda-part1',
+                     'name': 'sda-part1',
+                     'number': 1,
+                     'size': '511705088B',
+                     'type': 'partition'},
+                    {'id': 'dmcrypt0',
+                     'type': 'dm_crypt',
+                     'dm_name': 'cryptroot',
+                     'volume': 'sda-part1',
+                     'key': 'passw0rd'},
+                ],
+            }
+        })
+        info = self.storage_config['dmcrypt0']
+        block_meta.dm_crypt_handler(info, self.storage_config, empty_context)
+        self.m_os_remove.assert_called_once_with(self.tempkey)
+
+    @patch('curtin.commands.block_meta.os.remove')
+    def test_dm_crypt_not_remove_keyfile(self, m_os_remove):
+        self.setUpStorageConfig({
+            'storage': {
+                'version': 1,
+                'config': [
+                    {'grub_device': True,
+                     'id': 'sda',
+                     'name': 'sda',
+                     'path': '/wark/xxx',
+                     'ptable': 'msdos',
+                     'type': 'disk',
+                     'wipe': 'superblock'},
+                    {'device': 'sda',
+                     'id': 'sda-part1',
+                     'name': 'sda-part1',
+                     'number': 1,
+                     'size': '511705088B',
+                     'type': 'partition'},
+                    {'id': 'dmcrypt0',
+                     'type': 'dm_crypt',
+                     'dm_name': 'cryptroot',
+                     'volume': 'sda-part1',
+                     'keyfile': self.tempkey},
+                ],
+            }
+        })
+        info = self.storage_config['dmcrypt0']
+        block_meta.dm_crypt_handler(info, self.storage_config, empty_context)
+        self.m_os_remove.assert_not_called()
+
+    @patch('curtin.commands.block_meta.os.remove')
+    def test_dm_crypt_not_remove_dev_random(self, m_os_remove):
+        self.setUpStorageConfig({
+            'storage': {
+                'version': 1,
+                'config': [
+                    {'grub_device': True,
+                     'id': 'sda',
+                     'name': 'sda',
+                     'path': '/wark/xxx',
+                     'ptable': 'msdos',
+                     'type': 'disk',
+                     'wipe': 'superblock'},
+                    {'device': 'sda',
+                     'id': 'sda-part1',
+                     'name': 'sda-part1',
+                     'number': 1,
+                     'size': '511705088B',
+                     'type': 'partition'},
+                    {'id': 'dmcrypt0',
+                     'type': 'dm_crypt',
+                     'dm_name': 'cryptroot',
+                     'volume': 'sda-part1',
+                     'keyfile': '/dev/random'},
+                ],
+            }
+        })
+        info = self.storage_config['dmcrypt0']
+        block_meta.dm_crypt_handler(info, self.storage_config, empty_context)
+        self.m_os_remove.assert_not_called()
+
+
 class TestCrypttab(DmCryptCommon):
 
     def test_multi_dm_crypt(self):
