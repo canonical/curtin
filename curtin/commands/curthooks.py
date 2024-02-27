@@ -1551,6 +1551,40 @@ def configure_nvme_over_tcp(cfg, target):
         (stas_dir / 'stafd.conf').replace(stas_dir / '.stafd.conf.bak')
     (stas_dir / 'stafd.conf').symlink_to('stafd-curtin.conf')
 
+    hook_contents = '''\
+#!/bin/sh
+
+PREREQ="udev"
+
+prereqs()
+{
+    echo "$PREREQ"
+}
+
+case "$1" in
+prereqs)
+    prereqs
+    exit 0
+    ;;
+esac
+
+. /usr/share/initramfs-tools/hook-functions
+
+copy_exec /usr/sbin/nvme /usr/sbin
+copy_file config /etc/nvme/hostid /etc/nvme/
+copy_file config /etc/nvme/hostnqn /etc/nvme/
+
+manual_add_modules nvme-tcp
+'''
+    initramfs_tools_dir = target / 'etc' / 'initramfs-tools'
+
+    initramfs_hooks_dir = initramfs_tools_dir / 'hooks'
+    initramfs_hooks_dir.mkdir(parents=True, exist_ok=True)
+    hook = initramfs_hooks_dir / 'curtin-nvme-over-tcp'
+    with hook.open('w', encoding='utf-8') as fh:
+        print(hook_contents, file=fh)
+    hook.chmod(0o755)
+
 
 def handle_cloudconfig(cfg, base_dir=None):
     """write cloud-init configuration files into base_dir.
