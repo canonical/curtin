@@ -2017,7 +2017,7 @@ class TestCurthooksGrubDebconf(CiTestCase):
         self.m_debconf.assert_called_with(expectedcfg, target)
 
 
-class TestCurthooksNVMeStas(CiTestCase):
+class TestCurthooksNVMeOverTCP(CiTestCase):
     def test_get_nvme_stas_controller_directives__no_nvme_controller(self):
         self.assertFalse(curthooks.get_nvme_stas_controller_directives({
             "storage": {

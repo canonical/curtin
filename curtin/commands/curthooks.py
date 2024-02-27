@@ -1528,7 +1528,7 @@ def get_nvme_stas_controller_directives(cfg) -> Set[str]:
     return directives
 
 
-def configure_nvme_stas(cfg, target):
+def configure_nvme_over_tcp(cfg, target):
     """If any NVMe controller using the TCP transport is present in the storage
     configuration, create a nvme-stas configuration so that the remote drives
     can be made available at boot."""
@@ -1815,10 +1815,10 @@ def builtin_curthooks(cfg, target, state):
         configure_mdadm(cfg, state_etcd, target, osfamily=osfamily)
 
     with events.ReportEventStack(
-            name=stack_prefix + '/configuring-nvme-stas-service',
+            name=stack_prefix + '/configuring-nvme-over-tcp',
             reporting_enabled=True, level="INFO",
-            description="configuring NVMe STorage Appliance Services"):
-        configure_nvme_stas(cfg, target)
+            description="configuring NVMe over TCP"):
+        configure_nvme_over_tcp(cfg, target)
 
     if osfamily == DISTROS.debian:
         with events.ReportEventStack(
