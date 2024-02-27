@@ -2093,6 +2093,97 @@ class TestCurthooksNVMeOverTCP(CiTestCase):
             },
         }))
 
+    def test_nvmeotcp_get_nvme_commands__no_nvme_controller(self):
+        self.assertFalse(curthooks.nvmeotcp_get_nvme_commands({
+            "storage": {
+                "config": [
+                    {"type": "partition"},
+                    {"type": "mount"},
+                    {"type": "disk"},
+                ],
+            },
+        }))
+
+    def test_nvmeotcp_get_nvme_commands__pcie_controller(self):
+        self.assertFalse(curthooks.nvmeotcp_get_nvme_commands({
+            "storage": {
+                "config": [
+                    {"type": "nvme_controller", "transport": "pcie"},
+                ],
+            },
+        }))
+
+    def test_nvmeotcp_get_nvme_commands__tcp_controller(self):
+        expected = [(
+            "nvme", "connect-all",
+            "--transport", "tcp",
+            "--traddr", "1.2.3.4",
+            "--trsvcid", "1111",
+            ),
+        ]
+
+        result = curthooks.nvmeotcp_get_nvme_commands({
+            "storage": {
+                "config": [
+                    {
+                        "type": "nvme_controller",
+                        "transport": "tcp",
+                        "tcp_addr": "1.2.3.4",
+                        "tcp_port": "1111",
+                    },
+                ],
+            },
+        })
+        self.assertEqual(expected, result)
+
+    def test_nvmeotcp_get_nvme_commands__three_nvme_controllers(self):
+        expected = [(
+            "nvme", "connect-all",
+            "--transport", "tcp",
+            "--traddr", "1.2.3.4",
+            "--trsvcid", "1111",
+            ), (
+            "nvme", "connect-all",
+            "--transport", "tcp",
+            "--traddr", "4.5.6.7",
+            "--trsvcid", "1212",
+            ),
+        ]
+
+        result = curthooks.nvmeotcp_get_nvme_commands({
+            "storage": {
+                "config": [
+                    {
+                        "type": "nvme_controller",
+                        "transport": "tcp",
+                        "tcp_addr": "1.2.3.4",
+                        "tcp_port": "1111",
+                    }, {
+                        "type": "nvme_controller",
+                        "transport": "tcp",
+                        "tcp_addr": "4.5.6.7",
+                        "tcp_port": "1212",
+                    }, {
+                        "type": "nvme_controller",
+                        "transport": "pcie",
+                    },
+                ],
+            },
+        })
+        self.assertEqual(expected, result)
+
+    def test_nvmeotcp_get_nvme_commands__empty_conf(self):
+        self.assertFalse(curthooks.nvmeotcp_get_nvme_commands({}))
+        self.assertFalse(curthooks.nvmeotcp_get_nvme_commands(
+            {"storage": False}))
+        self.assertFalse(curthooks.nvmeotcp_get_nvme_commands(
+            {"storage": {}}))
+        self.assertFalse(curthooks.nvmeotcp_get_nvme_commands({
+            "storage": {
+                "config": "disabled",
+            },
+        }))
+
 
 class TestUefiFindGrubDeviceIds(CiTestCase):
 

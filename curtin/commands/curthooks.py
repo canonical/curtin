@@ -8,6 +8,7 @@ import pathlib
 import platform
 import re
 import sys
+import shlex
 import shutil
 import textwrap
 from typing import List, Set, Tuple
@@ -1528,10 +1529,36 @@ def get_nvme_stas_controller_directives(cfg) -> Set[str]:
     return directives
 
 
+def nvmeotcp_get_nvme_commands(cfg) -> List[Tuple[str]]:
+    """Parse the storage configuration and return a set of commands
+    to run to bring up the NVMe over TCP block devices."""
+    commands: Set[Tuple[str]] = set()
+    if 'storage' not in cfg or not isinstance(cfg['storage'], dict):
+        return sorted(commands)
+    storage = cfg['storage']
+    if 'config' not in storage or storage['config'] == 'disabled':
+        return sorted(commands)
+    config = storage['config']
+    for item in config:
+        if item['type'] != 'nvme_controller':
+            continue
+        if item['transport'] != 'tcp':
+            continue
+
+        commands.add((
+            'nvme', 'connect-all',
+            '--transport', 'tcp',
+            '--traddr', item['tcp_addr'],
+            '--trsvcid', str(item['tcp_port']),
+        ))
+
+    return sorted(commands)
+
+
 def configure_nvme_over_tcp(cfg, target):
     """If any NVMe controller using the TCP transport is present in the storage
-    configuration, create a nvme-stas configuration so that the remote drives
-    can be made available at boot."""
+    configuration, create a nvme-stas configuration and configure the initramfs
+    so that the remote drives can be made available at boot."""
     controllers = get_nvme_stas_controller_directives(cfg)
 
     if not controllers:
@@ -1543,6 +1570,13 @@ def configure_nvme_over_tcp(cfg, target):
     stas_dir = target / 'etc' / 'stas'
     stas_dir.mkdir(parents=True, exist_ok=True)
     with (stas_dir / 'stafd-curtin.conf').open('w', encoding='utf-8') as fh:
+        header = '''\
+# This file was created by curtin.
+# If you make modifications to it, please remember to also update
+# scripts in etc/curtin-nvme-over-tcp and then regenerate the initramfs using
+# the command `update-initramfs -u`.
+'''
+        print(header, file=fh)
         print('[Controllers]', file=fh)
         for controller in controllers:
             print(controller, file=fh)
@@ -1573,6 +1607,8 @@ esac
 copy_exec /usr/sbin/nvme /usr/sbin
 copy_file config /etc/nvme/hostid /etc/nvme/
 copy_file config /etc/nvme/hostnqn /etc/nvme/
+copy_file config /etc/curtin-nvme-over-tcp/connect-nvme \\
+    /etc/curtin-nvme-over-tcp/
 
 manual_add_modules nvme-tcp
 '''
@@ -1584,6 +1620,48 @@ manual_add_modules nvme-tcp
     with hook.open('w', encoding='utf-8') as fh:
         print(hook_contents, file=fh)
     hook.chmod(0o755)
+
+    bootscript_contents = '''\
+#!/bin/sh
+
+    PREREQ=""
+prereqs() { echo "$PREREQ"; }
+case "$1" in
+prereqs)
+    prereqs
+    exit 0
+    ;;
+esac
+
+modprobe nvme-tcp
+
+. /etc/curtin-nvme-over-tcp/connect-nvme
+
+'''
+
+    initramfs_scripts_dir = initramfs_tools_dir / 'scripts'
+    initramfs_init_premount_dir = initramfs_scripts_dir / 'init-premount'
+    initramfs_init_premount_dir.mkdir(parents=True, exist_ok=True)
+    bootscript = initramfs_init_premount_dir / 'curtin-nvme-over-tcp'
+    with bootscript.open('w', encoding='utf-8') as fh:
+        print(bootscript_contents, file=fh)
+    bootscript.chmod(0o755)
+
+    curtin_nvme_over_tcp_dir = target / 'etc' / 'curtin-nvme-over-tcp'
+    curtin_nvme_over_tcp_dir.mkdir(parents=True, exist_ok=True)
+    connect_nvme_script = curtin_nvme_over_tcp_dir / 'connect-nvme'
+
+    script_header = '''\
+#!/bin/sh
+
+# This file was created by curtin.
+# If you make modifications to it, please remember to regenerate the initramfs
+# using the command `update-initramfs -u`.
+'''
+    with open(connect_nvme_script, 'w', encoding='utf-8') as fh:
+        print(script_header, file=fh)
+        for cmd in nvmeotcp_get_nvme_commands(cfg):
+            print(shlex.join(cmd), file=fh)
 
 
 def handle_cloudconfig(cfg, base_dir=None):
