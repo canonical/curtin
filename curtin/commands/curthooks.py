@@ -1557,6 +1557,30 @@ def nvmeotcp_get_nvme_commands(cfg) -> List[Tuple[str]]:
     return sorted(commands)
 
 
+def nvmeotcp_need_network_in_initramfs(cfg) -> bool:
+    """Parse the storage configuration and check if any of the mountpoints
+    essential for booting requires network."""
+    if 'storage' not in cfg or not isinstance(cfg['storage'], dict):
+        return False
+    storage = cfg['storage']
+    if 'config' not in storage or storage['config'] == 'disabled':
+        return False
+    config = storage['config']
+    for item in config:
+        if item['type'] != 'mount':
+            continue
+        if '_netdev' not in item.get('options', '').split(','):
+            continue
+
+        # We found a mountpoint that requires network. Let's check if it is
+        # essential for booting.
+        path = item['path']
+        if path == '/' or path.startswith('/usr') or path.startswith('/var'):
+            return True
+
+    return False
+
+
 def nvmeotcp_get_ip_commands(cfg) -> List[Tuple[str]]:
     """Look for the netplan configuration (supplied by subiquity using
     write_files directives) and attempt to extrapolate a set of 'ip' + 'dhcpcd'
@@ -1619,8 +1643,8 @@ def configure_nvme_over_tcp(cfg, target):
     if not controllers:
         return
 
-    LOG.info('NVMe-over-TCP configuration found'
-             ' , writing nvme-stas configuration')
+    LOG.info('NVMe-over-TCP configuration found')
+    LOG.info('writing nvme-stas configuration')
     target = pathlib.Path(target)
     stas_dir = target / 'etc' / 'stas'
     stas_dir.mkdir(parents=True, exist_ok=True)
@@ -1639,6 +1663,12 @@ def configure_nvme_over_tcp(cfg, target):
     with contextlib.suppress(FileNotFoundError):
         (stas_dir / 'stafd.conf').replace(stas_dir / '.stafd.conf.bak')
     (stas_dir / 'stafd.conf').symlink_to('stafd-curtin.conf')
+
+    if not nvmeotcp_need_network_in_initramfs(cfg):
+        # nvme-stas should be enough to boot.
+        return
+
+    LOG.info('configuring network in initramfs for NVMe over TCP')
 
     hook_contents = '''\
 #!/bin/sh

@@ -2243,6 +2243,69 @@ network:
         ]
         self.assertEqual(expected, curthooks.nvmeotcp_get_ip_commands(cfg))
 
+    def test_nvmeotcp_need_network_in_initramfs__usr_is_netdev(self):
+        self.assertTrue(curthooks.nvmeotcp_need_network_in_initramfs({
+            "storage": {
+                "config": [
+                    {
+                        "type": "mount",
+                        "path": "/usr",
+                        "options": "default,_netdev",
+                    }, {
+                        "type": "mount",
+                        "path": "/",
+                    }, {
+                        "type": "mount",
+                        "path": "/boot",
+                    },
+                ],
+            },
+        }))
+
+    def test_nvmeotcp_need_network_in_initramfs__rootfs_is_netdev(self):
+        self.assertTrue(curthooks.nvmeotcp_need_network_in_initramfs({
+            "storage": {
+                "config": [
+                    {
+                        "type": "mount",
+                        "path": "/",
+                        "options": "default,_netdev",
+                    }, {
+                        "type": "mount",
+                        "path": "/boot",
+                    },
+                ],
+            },
+        }))
+
+    def test_nvmeotcp_need_network_in_initramfs__only_home_is_netdev(self):
+        self.assertFalse(curthooks.nvmeotcp_need_network_in_initramfs({
+            "storage": {
+                "config": [
+                    {
+                        "type": "mount",
+                        "path": "/home",
+                        "options": "default,_netdev",
+                    }, {
+                        "type": "mount",
+                        "path": "/",
+                    },
+                ],
+            },
+        }))
+
+    def test_nvmeotcp_need_network_in_initramfs__empty_conf(self):
+        self.assertFalse(curthooks.nvmeotcp_need_network_in_initramfs({}))
+        self.assertFalse(curthooks.nvmeotcp_need_network_in_initramfs(
+            {"storage": False}))
+        self.assertFalse(curthooks.nvmeotcp_need_network_in_initramfs(
+            {"storage": {}}))
+        self.assertFalse(curthooks.nvmeotcp_need_network_in_initramfs({
+            "storage": {
+                "config": "disabled",
+            },
+        }))
+
 
 class TestUefiFindGrubDeviceIds(CiTestCase):
 
