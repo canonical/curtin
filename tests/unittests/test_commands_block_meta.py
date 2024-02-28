@@ -627,8 +627,8 @@ class TestBlockMeta(CiTestCase):
                        'mock_assert_clear')
         self.add_patch('curtin.block.iscsi.volpath_is_iscsi',
                        'mock_volpath_is_iscsi')
-        self.add_patch('curtin.block.get_volume_uuid',
-                       'mock_block_get_volume_uuid')
+        self.add_patch('curtin.block.get_volume_id',
+                       'mock_block_get_volume_id')
         self.add_patch('curtin.commands.block_meta._get_volume_type',
                        'mock_get_volume_type')
         self.add_patch('curtin.commands.block_meta.udevadm_info',
@@ -1313,7 +1313,7 @@ class TestFstabData(CiTestCase):
         self.assertEqual(1, m_uinfo.call_count)
         self.assertEqual(1, m_vol_type.call_count)
 
-    @patch('curtin.block.get_volume_uuid')
+    @patch('curtin.block.get_volume_id')
     def test_fstab_line_for_data__spec_and_dev_prefers_spec(self, m_get_uuid):
         """fstab_line_for_data should prefer spec over device."""
         spec = "/dev/xvda1"
@@ -2048,8 +2048,8 @@ class DmCryptCommon(CiTestCase):
         self.cipher = self.random_string()
         self.keysize = self.random_string()
         self.m_block.zkey_supported.return_value = False
-        self.block_uuids = [random_uuid() for unused in range(2)]
-        self.m_block.get_volume_uuid.side_effect = self.block_uuids
+        self.block_uuids = [("UUID", random_uuid()) for unused in range(2)]
+        self.m_block.get_volume_id.side_effect = self.block_uuids
 
         self.m_which.return_value = False
         self.fstab = self.tmp_path('fstab')
@@ -2469,8 +2469,8 @@ class TestCrypttab(DmCryptCommon):
 
         data = util.load_file(self.crypttab)
         self.assertEqual(
-            f"cryptroot UUID={self.block_uuids[0]} none luks\n"
-            f"cryptfoo UUID={self.block_uuids[1]} none luks\n",
+            f"cryptroot UUID={self.block_uuids[0][1]} none luks\n"
+            f"cryptfoo UUID={self.block_uuids[1][1]} none luks\n",
             data
         )
 
@@ -2509,7 +2509,7 @@ class TestCrypttab(DmCryptCommon):
             self.storage_config['dmcrypt0'], self.storage_config, empty_context
         )
 
-        uuid = self.block_uuids[0]
+        uuid = self.block_uuids[0][1]
         self.assertEqual(
             f"cryptswap UUID={uuid} /dev/urandom swap,initramfs\n",
             util.load_file(self.crypttab),

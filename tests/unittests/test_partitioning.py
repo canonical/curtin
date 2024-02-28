@@ -195,7 +195,7 @@ class TestBlock(CiTestCase):
                                                            "target":
                                                            "/tmp/mntdir"}
         mock_get_path_to_storage_volume.return_value = "/dev/fake0"
-        mock_block.get_volume_uuid.return_value = "UUID123"
+        mock_block.get_volume_id.return_value = ("UUID", "UUID123")
 
         curtin.commands.block_meta.mount_handler(
             self.storage_config.get("sda2_mount"), self.storage_config)
@@ -208,7 +208,7 @@ class TestBlock(CiTestCase):
         args = mock_get_path_to_storage_volume.call_args_list
         self.assertTrue(len(args) == 1)
         self.assertTrue(args[0] == mock.call("sda2", self.storage_config))
-        mock_block.get_volume_uuid.assert_called_with("/dev/fake0")
+        mock_block.get_volume_id.assert_called_with("/dev/fake0")
 
         curtin.commands.block_meta.mount_handler(
             self.storage_config.get("raid_mount"), self.storage_config)
@@ -260,7 +260,7 @@ class TestBlock(CiTestCase):
                                                            "/tmp/dir/fstab"}
         mock_get_path_to_storage_volume.return_value = "/dev/fake0"
         mock_tempfile.mkstemp.return_value = ["fp", tmp_path]
-        mock_block.get_volume_uuid.return_value = "UUID123"
+        mock_block.get_volume_id.return_value = ("UUID", "UUID123")
 
         curtin.commands.block_meta.dm_crypt_handler(
             self.storage_config.get("crypt0_key"), self.storage_config)
@@ -280,7 +280,7 @@ class TestBlock(CiTestCase):
             calls[1])
         mock_remove.assert_called_with(tmp_path)
         mock_open.assert_called_with("/tmp/dir/crypttab", "a")
-        mock_block.get_volume_uuid.assert_called_with(
+        mock_block.get_volume_id.assert_called_with(
             mock_get_path_to_storage_volume.return_value)
 
     @mock.patch("curtin.commands.block_meta.block")
@@ -296,7 +296,7 @@ class TestBlock(CiTestCase):
         mock_util.load_command_environment.return_value = {"fstab":
                                                            "/tmp/dir/fstab"}
         mock_get_path_to_storage_volume.return_value = "/dev/fake0"
-        mock_block.get_volume_uuid.return_value = "UUID123"
+        mock_block.get_volume_id.return_value = ("UUID", "UUID123")
 
         config = self.storage_config["crypt0_keyfile"]
         curtin.commands.block_meta.dm_crypt_handler(
@@ -318,7 +318,7 @@ class TestBlock(CiTestCase):
             calls[1])
         self.assertFalse(mock_remove.called)
         mock_remove.assert_not_called()
-        mock_block.get_volume_uuid.assert_called_with(
+        mock_block.get_volume_id.assert_called_with(
             mock_get_path_to_storage_volume.return_value)
 
     @mock.patch("curtin.commands.block_meta.block")
@@ -330,7 +330,7 @@ class TestBlock(CiTestCase):
         mock_util.load_command_environment.return_value = {"fstab":
                                                            "/tmp/dir/fstab"}
         mock_get_path_to_storage_volume.return_value = "/dev/fake0"
-        mock_block.get_volume_uuid.return_value = "UUID123"
+        mock_block.get_volume_id.return_value = ("UUID", "UUID123")
 
         self.assertRaises(
             ValueError,

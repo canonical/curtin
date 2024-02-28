@@ -16,17 +16,18 @@ from curtin import block
 
 class TestBlock(CiTestCase):
 
-    @mock.patch("curtin.block.util")
-    def test_get_volume_uuid(self, mock_util):
+    @mock.patch("curtin.block.util.subp")
+    def test_get_volume_id(self, mock_subp):
         path = "/dev/sda1"
-        expected_call = ["blkid", "-o", "export", path]
-        mock_util.subp.return_value = ("""
-            UUID=182e8e23-5322-46c9-a1b8-cf2c6a88f9f7
-            """, "")
+        expected_call = ["blkid", "-o", "full", path]
+        mock_subp.return_value = (
+            "/dev/sda1: UUID=182e8e23-5322-46c9-a1b8-cf2c6a88f9f7", "",
+        )
 
-        uuid = block.get_volume_uuid(path)
+        key, uuid = block.get_volume_id(path)
 
-        mock_util.subp.assert_called_with(expected_call, capture=True)
+        mock_subp.assert_called_with(expected_call, capture=True)
+        self.assertEqual(key, "UUID")
         self.assertEqual(uuid, "182e8e23-5322-46c9-a1b8-cf2c6a88f9f7")
 
     @mock.patch("curtin.block.get_proc_mounts")

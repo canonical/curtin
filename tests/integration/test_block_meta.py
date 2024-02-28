@@ -1324,7 +1324,6 @@ table-length: 256'''.encode()
             crypttab = fp.read()
         tokens = re.split(r'\s+', crypttab)
         self.assertEqual(cryptoswap, tokens[0])
-        self.assertTrue(tokens[1].startswith("UUID="))
         self.assertEqual("/dev/urandom", tokens[2])
         self.assertEqual("swap,initramfs", tokens[3])
 

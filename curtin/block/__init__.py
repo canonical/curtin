@@ -811,16 +811,16 @@ def read_sys_block_size_bytes(device):
     return size
 
 
-def get_volume_uuid(path):
+def get_volume_id(path):
     """
-    Get uuid of disk with given path. This address uniquely identifies
-    the device and remains consistant across reboots
+    Get identifier of device with given path. This address uniquely identifies
+    the device and remains consistant across reboots.
     """
-    (out, _err) = util.subp(["blkid", "-o", "export", path], capture=True)
-    for line in out.splitlines():
-        if "UUID" in line:
-            return line.split('=')[-1]
-    return ''
+    ids = blkid([path])[path]
+    for key in ("UUID", "PARTUUID", "PTUUID"):
+        if key in ids:
+            return (key, ids[key])
+    return (None, '')
 
 
 def get_mountpoints():

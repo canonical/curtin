@@ -1733,10 +1733,15 @@ def dm_crypt_handler(info, storage_config, context):
     if state['fstab']:
         state_dir = os.path.dirname(state['fstab'])
         crypt_tab_location = os.path.join(state_dir, "crypttab")
-        uuid = block.get_volume_uuid(volume_path)
+        key, value = block.get_volume_id(volume_path)
+        if key is None:
+            raise RuntimeError(f"Failed to find suitable ID for {volume_path}")
+
         util.write_file(
             crypt_tab_location,
-            f"{dm_name} UUID={uuid} {crypttab_keyfile} {options}\n", omode="a")
+            f"{dm_name} {key}={value} {crypttab_keyfile} {options}\n",
+            omode="a",
+        )
     else:
         LOG.info("fstab configuration is not present in environment, so \
             cannot locate an appropriate directory to write crypttab in \
