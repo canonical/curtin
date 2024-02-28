@@ -2184,6 +2184,65 @@ class TestCurthooksNVMeOverTCP(CiTestCase):
             },
         }))
 
+    def test_nvmeotcp_get_ip_commands__ethernet_static(self):
+        netcfg = """\
+# This is the network config written by 'subiquity'
+network:
+  ethernets:
+    ens3:
+     addresses:
+     - 10.0.2.15/24
+     nameservers:
+       addresses:
+       - 8.8.8.8
+       - 8.4.8.4
+       search:
+       - foo
+       - bar
+     routes:
+     - to: default
+       via: 10.0.2.2
+  version: 2"""
+
+        cfg = {
+            "write_files": {
+                "etc_netplan_installer": {
+                    "content": netcfg,
+                    "path": "etc/netplan/00-installer-config.yaml",
+                    "permissions": "0600",
+                },
+            },
+        }
+        expected = [
+            ("ip", "address", "add", "10.0.2.15/24", "dev", "ens3"),
+            ("ip", "link", "set", "ens3", "up"),
+            ("ip", "route", "add", "default", "via", "10.0.2.2"),
+        ]
+        self.assertEqual(expected, curthooks.nvmeotcp_get_ip_commands(cfg))
+
+    def test_nvmeotcp_get_ip_commands__ethernet_dhcp4(self):
+        netcfg = """\
+# This is the network config written by 'subiquity'
+network:
+  ethernets:
+    ens3:
+     dhcp4: true
+  version: 2"""
+
+        cfg = {
+            "write_files": {
+                "etc_netplan_installer": {
+                    "content": netcfg,
+                    "path": "etc/netplan/00-installer-config.yaml",
+                    "permissions": "0600",
+                },
+            },
+        }
+        expected = [
+            ("dhcpcd", "-4", "ens3"),
+        ]
+        self.assertEqual(expected, curthooks.nvmeotcp_get_ip_commands(cfg))
+
 
 class TestUefiFindGrubDeviceIds(CiTestCase):
 

@@ -13,6 +13,8 @@ import shutil
 import textwrap
 from typing import List, Set, Tuple
 
+import yaml
+
 from curtin import config
 from curtin import block
 from curtin import distro
@@ -1555,10 +1557,63 @@ def nvmeotcp_get_nvme_commands(cfg) -> List[Tuple[str]]:
     return sorted(commands)
 
 
+def nvmeotcp_get_ip_commands(cfg) -> List[Tuple[str]]:
+    """Look for the netplan configuration (supplied by subiquity using
+    write_files directives) and attempt to extrapolate a set of 'ip' + 'dhcpcd'
+    commands that would produce more or less the expected network
+    configuration. At the moment, only trivial network configurations are
+    supported, which are ethernet interfaces with or without DHCP and optional
+    static routes."""
+    commands: List[Tuple[str]] = []
+
+    try:
+        content = cfg['write_files']['etc_netplan_installer']['content']
+    except KeyError:
+        return []
+
+    config = yaml.safe_load(content)
+
+    try:
+        ethernets = config['network']['ethernets']
+    except KeyError:
+        return []
+
+    for ifname, ifconfig in ethernets.items():
+        # Handle static IP addresses
+        for address in ifconfig.get('addresses', []):
+            commands.append(('ip', 'address', 'add', address, 'dev', ifname))
+
+        # Handle DHCPv4 and DHCPv6
+        dhcp4 = ifconfig.get('dhcp4', False)
+        dhcp6 = ifconfig.get('dhcp6', False)
+        if dhcp4 and dhcp6:
+            commands.append(('dhcpcd', ifname))
+        elif dhcp4:
+            commands.append(('dhcpcd', '-4', ifname))
+        elif dhcp6:
+            commands.append(('dhcpcd', '-6', ifname))
+        else:
+            commands.append(('ip', 'link', 'set', ifname, 'up'))
+
+        # Handle static routes
+        for route in ifconfig.get('routes', []):
+            cmd = ['ip', 'route', 'add', route['to']]
+            with contextlib.suppress(KeyError):
+                cmd += ['via', route['via']]
+            if route.get('on-link', False):
+                cmd += ['dev', ifname]
+            commands.append(tuple(cmd))
+
+    return commands
+
+
 def configure_nvme_over_tcp(cfg, target):
     """If any NVMe controller using the TCP transport is present in the storage
     configuration, create a nvme-stas configuration and configure the initramfs
-    so that the remote drives can be made available at boot."""
+    so that the remote drives can be made available at boot.
+    Please note that the NVMe over TCP support in curtin is experimental and in
+    active development. Currently, it only works with trivial network
+    configurations ; supplied by Subiquity."""
     controllers = get_nvme_stas_controller_directives(cfg)
 
     if not controllers:
@@ -1607,6 +1662,8 @@ esac
 copy_exec /usr/sbin/nvme /usr/sbin
 copy_file config /etc/nvme/hostid /etc/nvme/
 copy_file config /etc/nvme/hostnqn /etc/nvme/
+copy_file config /etc/curtin-nvme-over-tcp/network-up \\
+    /etc/curtin-nvme-over-tcp/
 copy_file config /etc/curtin-nvme-over-tcp/connect-nvme \\
     /etc/curtin-nvme-over-tcp/
 
@@ -1633,6 +1690,8 @@ prereqs)
     ;;
 esac
 
+. /etc/curtin-nvme-over-tcp/network-up
+
 modprobe nvme-tcp
 
 . /etc/curtin-nvme-over-tcp/connect-nvme
@@ -1649,6 +1708,7 @@ modprobe nvme-tcp
 
     curtin_nvme_over_tcp_dir = target / 'etc' / 'curtin-nvme-over-tcp'
     curtin_nvme_over_tcp_dir.mkdir(parents=True, exist_ok=True)
+    network_up_script = curtin_nvme_over_tcp_dir / 'network-up'
     connect_nvme_script = curtin_nvme_over_tcp_dir / 'connect-nvme'
 
     script_header = '''\
@@ -1661,6 +1721,11 @@ modprobe nvme-tcp
     with open(connect_nvme_script, 'w', encoding='utf-8') as fh:
         print(script_header, file=fh)
         for cmd in nvmeotcp_get_nvme_commands(cfg):
+            print(shlex.join(cmd), file=fh)
+
+    with open(network_up_script, 'w', encoding='utf-8') as fh:
+        print(script_header, file=fh)
+        for cmd in nvmeotcp_get_ip_commands(cfg):
             print(shlex.join(cmd), file=fh)
 
 
