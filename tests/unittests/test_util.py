@@ -426,6 +426,9 @@ class TestHuman2Bytes(CiTestCase):
     GB = 1024 * 1024 * 1024
     MB = 1024 * 1024
 
+    def test_actually_an_int(self):
+        self.assertIsInstance(util.human2bytes("1M"), int)
+
     def test_float_equal_int_is_allowed(self):
         self.assertEqual(1000, util.human2bytes(1000.0))
 
