@@ -204,6 +204,17 @@ def _get_unshare_pid_args(unshare_pid=None, target=None, euid=None):
         raise RuntimeError(
             "given unshare_pid=%s but no unshare command." % unshare_pid_in)
 
+    target_proc = os.path.join(tpath, 'proc')
+
+    LOG.debug("Checking if target_proc (%s) is a mount", target_proc)
+
+    if os.path.ismount(target_proc):
+        LOG.debug("It is, so unshare will use --mount-proc=%s", target_proc)
+        return ['unshare', '--fork', '--pid', '--mount-proc=' +
+                target_proc, '--']
+
+    LOG.debug("It's not, using normal behavior")
+
     return ['unshare', '--fork', '--pid', '--']
 
 
@@ -766,6 +777,16 @@ class ChrootableTarget(object):
                     self.rconf_d = None
                     self.rc_tmp = None
                 raise
+
+        # Bind-mount true to ischroot since we may be in separate PID
+        # namespace, which can throw off ischroot
+        true_mount_path = paths.target_path(self.target, '/usr/bin/true')
+        ischroot_mount_path = paths.target_path(self.target,
+                                                '/usr/bin/ischroot')
+        true_exists = os.path.isfile(true_mount_path)
+        if true_exists and do_mount(true_mount_path, ischroot_mount_path,
+                                    opts='--bind'):
+            self.umounts.append(ischroot_mount_path)
 
         return self
 

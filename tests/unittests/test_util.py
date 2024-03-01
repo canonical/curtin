@@ -630,6 +630,70 @@ class TestChrootableTargetMounts(CiTestCase):
         self.assertEqual(sorted(my_mounts), sorted(in_chroot.mounts))
 
 
+class TestChrootableTargetIsChrootBehavior(CiTestCase):
+    """Test ChrootableTargets handle ischroot behavior correctly
+
+    The test checks to make sure that, in a ChrootableTarget:
+        a) /usr/bin/ischroot is bind-mounted to the /usr/bin/true
+        inside the target (i.e. it appears in ChrootableTarget.umounts)
+        b) The content of /usr/bin/ischroot inside the target actually is
+        identical to that of /usr/bin/true within the target
+
+        Assumptions:
+        - /usr/bin/true exists inside the target. (If it does not,
+        util.py does not attempt this bind mount)
+
+        Notes:
+        - This test ignores any attempts to bind-mount anything other
+        than files, as such mounts are out-of-scope for this test.
+        """
+
+    def setUp(self):
+        super(TestChrootableTargetIsChrootBehavior, self).setUp()
+        self.target = self.tmp_dir()
+        self.truebin = os.path.join(self.target, 'usr/bin/true')
+        self.ischrootbin = os.path.join(self.target, 'usr/bin/ischroot')
+        os.makedirs(os.path.dirname(self.truebin))
+        self.add_patch('curtin.util.do_mount', 'm_do_mount')
+        # Patching subp is necessary here since subp calls are attempted
+        # in ChrootableTarget.__exit__(), which will fail since
+        # self.allowed_subp=False
+        self.add_patch('curtin.util.subp', 'm_subp')
+        self.true_content = "true"
+        self.ischroot_content = "ischroot"
+        self.umounts = []
+        util.write_file(self.truebin, self.true_content)
+        util.write_file(self.ischrootbin, self.ischroot_content)
+
+    def mymount(self, src, dst, opts):
+        print('mymount(src=%s dst=%s, opts=%s)' % (src, dst, opts))
+        if dst not in self.umounts:
+            self.umounts.append(dst)
+        else:
+            return False
+
+        if os.path.isfile(src):
+            util.write_file(dst, util.load_file(src))
+        else:
+            print("Ignoring non-file bind mounts for this test")
+        return True
+
+    def test_chrootable_target_binds_ischroot_true(self):
+        target_ischroot = os.path.join(self.target, 'usr/bin/ischroot')
+
+        self.m_do_mount.side_effect = self.mymount
+        with util.ChrootableTarget(self.target) as chroot:
+            self.assertTrue(target_ischroot in chroot.umounts)
+
+    def test_chrootable_target_bind_ischroot_true_value(self):
+        target_ischroot = os.path.join(self.target, 'usr/bin/ischroot')
+
+        self.m_do_mount.side_effect = self.mymount
+        with util.ChrootableTarget(self.target):
+            target_ischroot_file = util.load_file(target_ischroot)
+            self.assertEqual(self.true_content, target_ischroot_file)
+
+
 class TestChrootableTargetResolvConf(CiTestCase):
     """Test ChrootableTargets handles target /etc/resolv.conf gracefully"""
 
