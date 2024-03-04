@@ -784,8 +784,10 @@ class ChrootableTarget(object):
         ischroot_mount_path = paths.target_path(self.target,
                                                 '/usr/bin/ischroot')
         true_exists = os.path.isfile(true_mount_path)
-        if true_exists and do_mount(true_mount_path, ischroot_mount_path,
-                                    opts='--bind'):
+        ischroot_exists = os.path.isfile(ischroot_mount_path)
+        both_exist = true_exists and ischroot_exists
+        if both_exist and do_mount(true_mount_path, ischroot_mount_path,
+                                   opts='--bind'):
             self.umounts.append(ischroot_mount_path)
 
         return self
