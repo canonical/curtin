@@ -2017,7 +2017,7 @@ class TestCurthooksGrubDebconf(CiTestCase):
         self.m_debconf.assert_called_with(expectedcfg, target)
 
 
-class TestCurthooksNVMeStas(CiTestCase):
+class TestCurthooksNVMeOverTCP(CiTestCase):
     def test_get_nvme_stas_controller_directives__no_nvme_controller(self):
         self.assertFalse(curthooks.get_nvme_stas_controller_directives({
             "storage": {
@@ -2088,6 +2088,219 @@ class TestCurthooksNVMeStas(CiTestCase):
         self.assertFalse(curthooks.get_nvme_stas_controller_directives(
             {"storage": {}}))
         self.assertFalse(curthooks.get_nvme_stas_controller_directives({
+            "storage": {
+                "config": "disabled",
+            },
+        }))
+
+    def test_nvmeotcp_get_nvme_commands__no_nvme_controller(self):
+        self.assertFalse(curthooks.nvmeotcp_get_nvme_commands({
+            "storage": {
+                "config": [
+                    {"type": "partition"},
+                    {"type": "mount"},
+                    {"type": "disk"},
+                ],
+            },
+        }))
+
+    def test_nvmeotcp_get_nvme_commands__pcie_controller(self):
+        self.assertFalse(curthooks.nvmeotcp_get_nvme_commands({
+            "storage": {
+                "config": [
+                    {"type": "nvme_controller", "transport": "pcie"},
+                ],
+            },
+        }))
+
+    def test_nvmeotcp_get_nvme_commands__tcp_controller(self):
+        expected = [(
+            "nvme", "connect-all",
+            "--transport", "tcp",
+            "--traddr", "1.2.3.4",
+            "--trsvcid", "1111",
+            ),
+        ]
+
+        result = curthooks.nvmeotcp_get_nvme_commands({
+            "storage": {
+                "config": [
+                    {
+                        "type": "nvme_controller",
+                        "transport": "tcp",
+                        "tcp_addr": "1.2.3.4",
+                        "tcp_port": "1111",
+                    },
+                ],
+            },
+        })
+        self.assertEqual(expected, result)
+
+    def test_nvmeotcp_get_nvme_commands__three_nvme_controllers(self):
+        expected = [(
+            "nvme", "connect-all",
+            "--transport", "tcp",
+            "--traddr", "1.2.3.4",
+            "--trsvcid", "1111",
+            ), (
+            "nvme", "connect-all",
+            "--transport", "tcp",
+            "--traddr", "4.5.6.7",
+            "--trsvcid", "1212",
+            ),
+        ]
+
+        result = curthooks.nvmeotcp_get_nvme_commands({
+            "storage": {
+                "config": [
+                    {
+                        "type": "nvme_controller",
+                        "transport": "tcp",
+                        "tcp_addr": "1.2.3.4",
+                        "tcp_port": "1111",
+                    }, {
+                        "type": "nvme_controller",
+                        "transport": "tcp",
+                        "tcp_addr": "4.5.6.7",
+                        "tcp_port": "1212",
+                    }, {
+                        "type": "nvme_controller",
+                        "transport": "pcie",
+                    },
+                ],
+            },
+        })
+        self.assertEqual(expected, result)
+
+    def test_nvmeotcp_get_nvme_commands__empty_conf(self):
+        self.assertFalse(curthooks.nvmeotcp_get_nvme_commands({}))
+        self.assertFalse(curthooks.nvmeotcp_get_nvme_commands(
+            {"storage": False}))
+        self.assertFalse(curthooks.nvmeotcp_get_nvme_commands(
+            {"storage": {}}))
+        self.assertFalse(curthooks.nvmeotcp_get_nvme_commands({
+            "storage": {
+                "config": "disabled",
+            },
+        }))
+
+    def test_nvmeotcp_get_ip_commands__ethernet_static(self):
+        netcfg = """\
+# This is the network config written by 'subiquity'
+network:
+  ethernets:
+    ens3:
+     addresses:
+     - 10.0.2.15/24
+     nameservers:
+       addresses:
+       - 8.8.8.8
+       - 8.4.8.4
+       search:
+       - foo
+       - bar
+     routes:
+     - to: default
+       via: 10.0.2.2
+  version: 2"""
+
+        cfg = {
+            "write_files": {
+                "etc_netplan_installer": {
+                    "content": netcfg,
+                    "path": "etc/netplan/00-installer-config.yaml",
+                    "permissions": "0600",
+                },
+            },
+        }
+        expected = [
+            ("ip", "address", "add", "10.0.2.15/24", "dev", "ens3"),
+            ("ip", "link", "set", "ens3", "up"),
+            ("ip", "route", "add", "default", "via", "10.0.2.2"),
+        ]
+        self.assertEqual(expected, curthooks.nvmeotcp_get_ip_commands(cfg))
+
+    def test_nvmeotcp_get_ip_commands__ethernet_dhcp4(self):
+        netcfg = """\
+# This is the network config written by 'subiquity'
+network:
+  ethernets:
+    ens3:
+     dhcp4: true
+  version: 2"""
+
+        cfg = {
+            "write_files": {
+                "etc_netplan_installer": {
+                    "content": netcfg,
+                    "path": "etc/netplan/00-installer-config.yaml",
+                    "permissions": "0600",
+                },
+            },
+        }
+        expected = [
+            ("dhcpcd", "-4", "ens3"),
+        ]
+        self.assertEqual(expected, curthooks.nvmeotcp_get_ip_commands(cfg))
+
+    def test_nvmeotcp_need_network_in_initramfs__usr_is_netdev(self):
+        self.assertTrue(curthooks.nvmeotcp_need_network_in_initramfs({
+            "storage": {
+                "config": [
+                    {
+                        "type": "mount",
+                        "path": "/usr",
+                        "options": "default,_netdev",
+                    }, {
+                        "type": "mount",
+                        "path": "/",
+                    }, {
+                        "type": "mount",
+                        "path": "/boot",
+                    },
+                ],
+            },
+        }))
+
+    def test_nvmeotcp_need_network_in_initramfs__rootfs_is_netdev(self):
+        self.assertTrue(curthooks.nvmeotcp_need_network_in_initramfs({
+            "storage": {
+                "config": [
+                    {
+                        "type": "mount",
+                        "path": "/",
+                        "options": "default,_netdev",
+                    }, {
+                        "type": "mount",
+                        "path": "/boot",
+                    },
+                ],
+            },
+        }))
+
+    def test_nvmeotcp_need_network_in_initramfs__only_home_is_netdev(self):
+        self.assertFalse(curthooks.nvmeotcp_need_network_in_initramfs({
+            "storage": {
+                "config": [
+                    {
+                        "type": "mount",
+                        "path": "/home",
+                        "options": "default,_netdev",
+                    }, {
+                        "type": "mount",
+                        "path": "/",
+                    },
+                ],
+            },
+        }))
+
+    def test_nvmeotcp_need_network_in_initramfs__empty_conf(self):
+        self.assertFalse(curthooks.nvmeotcp_need_network_in_initramfs({}))
+        self.assertFalse(curthooks.nvmeotcp_need_network_in_initramfs(
+            {"storage": False}))
+        self.assertFalse(curthooks.nvmeotcp_need_network_in_initramfs(
+            {"storage": {}}))
+        self.assertFalse(curthooks.nvmeotcp_need_network_in_initramfs({
             "storage": {
                 "config": "disabled",
             },
