@@ -1,7 +1,7 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
 
 from curtin.distro import DISTROS
-from curtin.block import iscsi
+from curtin.block import iscsi, nvme
 
 
 def storage_config_required_packages(storage_config, mapping):
@@ -36,10 +36,9 @@ def storage_config_required_packages(storage_config, mapping):
         needed_packages.extend(mapping['iscsi'])
 
     # for NVMe controllers with transport != pcie, we need NVMe-oF tools
-    for item in storage_config['config']:
-        if item['type'] == 'nvme_controller' and item['transport'] != 'pcie':
-            needed_packages.extend(mapping['nvme_of_controller'])
-            break
+    if nvme.get_nvme_controllers_from_config(storage_config,
+                                             exclude_pcie=True):
+        needed_packages.extend(mapping['nvme_of_controller'])
 
     # for any format operations, check the fstype and
     # determine if we need any mkfs tools as well.
