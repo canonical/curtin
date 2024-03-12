@@ -35,6 +35,12 @@ def storage_config_required_packages(storage_config, mapping):
     if len(iscsi_vols) > 0:
         needed_packages.extend(mapping['iscsi'])
 
+    # for NVMe controllers with transport != pcie, we need NVMe-oF tools
+    for item in storage_config['config']:
+        if item['type'] == 'nvme_controller' and item['transport'] != 'pcie':
+            needed_packages.extend(mapping['nvme_of_controller'])
+            break
+
     # for any format operations, check the fstype and
     # determine if we need any mkfs tools as well.
     format_configs = set([operation['fstype']
@@ -69,7 +75,8 @@ def detect_required_packages_mapping(osfamily=DISTROS.debian):
             'lvm_partition': ['lvm2'],
             'lvm_volgroup': ['lvm2'],
             'ntfs': ['ntfs-3g'],
-            'nvme_controller': ['nvme-cli', 'nvme-stas'],
+            'nvme_controller': [],
+            'nvme_of_controller': ['nvme-cli', 'nvme-stas'],
             'raid': ['mdadm'],
             'reiserfs': ['reiserfsprogs'],
             'xfs': ['xfsprogs'],
@@ -91,6 +98,7 @@ def detect_required_packages_mapping(osfamily=DISTROS.debian):
             'lvm_volgroup': ['lvm2'],
             'ntfs': [],
             'nvme_controller': [],
+            'nvme_of_controller': [],
             'raid': ['mdadm'],
             'reiserfs': [],
             'xfs': ['xfsprogs'],
@@ -112,6 +120,7 @@ def detect_required_packages_mapping(osfamily=DISTROS.debian):
             'lvm_volgroup': ['lvm2'],
             'ntfs': [],
             'nvme_controller': [],
+            'nvme_of_controller': [],
             'raid': ['mdadm'],
             'reiserfs': [],
             'xfs': ['xfsprogs'],

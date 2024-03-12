@@ -1413,7 +1413,13 @@ class TestDetectRequiredPackages(CiTestCase):
                 'btrfs': {
                     'id': 'format3', 'fstype': 'btrfs', 'type': 'format'},
                 'xfs': {
-                    'id': 'format4', 'fstype': 'xfs', 'type': 'format'}}
+                    'id': 'format4', 'fstype': 'xfs', 'type': 'format'},
+                'nvme_controller_pcie': {
+                    'id': 'nvme_controller0', 'transport': 'pcie',
+                    'type': 'nvme_controller'},
+                'nvme_controller_tcp': {
+                    'id': 'nvme_controller1', 'transport': 'tcp',
+                    'type': 'nvme_controller'}}
         },
         'network': {
             1: {
@@ -1506,6 +1512,14 @@ class TestDetectRequiredPackages(CiTestCase):
                 'version': 1,
                 'items': ('bcache', 'lvm_volgroup', 'lvm_partition', 'ext2')}},
              ('bcache-tools', 'lvm2', 'e2fsprogs')),
+            ({'storage': {
+                'version': 1,
+                'items': ('nvme_controller_pcie',)}},
+             ()),
+            ({'storage': {
+                'version': 1,
+                'items': ('nvme_controller_tcp',)}},
+             ('nvme-cli', 'nvme-stas')),
         ))
 
     def test_network_v1_detect(self):
