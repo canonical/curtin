@@ -73,12 +73,36 @@ class NotExclusiveError(OSError):
 def _subp(args, data=None, rcs=None, env=None, capture=False,
           combine_capture=False, shell=False, logstring=False,
           decode="replace", target=None, cwd=None, log_captured=False,
-          unshare_pid=None):
+          unshare_pid=None,
+          *, systemd_force_offline: Optional[bool] = None):
     if rcs is None:
         rcs = [0]
     devnull_fp = None
 
     tpath = paths.target_path(target)
+
+    env = env.copy() if env is not None else os.environ.copy()
+    # To determine if we are running in a chroot, systemd checks if
+    # /proc/1/root (corresponding to the init process) and / are the same
+    # inode. If they are different, systemd assumes we are in a chroot.
+    # However, we are running apt-get in a new PID namespace (with /proc
+    # properly mounted). This means that in the new namespace, apt-get gets
+    # assigned PID 1 and is therefore the "init" process.
+    # When systemd compares /proc/1/root and /, it sees they are identical
+    # because the init process is actually running in the chroot.
+    #
+    # Before we started passing the --mount-proc option to unshare, it was
+    # working because /proc/1 in the chroot would still refer to the systemd
+    # init process (running outside the chroot).
+    #
+    # With the SYSTEMD_OFFLINE variable, one can "force" systemd to assume it
+    # is running in a chroot. Let's use it.
+    if systemd_force_offline is not None:
+        # Override the SYSTEMD_OFFLINE variable even if it already exists.
+        env['SYSTEMD_OFFLINE'] = str(int(systemd_force_offline))
+    elif 'SYSTEMD_OFFLINE' not in env and tpath != "/":
+        env['SYSTEMD_OFFLINE'] = '1'
+
     chroot_args = [] if tpath == "/" else ['chroot', target]
     sh_args = ['sh', '-c'] if shell else []
     if isinstance(args, string_types):
@@ -260,6 +284,10 @@ def subp(*args, **kwargs):
         unshare the pid namespace.
         default value (None) is to unshare pid namespace if possible
         and target != /
+    :param systemd_force_offline:
+        if not None, will set the SYSTEMD_OFFLINE env variable to '1' or '0'
+        if None, the variable will be set to '1' only if running in a chroot
+        (i.e., target is not /) and the variable is not already set.
 
     :return
         if not capturing, return is (None, None)
