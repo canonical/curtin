@@ -920,6 +920,32 @@ def copy_crypttab(crypttab, target):
     shutil.copy(crypttab, os.path.sep.join([target, 'etc/crypttab']))
 
 
+def copy_cdrom(cdrom: str, target: str) -> None:
+    """Copy installation media metadata"""
+
+    base: str = f"{cdrom}/.disk"
+    ubuntu_dist_channel: str = f"{base}/ubuntu_dist_channel"
+    media_info: str = f"{base}/info"
+
+    logdir: str = os.path.join(target, "var/log/installer")
+    util.ensure_dir(logdir)
+
+    libdir: str = os.path.join(target, "var/lib")
+    util.ensure_dir(libdir)
+
+    if os.path.exists(media_info):
+        LOG.info("copying media-info into target")
+        shutil.copy(media_info, f"{logdir}/media-info")
+    else:
+        LOG.warning(f"{media_info} not found, skipping")
+
+    if os.path.exists(ubuntu_dist_channel):
+        LOG.info("copying ubuntu_dist_channel into target")
+        shutil.copy(ubuntu_dist_channel, f"{libdir}/ubuntu_dist_channel")
+    else:
+        LOG.warning(f"{ubuntu_dist_channel} not found, skipping")
+
+
 def copy_iscsi_conf(nodes_dir, target, target_nodes_dir='etc/iscsi/nodes'):
     if not nodes_dir:
         LOG.warn("nodes directory must be specified, not copying")
@@ -2167,6 +2193,14 @@ def builtin_curthooks(cfg, target, state):
                 description="installing grub to target devices"):
             setup_grub(cfg, target, osfamily=osfamily,
                        variant=distro_info.variant)
+
+    # Copy information from installation media
+    with events.ReportEventStack(
+            name=f"{stack_prefix}/copy-cdrom-metadata",
+            reporting_enabled=True, level="INFO",
+            description="copying metadata from /cdrom"):
+        cdrom_loc: str = "/cdrom"
+        copy_cdrom(cdrom_loc, target)
 
 
 def curthooks(args):

@@ -1933,6 +1933,42 @@ class TestCurthooksChzdev(CiTestCase):
         self.assertEqual(self.chzdev_import, output)
 
 
+class TestCurthooksCopyCdrom(CiTestCase):
+    with_logs = True
+
+    def setUp(self):
+        super().setUp()
+        self.host_dir = self.tmp_dir()
+        self.target = f"{self.host_dir}/target"
+        self.cdrom = f"{self.host_dir}/cdrom"
+
+    def test_pass_on_empty(self):
+        curthooks.copy_cdrom(self.cdrom, self.target)
+        logs = self.logs.getvalue()
+        self.assertIn("/cdrom/.disk/info not found", logs)
+        self.assertIn("/cdrom/.disk/ubuntu_dist_channel not found", logs)
+
+    def test_copy_on_exist(self):
+        util.write_file(f"{self.cdrom}/.disk/info", "")
+        util.write_file(f"{self.cdrom}/.disk/ubuntu_dist_channel", "")
+
+        curthooks.copy_cdrom(self.cdrom, self.target)
+
+        logs = self.logs.getvalue()
+        self.assertNotIn("/cdrom/.disk/info not found", logs)
+        self.assertNotIn("/cdrom/.disk/ubuntu_dist_channel not found", logs)
+        self.assertTrue(
+                os.path.exists(
+                    f"{self.target}/var/log/installer/media-info"
+                )
+        )
+        self.assertTrue(
+                os.path.exists(
+                    f"{self.target}/var/lib/ubuntu_dist_channel"
+                )
+        )
+
+
 class TestCurthooksCopyZkey(CiTestCase):
     def setUp(self):
         super(TestCurthooksCopyZkey, self).setUp()
