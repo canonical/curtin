@@ -1413,7 +1413,13 @@ class TestDetectRequiredPackages(CiTestCase):
                 'btrfs': {
                     'id': 'format3', 'fstype': 'btrfs', 'type': 'format'},
                 'xfs': {
-                    'id': 'format4', 'fstype': 'xfs', 'type': 'format'}}
+                    'id': 'format4', 'fstype': 'xfs', 'type': 'format'},
+                'nvme_controller_pcie': {
+                    'id': 'nvme_controller0', 'transport': 'pcie',
+                    'type': 'nvme_controller'},
+                'nvme_controller_tcp': {
+                    'id': 'nvme_controller1', 'transport': 'tcp',
+                    'type': 'nvme_controller'}}
         },
         'network': {
             1: {
@@ -1506,6 +1512,14 @@ class TestDetectRequiredPackages(CiTestCase):
                 'version': 1,
                 'items': ('bcache', 'lvm_volgroup', 'lvm_partition', 'ext2')}},
              ('bcache-tools', 'lvm2', 'e2fsprogs')),
+            ({'storage': {
+                'version': 1,
+                'items': ('nvme_controller_pcie',)}},
+             ()),
+            ({'storage': {
+                'version': 1,
+                'items': ('nvme_controller_tcp',)}},
+             ('nvme-cli', 'nvme-stas')),
         ))
 
     def test_network_v1_detect(self):
@@ -2054,126 +2068,52 @@ class TestCurthooksGrubDebconf(CiTestCase):
 
 
 class TestCurthooksNVMeOverTCP(CiTestCase):
-    def test_get_nvme_stas_controller_directives__no_nvme_controller(self):
-        self.assertFalse(curthooks.get_nvme_stas_controller_directives({
-            "storage": {
-                "config": [
-                    {"type": "partition"},
-                    {"type": "mount"},
-                    {"type": "disk"},
-                ],
-            },
-        }))
+    def test_no_nvme_controller(self):
+        with patch('curtin.block.nvme.get_nvme_controllers_from_config',
+                   return_value=[]):
+            self.assertFalse(
+                    curthooks.get_nvme_stas_controller_directives(None))
+            self.assertFalse(curthooks.nvmeotcp_get_nvme_commands(None))
 
-    def test_get_nvme_stas_controller_directives__pcie_controller(self):
-        self.assertFalse(curthooks.get_nvme_stas_controller_directives({
-            "storage": {
-                "config": [
-                    {"type": "nvme_controller", "transport": "pcie"},
-                ],
-            },
-        }))
+    def test_pcie_controller(self):
+        controllers = [{'type': 'nvme_controller', 'transport': 'pcie'}]
+        with patch('curtin.block.nvme.get_nvme_controllers_from_config',
+                   return_value=controllers):
+            self.assertFalse(
+                    curthooks.get_nvme_stas_controller_directives(None))
+            self.assertFalse(curthooks.nvmeotcp_get_nvme_commands(None))
 
-    def test_get_nvme_stas_controller_directives__tcp_controller(self):
-        expected = {"controller = transport=tcp;traddr=1.2.3.4;trsvcid=1111"}
-
-        result = curthooks.get_nvme_stas_controller_directives({
-            "storage": {
-                "config": [
-                    {
-                        "type": "nvme_controller",
-                        "transport": "tcp",
-                        "tcp_addr": "1.2.3.4",
-                        "tcp_port": "1111",
-                    },
-                ],
-            },
-        })
-        self.assertEqual(expected, result)
-
-    def test_get_nvme_stas_controller_directives__three_nvme_controllers(self):
-        expected = {"controller = transport=tcp;traddr=1.2.3.4;trsvcid=1111",
-                    "controller = transport=tcp;traddr=4.5.6.7;trsvcid=1212"}
-
-        result = curthooks.get_nvme_stas_controller_directives({
-            "storage": {
-                "config": [
-                    {
-                        "type": "nvme_controller",
-                        "transport": "tcp",
-                        "tcp_addr": "1.2.3.4",
-                        "tcp_port": "1111",
-                    }, {
-                        "type": "nvme_controller",
-                        "transport": "tcp",
-                        "tcp_addr": "4.5.6.7",
-                        "tcp_port": "1212",
-                    }, {
-                        "type": "nvme_controller",
-                        "transport": "pcie",
-                    },
-                ],
-            },
-        })
-        self.assertEqual(expected, result)
-
-    def test_get_nvme_stas_controller_directives__empty_conf(self):
-        self.assertFalse(curthooks.get_nvme_stas_controller_directives({}))
-        self.assertFalse(curthooks.get_nvme_stas_controller_directives(
-            {"storage": False}))
-        self.assertFalse(curthooks.get_nvme_stas_controller_directives(
-            {"storage": {}}))
-        self.assertFalse(curthooks.get_nvme_stas_controller_directives({
-            "storage": {
-                "config": "disabled",
-            },
-        }))
-
-    def test_nvmeotcp_get_nvme_commands__no_nvme_controller(self):
-        self.assertFalse(curthooks.nvmeotcp_get_nvme_commands({
-            "storage": {
-                "config": [
-                    {"type": "partition"},
-                    {"type": "mount"},
-                    {"type": "disk"},
-                ],
-            },
-        }))
-
-    def test_nvmeotcp_get_nvme_commands__pcie_controller(self):
-        self.assertFalse(curthooks.nvmeotcp_get_nvme_commands({
-            "storage": {
-                "config": [
-                    {"type": "nvme_controller", "transport": "pcie"},
-                ],
-            },
-        }))
-
-    def test_nvmeotcp_get_nvme_commands__tcp_controller(self):
-        expected = [(
+    def test_tcp_controller(self):
+        stas_expected = {
+            'controller = transport=tcp;traddr=1.2.3.4;trsvcid=1111',
+        }
+        cmds_expected = [(
             "nvme", "connect-all",
             "--transport", "tcp",
             "--traddr", "1.2.3.4",
             "--trsvcid", "1111",
             ),
         ]
+        controllers = [{
+            "type": "nvme_controller",
+            "transport": "tcp",
+            "tcp_addr": "1.2.3.4",
+            "tcp_port": "1111",
+        }]
 
-        result = curthooks.nvmeotcp_get_nvme_commands({
-            "storage": {
-                "config": [
-                    {
-                        "type": "nvme_controller",
-                        "transport": "tcp",
-                        "tcp_addr": "1.2.3.4",
-                        "tcp_port": "1111",
-                    },
-                ],
-            },
-        })
-        self.assertEqual(expected, result)
+        with patch('curtin.block.nvme.get_nvme_controllers_from_config',
+                   return_value=controllers):
+            stas_result = curthooks.get_nvme_stas_controller_directives(None)
+            cmds_result = curthooks.nvmeotcp_get_nvme_commands(None)
+        self.assertEqual(stas_expected, stas_result)
+        self.assertEqual(cmds_expected, cmds_result)
 
-    def test_nvmeotcp_get_nvme_commands__three_nvme_controllers(self):
-        expected = [(
+    def test_three_nvme_controllers(self):
+        stas_expected = {
+            "controller = transport=tcp;traddr=1.2.3.4;trsvcid=1111",
+            "controller = transport=tcp;traddr=4.5.6.7;trsvcid=1212",
+        }
+        cmds_expected = [(
             "nvme", "connect-all",
             "--transport", "tcp",
             "--traddr", "1.2.3.4",
@@ -2185,40 +2125,29 @@ class TestCurthooksNVMeOverTCP(CiTestCase):
             "--trsvcid", "1212",
             ),
         ]
-
-        result = curthooks.nvmeotcp_get_nvme_commands({
-            "storage": {
-                "config": [
-                    {
-                        "type": "nvme_controller",
-                        "transport": "tcp",
-                        "tcp_addr": "1.2.3.4",
-                        "tcp_port": "1111",
-                    }, {
-                        "type": "nvme_controller",
-                        "transport": "tcp",
-                        "tcp_addr": "4.5.6.7",
-                        "tcp_port": "1212",
-                    }, {
-                        "type": "nvme_controller",
-                        "transport": "pcie",
-                    },
-                ],
+        controllers = [
+            {
+                "type": "nvme_controller",
+                "transport": "tcp",
+                "tcp_addr": "1.2.3.4",
+                "tcp_port": "1111",
+            }, {
+                "type": "nvme_controller",
+                "transport": "tcp",
+                "tcp_addr": "4.5.6.7",
+                "tcp_port": "1212",
+            }, {
+                "type": "nvme_controller",
+                "transport": "pcie",
             },
-        })
-        self.assertEqual(expected, result)
+        ]
 
-    def test_nvmeotcp_get_nvme_commands__empty_conf(self):
-        self.assertFalse(curthooks.nvmeotcp_get_nvme_commands({}))
-        self.assertFalse(curthooks.nvmeotcp_get_nvme_commands(
-            {"storage": False}))
-        self.assertFalse(curthooks.nvmeotcp_get_nvme_commands(
-            {"storage": {}}))
-        self.assertFalse(curthooks.nvmeotcp_get_nvme_commands({
-            "storage": {
-                "config": "disabled",
-            },
-        }))
+        with patch('curtin.block.nvme.get_nvme_controllers_from_config',
+                   return_value=controllers):
+            stas_result = curthooks.get_nvme_stas_controller_directives(None)
+            cmds_result = curthooks.nvmeotcp_get_nvme_commands(None)
+        self.assertEqual(stas_expected, stas_result)
+        self.assertEqual(cmds_expected, cmds_result)
 
     def test_nvmeotcp_get_ip_commands__ethernet_static(self):
         netcfg = """\

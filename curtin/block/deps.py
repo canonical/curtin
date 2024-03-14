@@ -1,7 +1,7 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
 
 from curtin.distro import DISTROS
-from curtin.block import iscsi
+from curtin.block import iscsi, nvme
 
 
 def storage_config_required_packages(storage_config, mapping):
@@ -34,6 +34,11 @@ def storage_config_required_packages(storage_config, mapping):
     iscsi_vols = iscsi.get_iscsi_volumes_from_config(storage_config)
     if len(iscsi_vols) > 0:
         needed_packages.extend(mapping['iscsi'])
+
+    # for NVMe controllers with transport != pcie, we need NVMe-oF tools
+    if nvme.get_nvme_controllers_from_config(storage_config,
+                                             exclude_pcie=True):
+        needed_packages.extend(mapping['nvme_of_controller'])
 
     # for any format operations, check the fstype and
     # determine if we need any mkfs tools as well.
@@ -69,7 +74,8 @@ def detect_required_packages_mapping(osfamily=DISTROS.debian):
             'lvm_partition': ['lvm2'],
             'lvm_volgroup': ['lvm2'],
             'ntfs': ['ntfs-3g'],
-            'nvme_controller': ['nvme-cli', 'nvme-stas'],
+            'nvme_controller': [],
+            'nvme_of_controller': ['nvme-cli', 'nvme-stas'],
             'raid': ['mdadm'],
             'reiserfs': ['reiserfsprogs'],
             'xfs': ['xfsprogs'],
@@ -91,6 +97,7 @@ def detect_required_packages_mapping(osfamily=DISTROS.debian):
             'lvm_volgroup': ['lvm2'],
             'ntfs': [],
             'nvme_controller': [],
+            'nvme_of_controller': [],
             'raid': ['mdadm'],
             'reiserfs': [],
             'xfs': ['xfsprogs'],
@@ -112,6 +119,7 @@ def detect_required_packages_mapping(osfamily=DISTROS.debian):
             'lvm_volgroup': ['lvm2'],
             'ntfs': [],
             'nvme_controller': [],
+            'nvme_of_controller': [],
             'raid': ['mdadm'],
             'reiserfs': [],
             'xfs': ['xfsprogs'],

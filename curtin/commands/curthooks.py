@@ -20,6 +20,7 @@ from curtin import block
 from curtin import distro
 from curtin.block import iscsi
 from curtin.block import lvm
+from curtin.block import nvme
 from curtin import net
 from curtin import futil
 from curtin.log import LOG
@@ -1534,21 +1535,13 @@ def get_nvme_stas_controller_directives(cfg) -> Set[str]:
     directives to write in the [Controllers] section of a nvme-stas
     configuration file."""
     directives = set()
-    if 'storage' not in cfg or not isinstance(cfg['storage'], dict):
-        return directives
-    storage = cfg['storage']
-    if 'config' not in storage or storage['config'] == 'disabled':
-        return directives
-    config = storage['config']
-    for item in config:
-        if item['type'] != 'nvme_controller':
-            continue
-        if item['transport'] != 'tcp':
+    for controller in nvme.get_nvme_controllers_from_config(cfg):
+        if controller['transport'] != 'tcp':
             continue
         controller_props = {
             'transport': 'tcp',
-            'traddr': item["tcp_addr"],
-            'trsvcid': item["tcp_port"],
+            'traddr': controller["tcp_addr"],
+            'trsvcid': controller["tcp_port"],
         }
 
         props_str = ';'.join([f'{k}={v}' for k, v in controller_props.items()])
@@ -1561,23 +1554,15 @@ def nvmeotcp_get_nvme_commands(cfg) -> List[Tuple[str]]:
     """Parse the storage configuration and return a set of commands
     to run to bring up the NVMe over TCP block devices."""
     commands: Set[Tuple[str]] = set()
-    if 'storage' not in cfg or not isinstance(cfg['storage'], dict):
-        return sorted(commands)
-    storage = cfg['storage']
-    if 'config' not in storage or storage['config'] == 'disabled':
-        return sorted(commands)
-    config = storage['config']
-    for item in config:
-        if item['type'] != 'nvme_controller':
-            continue
-        if item['transport'] != 'tcp':
+    for controller in nvme.get_nvme_controllers_from_config(cfg):
+        if controller['transport'] != 'tcp':
             continue
 
         commands.add((
             'nvme', 'connect-all',
             '--transport', 'tcp',
-            '--traddr', item['tcp_addr'],
-            '--trsvcid', str(item['tcp_port']),
+            '--traddr', controller['tcp_addr'],
+            '--trsvcid', str(controller['tcp_port']),
         ))
 
     return sorted(commands)
