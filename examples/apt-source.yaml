@@ -99,8 +99,9 @@ apt:
       # as above, allowing to have one config for different per arch mirrors
   # security is optional, if not defined it is set to the same value as primary
   security:
-    uri: http://security.ubuntu.com/ubuntu
-    # [...]
+    - arches: [amd64, i386, default]
+      uri: http://security.ubuntu.com/ubuntu
+      # [...]
 
   # if no mirrors are specified at all, or all lookups fail it will use:
   # primary: http://archive.ubuntu.com/ubuntu
