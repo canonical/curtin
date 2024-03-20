@@ -614,7 +614,7 @@ class TestZfsKeystore(CiTestCase):
     def test_create_system_key(self, m_token_bytes):
         m_token_bytes.return_value = key = self.random_string()
         m_open = mock.mock_open()
-        zpe = zfs.ZPoolEncryption(None, None, None)
+        zpe = zfs.ZPoolEncryption(None, None, None, None)
         with mock.patch("builtins.open", m_open):
             system_key = zpe.get_system_key()
         self.assertIsNotNone(system_key)
@@ -622,7 +622,7 @@ class TestZfsKeystore(CiTestCase):
         m_open.return_value.write.assert_called_with(key)
 
     def test_validate_good(self):
-        zpe = zfs.ZPoolEncryption("pool1", "luks_keystore", self.keyfile)
+        zpe = zfs.ZPoolEncryption(None, "pool1", "luks_keystore", self.keyfile)
         try:
             zpe.validate()
         except Exception:
@@ -630,22 +630,22 @@ class TestZfsKeystore(CiTestCase):
         self.assertTrue(zpe.in_use())
 
     def test_validate_missing_pool(self):
-        zpe = zfs.ZPoolEncryption(None, "luks_keystore", self.keyfile)
+        zpe = zfs.ZPoolEncryption(None, None, "luks_keystore", self.keyfile)
         with self.assertRaises(ValueError):
             zpe.validate()
 
     def test_validate_missing_key(self):
-        zpe = zfs.ZPoolEncryption("pool1", "luks_keystore", None)
+        zpe = zfs.ZPoolEncryption(None, "pool1", "luks_keystore", None)
         with self.assertRaises(ValueError):
             zpe.validate()
 
     def test_validate_missing_key_file(self):
-        zpe = zfs.ZPoolEncryption("pool1", "luks_keystore", "not-exist")
+        zpe = zfs.ZPoolEncryption(None, "pool1", "luks_keystore", "not-exist")
         with self.assertRaises(ValueError):
             zpe.validate()
 
     def test_validate_unencrypted_ok(self):
-        zpe = zfs.ZPoolEncryption("pool1", None, None)
+        zpe = zfs.ZPoolEncryption(None, "pool1", None, None)
         try:
             zpe.validate()
         except Exception:
@@ -653,7 +653,7 @@ class TestZfsKeystore(CiTestCase):
         self.assertFalse(zpe.in_use())
 
     def test_dataset_properties(self):
-        zpe = zfs.ZPoolEncryption("pool1", "luks_keystore", self.keyfile)
+        zpe = zfs.ZPoolEncryption(None, "pool1", "luks_keystore", self.keyfile)
         keyloc = self.random_string()
         with mock.patch.object(zpe, "get_system_key", return_value=keyloc):
             props = zpe.dataset_properties()

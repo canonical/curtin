@@ -8,6 +8,7 @@ import os
 import tempfile
 import secrets
 import shutil
+from contextlib import ExitStack
 from pathlib import Path
 
 from curtin.config import merge_config
@@ -31,11 +32,12 @@ ZFS_UNSUPPORTED_RELEASES = ['precise', 'trusty']
 
 
 class ZPoolEncryption:
-    def __init__(self, poolname, style, keyfile):
+    def __init__(self, vdevs, poolname, style, keyfile):
         self.poolname = poolname
         self.style = style
         self.keyfile = keyfile
         self.system_key = None
+        self.vdevs = vdevs
 
     def get_system_key(self):
         if self.system_key is None:
@@ -88,24 +90,31 @@ class ZPoolEncryption:
             self.poolname, "keystore", {"encryption": "off"}, keystore_size,
         )
 
-        # cryptsetup format and open this keystore
-        keystore_volume = f"/dev/zvol/{self.poolname}/keystore"
-        cmd = ["cryptsetup", "luksFormat", keystore_volume, self.keyfile]
-        util.subp(cmd)
-        dm_name = f"keystore-{self.poolname}"
-        cmd = [
-            "cryptsetup", "open", "--type", "luks", keystore_volume, dm_name,
-            "--key-file", self.keyfile,
-        ]
-        util.subp(cmd)
+        with ExitStack() as es:
+            for vdev in self.vdevs:
+                es.enter_context(util.FlockEx(vdev))
 
-        # format as ext4, mount it, move the previously-generated system key
-        dmpath = f"/dev/mapper/{dm_name}"
-        cmd = ["mke2fs", "-t", "ext4", dmpath, "-L", dm_name]
-        util.subp(cmd, capture=True)
+            # cryptsetup format and open this keystore
+            keystore_volume = f"/dev/zvol/{self.poolname}/keystore"
+            cmd = ["cryptsetup", "luksFormat", keystore_volume, self.keyfile]
+            util.subp(cmd)
+            dm_name = f"keystore-{self.poolname}"
+            cmd = [
+                "cryptsetup", "open", "--type", "luks", keystore_volume,
+                dm_name, "--key-file", self.keyfile,
+            ]
+            util.subp(cmd)
 
-        keystore_root = f"/run/keystore/{self.poolname}"
-        with util.mount(dmpath, keystore_root):
+        with ExitStack() as es:
+            # format as ext4, mount it, move the previously-generated systemkey
+            dmpath = f"/dev/mapper/{dm_name}"
+            es.enter_context(util.FlockEx(dmpath))
+            cmd = ["mke2fs", "-t", "ext4", dmpath, "-L", dm_name]
+            util.subp(cmd, capture=True)
+
+            keystore_root = f"/run/keystore/{self.poolname}"
+
+            es.enter_context(util.mount(dmpath, keystore_root))
             ks_system_key = f"{keystore_root}/system.key"
             shutil.move(self.system_key, ks_system_key)
             Path(ks_system_key).chmod(0o400)
@@ -256,7 +265,7 @@ def zpool_create(poolname, vdevs, storage_config=None, context=None,
     if zfs_properties:
         merge_config(zfs_cfg, zfs_properties)
 
-    encryption = ZPoolEncryption(poolname, encryption_style, keyfile)
+    encryption = ZPoolEncryption(vdevs, poolname, encryption_style, keyfile)
     encryption.validate()
     if encryption.in_use():
         merge_config(zfs_cfg, encryption.dataset_properties())
