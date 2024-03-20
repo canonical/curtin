@@ -1,7 +1,9 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
 
+from pathlib import Path
 from unittest import mock
 import errno
+import fcntl
 import os
 import stat
 from textwrap import dedent
@@ -1405,5 +1407,36 @@ class TestEFIVarFSBug(CiTestCase):
                                    return_value=False):
                 util.EFIVarFSBug.apply_workaround_if_affected()
             apply_wa.assert_not_called()
+
+
+class TestFlockEx(CiTestCase):
+    def setUp(self):
+        self.tmpf = self.tmp_path('testfile')
+        Path(self.tmpf).touch()
+
+    def test_acquires_lock(self):
+        with util.FlockEx(self.tmpf):
+            with open(self.tmpf) as fp:
+                with self.assertRaises(BlockingIOError):
+                    fcntl.flock(fp, fcntl.LOCK_EX | fcntl.LOCK_NB)
+
+    def test_releases_lock(self):
+        with util.FlockEx(self.tmpf):
+            pass
+
+        with open(self.tmpf) as fp:
+            fcntl.flock(fp, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            fcntl.flock(fp, fcntl.LOCK_UN)
+
+    def test_timeout(self):
+        with open(self.tmpf) as fp:
+            fcntl.flock(fp, fcntl.LOCK_EX | fcntl.LOCK_NB)
+
+            with self.assertRaises(TimeoutError):
+                with util.FlockEx(self.tmpf, timeout=.01):
+                    pass
+
+            fcntl.flock(fp, fcntl.LOCK_UN)
+
 
 # vi: ts=4 expandtab syntax=python

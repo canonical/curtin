@@ -4,6 +4,7 @@ import argparse
 import collections
 from contextlib import contextmanager, suppress
 import errno
+import fcntl
 import json
 import os
 import platform
@@ -1419,5 +1420,41 @@ def not_exclusive_retry(fun, *args, **kwargs):
         return fun(*args, **kwargs)
     time.sleep(1)
     return fun(*args, **kwargs)
+
+
+class FlockEx:
+    """Acquire an exclusive lock on device.
+    See https://systemd.io/BLOCK_DEVICE_LOCKING/ for details and
+    motivation, which has the summary:
+        Use BSD file locks (flock(2)) on block device nodes to synchronize
+        access for partitioning and file system formatting tools.
+
+    params: device: block device node to exclusively lock
+    """
+    def __init__(self, device, timeout=60):
+        self.device = device
+        self.timeout = timeout
+        self.retries = 60
+
+    def __enter__(self):
+        self.lock_fd = os.open(self.device, os.O_RDONLY)
+
+        LOG.debug(f"Acquiring fcntl LOCK_EX on {self.device}")
+
+        for i in range(self.retries):
+            try:
+                fcntl.flock(self.lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                return
+            except OSError as ex:
+                LOG.debug(f"Try {i}: lock acquisition failed with {ex}")
+                time.sleep(self.timeout / self.retries)
+        else:
+            raise TimeoutError("Failed to acquire LOCK_EX on {self.device}")
+
+    def __exit__(self, *args):
+        with suppress(Exception):
+            fcntl.flock(self.lock_fd, fcntl.LOCK_UN)
+        with suppress(Exception):
+            os.close(self.lock_fd)
 
 # vi: ts=4 expandtab syntax=python
