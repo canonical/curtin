@@ -5,6 +5,7 @@ from collections import OrderedDict
 import copy
 from unittest.mock import (
     call,
+    MagicMock,
     Mock,
     patch,
 )
@@ -685,6 +686,7 @@ class TestBlockMeta(CiTestCase):
         self.m_mp.is_mpath_device.return_value = False
         self.m_mp.is_mpath_member.return_value = False
 
+    @patch('curtin.commands.block_meta.util.FlockEx', new=MagicMock())
     def test_disk_handler_calls_clear_holder(self):
         info = self.storage_config.get('sda')
         disk = info.get('path')
@@ -1789,6 +1791,7 @@ class TestDiskHandler(CiTestCase):
         m_getpath.assert_called_with(info['id'], storage_config)
         m_block.get_part_table_type.assert_called_with(disk_path)
 
+    @patch('curtin.commands.block_meta.util.FlockEx', new=MagicMock())
     @patch('curtin.commands.block_meta.util.subp')
     @patch('curtin.commands.block_meta.clear_holders.get_holders')
     @patch('curtin.commands.block_meta.get_path_to_storage_volume')

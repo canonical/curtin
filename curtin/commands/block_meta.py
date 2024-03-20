@@ -795,26 +795,29 @@ def disk_handler(info, storage_config, context):
                  "table" % disk)
     else:
         # wipe the disk and create the partition table if instructed to do so
-        if config.value_as_boolean(info.get('wipe')):
-            block.wipe_volume(disk, mode=info.get('wipe'))
-        if config.value_as_boolean(ptable):
-            LOG.info("labeling device: '%s' with '%s' partition table", disk,
-                     ptable)
-            if ptable == "gpt":
-                # Wipe both MBR and GPT that may be present on the disk.
-                # N.B.: wipe_volume wipes 1M at front and end of the disk.
-                # This could destroy disk data in filesystems that lived
-                # there.
-                block.wipe_volume(disk, mode='superblock')
-            elif ptable in _dos_names:
-                util.subp(["parted", disk, "--script", "mklabel", "msdos"])
-            elif ptable == "vtoc":
-                util.subp(["fdasd", "-c", "/dev/null", disk])
-        holders = clear_holders.get_holders(disk)
-        if len(holders) > 0:
-            LOG.info('Detected block holders on disk %s: %s', disk, holders)
-            clear_holders.clear_holders(disk)
-            clear_holders.assert_clear(disk)
+        with util.FlockEx(disk):
+            if config.value_as_boolean(info.get('wipe')):
+                block.wipe_volume(disk, mode=info.get('wipe'))
+            if config.value_as_boolean(ptable):
+                LOG.info("labeling device: '%s' with '%s' partition table",
+                         disk, ptable)
+                if ptable == "gpt":
+                    # Wipe both MBR and GPT that may be present on the disk.
+                    # N.B.: wipe_volume wipes 1M at front and end of the disk.
+                    # This could destroy disk data in filesystems that lived
+                    # there.
+                    block.wipe_volume(disk, mode='superblock')
+                elif ptable in _dos_names:
+                    util.subp(["parted", disk, "--script", "mklabel", "msdos"])
+                elif ptable == "vtoc":
+                    util.subp(["fdasd", "-c", "/dev/null", disk])
+            holders = clear_holders.get_holders(disk)
+            if len(holders) > 0:
+                LOG.info(
+                    'Detected block holders on disk %s: %s', disk, holders
+                )
+                clear_holders.clear_holders(disk)
+                clear_holders.assert_clear(disk)
 
     # Make the name if needed
     if info.get('name'):
