@@ -41,7 +41,7 @@ class TestGetFlashKernelPkgs(CiTestCase):
 
     def test__returns_flash_kernel_pkgs(self):
         self.mock_subp.return_value = 'u-boot-tools', ''
-        self.assertEquals(
+        self.assertEqual(
             'u-boot-tools', curthooks.get_flash_kernel_pkgs('arm64', False))
         self.mock_subp.assert_called_with(
             ['list-flash-kernel-packages'], capture=True)
@@ -859,7 +859,7 @@ class TestSetupGrub(CiTestCase):
         self.mock_haspkg.return_value = False
         curthooks.setup_grub(cfg, self.target, osfamily=self.distro_family,
                              variant=self.variant)
-        self.assertEquals([
+        self.assertEqual([
             call(['efibootmgr', '-o', '0001,0000'], target=self.target)],
             self.mock_subp.call_args_list)
 
@@ -902,7 +902,7 @@ class TestSetupGrub(CiTestCase):
         logs = self.logs.getvalue()
         print(logs)
         print(self.mock_subp.call_args_list)
-        self.assertEquals([], self.mock_subp.call_args_list)
+        self.assertEqual([], self.mock_subp.call_args_list)
         self.assertIn("Using fallback UEFI reordering:", logs)
         self.assertIn("missing 'BootCurrent' value", logs)
         self.assertIn("Found new boot entries: ['0000']", logs)
@@ -953,7 +953,7 @@ class TestSetupGrub(CiTestCase):
 
         logs = self.logs.getvalue()
         print(logs)
-        self.assertEquals([], self.mock_subp.call_args_list)
+        self.assertEqual([], self.mock_subp.call_args_list)
         self.assertIn("Using fallback UEFI reordering:", logs)
         self.assertIn("missing 'BootCurrent' value", logs)
         self.assertIn("Current and Previous bootorders match", logs)
@@ -1062,7 +1062,7 @@ class TestSetupGrub(CiTestCase):
         logs = self.logs.getvalue()
         print(logs)
         print('Number of bootmgr calls: %s' % self.mock_efibootmgr.call_count)
-        self.assertEquals([
+        self.assertEqual([
             call(['efibootmgr', '-o', '%s' % (",".join(final_state.order))],
                  target=self.target)],
             self.mock_subp.call_args_list)
@@ -1140,7 +1140,7 @@ class TestUefiRemoveDuplicateEntries(CiTestCase):
             remove_duplicate_entries=False,
             )
         curthooks.uefi_remove_duplicate_entries(grubcfg, self.target)
-        self.assertEquals([], self.m_subp.call_args_list)
+        self.assertEqual([], self.m_subp.call_args_list)
 
     @patch.object(util.ChrootableTarget, "__enter__", new=lambda a: a)
     def test_uefi_remove_duplicate_entries_skip_bootcurrent(self):

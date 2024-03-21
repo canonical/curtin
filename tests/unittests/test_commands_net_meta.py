@@ -76,7 +76,7 @@ class TestNetMeta(CiTestCase):
         self.assertEqual(0, self.m_command_env.call_count)
         self.assertEqual(0, self.m_command_config.call_count)
 
-        self.assertEquals(self.args.mode, 'disabled')
+        self.assertEqual(self.args.mode, 'disabled')
         self.assertEqual(0, self.m_os_environ.get.call_count)
         self.assertEqual(0, self.m_dump_config.call_count)
         self.assertFalse(os.path.exists(self.output_network_path))
@@ -98,7 +98,7 @@ class TestNetMeta(CiTestCase):
         self.assertEqual(self.expected_exit_code, cm.exception.code)
         self.m_run_hook.assert_called_with(
             self.args.target, 'network-config')
-        self.assertEquals(self.args.mode, 'custom')
+        self.assertEqual(self.args.mode, 'custom')
         self.assertEqual(
             expected_m_command_env_calls, self.m_command_env.call_count)
         self.assertEqual(

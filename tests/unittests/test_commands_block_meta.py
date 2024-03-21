@@ -1030,14 +1030,14 @@ class TestFstabData(CiTestCase):
         """mount_data on non-mount type raises ValueError."""
         mnt = self.mnt.copy()
         mnt['type'] = "not-mount"
-        with self.assertRaisesRegexp(ValueError, r".*not type 'mount'"):
+        with self.assertRaisesRegex(ValueError, r".*not type 'mount'"):
             block_meta.mount_data(mnt, {mnt['id']: mnt})
 
     def test_mount_data_no_device_or_spec_raises_valueerror(self):
         """test_mount_data raises ValueError if no device or spec."""
         mnt = self.mnt.copy()
         del mnt['device']
-        with self.assertRaisesRegexp(ValueError, r".*mount.*missing.*"):
+        with self.assertRaisesRegex(ValueError, r".*mount.*missing.*"):
             block_meta.mount_data(mnt, {mnt['id']: mnt})
 
     def test_mount_data_invalid_device_ref_raises_valueerror(self):
@@ -1045,7 +1045,7 @@ class TestFstabData(CiTestCase):
         mnt = self.mnt.copy()
         mnt['device'] = 'myinvalid'
         scfg = OrderedDict([(i['id'], i) for i in self.base_cfg + [mnt]])
-        with self.assertRaisesRegexp(ValueError, r".*refers.*myinvalid"):
+        with self.assertRaisesRegex(ValueError, r".*refers.*myinvalid"):
             block_meta.mount_data(mnt, scfg)
 
     def test_mount_data_invalid_format_ref_raises_valueerror(self):
@@ -1054,7 +1054,7 @@ class TestFstabData(CiTestCase):
         scfg = OrderedDict([(i['id'], i) for i in mycfg])
         # change the 'volume' entry for the 'format' type.
         scfg['fs1']['volume'] = 'myinvalidvol'
-        with self.assertRaisesRegexp(ValueError, r".*refers.*myinvalidvol"):
+        with self.assertRaisesRegex(ValueError, r".*refers.*myinvalidvol"):
             block_meta.mount_data(scfg['m1'], scfg)
 
     def test_non_device_mount_with_spec(self):
@@ -1206,7 +1206,7 @@ class TestFstabData(CiTestCase):
         """fstab_line_for_data raises ValueError if no path and not swap."""
         fdata = block_meta.FstabData(
             spec="/dev/disk2", device=None, path="", fstype='ext3')
-        with self.assertRaisesRegexp(ValueError, r".*empty.*path"):
+        with self.assertRaisesRegex(ValueError, r".*empty.*path"):
             block_meta.fstab_line_for_data(fdata)
 
     def test_fstab_line_for_data_with_options(self):
@@ -1269,7 +1269,7 @@ class TestFstabData(CiTestCase):
         fdata = block_meta.FstabData(
             spec=None, device=None, path="/", fstype='ext3')
         match = r".*missing.*spec.*device"
-        with self.assertRaisesRegexp(ValueError, match):
+        with self.assertRaisesRegex(ValueError, match):
             block_meta.fstab_line_for_data(fdata)
 
     @patch('curtin.commands.block_meta._get_volume_type')
@@ -1425,7 +1425,7 @@ class TestFstabData(CiTestCase):
         m_subp.side_effect = my_error
 
         mp = self.tmp_path("my-mountpoint")
-        with self.assertRaisesRegexp(RuntimeError, r"Mount failed.*"):
+        with self.assertRaisesRegex(RuntimeError, r"Mount failed.*"):
             block_meta.mount_fstab_data(
                 block_meta.FstabData(device="/dev/disk1", path="/var"),
                 target=mp)

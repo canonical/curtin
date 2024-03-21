@@ -34,7 +34,7 @@ class TestZfsRootAbs(VMBaseClass):
     def test_ptable(self):
         self.output_files_exist(["blkid_output_vda"])
         blkid_info = self.get_blkid_data("blkid_output_vda")
-        self.assertEquals(blkid_info["PTTYPE"], "gpt")
+        self.assertEqual(blkid_info["PTTYPE"], "gpt")
 
     @skip_if_flag('expected_failure')
     def test_zfs_list(self):
