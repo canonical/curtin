@@ -578,7 +578,7 @@ def _generate_sources_list_compat(
 
     orig = paths.target_path(target, aptsrc)
     if os.path.exists(orig):
-        os.rename(orig, orig + ".curtin.old")
+        os.rename(orig, orig + ".curtin.orig")
     util.write_file(paths.target_path(target, aptsrc), output, mode=0o644)
 
 
@@ -647,7 +647,7 @@ def _generate_sources_deb822(cfg, release, mirrors, target=None, arch=None):
 
     target_path = paths.target_path(target, sources_deb822)
     if os.path.exists(target_path):
-        os.rename(target_path, target_path + '.curtin.old')
+        os.rename(target_path, target_path + '.curtin.orig')
 
     output = '\n'.join(stanzas)
     util.write_file(target_path, output, mode=0o644)
