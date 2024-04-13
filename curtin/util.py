@@ -1452,6 +1452,7 @@ class FlockEx:
             raise TimeoutError("Failed to acquire LOCK_EX on {self.device}")
 
     def __exit__(self, *args):
+        LOG.debug(f"Releasing fcntl LOCK_EX on {self.device}")
         with suppress(Exception):
             fcntl.flock(self.lock_fd, fcntl.LOCK_UN)
         with suppress(Exception):
