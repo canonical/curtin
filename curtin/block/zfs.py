@@ -12,6 +12,7 @@ from contextlib import ExitStack
 from pathlib import Path
 
 from curtin.config import merge_config
+from curtin.udev import udevadm_settle
 from curtin import distro
 from curtin import util
 from . import blkid, get_supported_filesystems
@@ -89,25 +90,34 @@ class ZPoolEncryption:
         zfs_create(
             self.poolname, "keystore", {"encryption": "off"}, keystore_size,
         )
+        keystore_volume = f"/dev/zvol/{self.poolname}/keystore"
+        udevadm_settle(exists=keystore_volume)
 
         with ExitStack() as es:
             for vdev in self.vdevs:
                 es.enter_context(util.FlockEx(vdev))
 
             # cryptsetup format and open this keystore
-            keystore_volume = f"/dev/zvol/{self.poolname}/keystore"
             cmd = ["cryptsetup", "luksFormat", keystore_volume, self.keyfile]
-            util.subp(cmd)
+
+            # strace has shown that udevd does indeed probe this keystore
+            with util.FlockEx(keystore_volume):
+                util.subp(cmd, capture=True)
+
+            udevadm_settle()
+
             dm_name = f"keystore-{self.poolname}"
             cmd = [
                 "cryptsetup", "open", "--type", "luks", keystore_volume,
                 dm_name, "--key-file", self.keyfile,
             ]
-            util.subp(cmd)
+            util.subp(cmd, capture=True)
+
+            dmpath = f"/dev/mapper/{dm_name}"
+            udevadm_settle(exists=dmpath)
 
         with ExitStack() as es:
             # format as ext4, mount it, move the previously-generated systemkey
-            dmpath = f"/dev/mapper/{dm_name}"
             es.enter_context(util.FlockEx(dmpath))
             cmd = ["mke2fs", "-t", "ext4", dmpath, "-L", dm_name]
             util.subp(cmd, capture=True)
