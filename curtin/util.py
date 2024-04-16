@@ -1449,7 +1449,7 @@ class FlockEx:
                 LOG.debug(f"Try {i}: lock acquisition failed with {ex}")
                 time.sleep(self.timeout / self.retries)
         else:
-            raise TimeoutError("Failed to acquire LOCK_EX on {self.device}")
+            raise TimeoutError(f"Failed to acquire LOCK_EX on {self.device}")
 
     def __exit__(self, *args):
         LOG.debug(f"Releasing fcntl LOCK_EX on {self.device}")
