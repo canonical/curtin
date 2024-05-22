@@ -154,6 +154,13 @@ class GrubConfig:
     update_nvram: bool = attr.ib(default=True, converter=value_as_boolean)
 
 
+@attr.s(auto_attribs=True)
+class KernelConfig:
+    package: typing.Optional[str] = None
+    fallback_package: str = "linux-generic"
+    mapping: dict = attr.Factory(dict)
+
+
 class SerializationError(Exception):
     def __init__(self, obj, path, message):
         self.obj = obj

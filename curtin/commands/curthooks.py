@@ -368,19 +368,15 @@ def install_kernel(cfg, target):
         env["FK_FORCE_CONTAINER"] = "yes"
         distro.install_packages([pkg], target=target, env=env)
 
-    kernel_cfg = cfg.get('kernel', {'package': None,
-                                    'fallback-package': "linux-generic",
-                                    'mapping': {}})
-
-    if kernel_cfg is None:
+    kernel_cfg_d = cfg.get('kernel', {})
+    if kernel_cfg_d is None:
         LOG.debug("Not installing any kernel since kernel: null was specified")
         return
 
-    kernel_package = kernel_cfg.get('package')
-    kernel_fallback = kernel_cfg.get('fallback-package')
+    kernel_cfg = config.fromdict(config.KernelConfig, kernel_cfg_d)
 
     mapping = copy.deepcopy(KERNEL_MAPPING)
-    config.merge_config(mapping, kernel_cfg.get('mapping', {}))
+    config.merge_config(mapping, kernel_cfg.mapping)
 
     # Machines using flash-kernel may need additional dependencies installed
     # before running. Run those checks in the ephemeral environment so the
@@ -389,8 +385,8 @@ def install_kernel(cfg, target):
     if fk_packages:
         distro.install_packages(fk_packages.split(), target=target)
 
-    if kernel_package:
-        install(kernel_package)
+    if kernel_cfg.package:
+        install(kernel_cfg.package)
         return
 
     # uname[2] is kernel name (ie: 3.16.0-7-generic)
@@ -406,8 +402,8 @@ def install_kernel(cfg, target):
     except KeyError:
         LOG.warn("Couldn't detect kernel package to install for %s."
                  % kernel)
-        if kernel_fallback is not None:
-            install(kernel_fallback)
+        if kernel_cfg.fallback_package is not None:
+            install(kernel_cfg.fallback_package)
         return
 
     package = "linux-{flavor}{map_suffix}".format(
@@ -420,11 +416,11 @@ def install_kernel(cfg, target):
             LOG.debug("installing kernel package '%s'", package)
             install(package)
     else:
-        if kernel_fallback is not None:
+        if kernel_cfg.fallback_package is not None:
             LOG.info("Kernel package '%s' not available.  "
                      "Installing fallback package '%s'.",
-                     package, kernel_fallback)
-            install(kernel_fallback)
+                     package, kernel_cfg.fallback_package)
+            install(kernel_cfg.fallback_package)
         else:
             LOG.warn("Kernel package '%s' not available and no fallback."
                      " System may not boot.", package)
