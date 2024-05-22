@@ -232,6 +232,7 @@ class Deserializer:
             field.name: field for field in attr.fields(annotation)
             }
         for key, value in context.cur.items():
+            key = key.replace("-", "_")
             if key not in fields:
                 continue
             field = fields[key]

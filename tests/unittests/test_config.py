@@ -195,5 +195,16 @@ class TestDeserializer(CiTestCase):
             WithConverter(val=True),
             deserializer.deserialize(WithConverter, {"val": "on"}))
 
+    def test_dash_to_underscore(self):
+        deserializer = config.Deserializer()
+
+        @attr.s(auto_attribs=True)
+        class DashToUnderscore:
+            a_b: bool = False
+
+        self.assertEqual(
+            DashToUnderscore(a_b=True),
+            deserializer.deserialize(DashToUnderscore, {"a-b": True}))
+
 
 # vi: ts=4 expandtab syntax=python
