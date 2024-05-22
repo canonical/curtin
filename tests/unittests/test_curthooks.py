@@ -55,10 +55,13 @@ class TestGetFlashKernelPkgs(CiTestCase):
 class TestCurthooksInstallKernel(CiTestCase):
     def setUp(self):
         super(TestCurthooksInstallKernel, self).setUp()
+        ccc = 'curtin.commands.curthooks'
         self.add_patch('curtin.distro.has_pkg_available', 'mock_haspkg')
         self.add_patch('curtin.distro.install_packages', 'mock_instpkg')
+        self.add_patch(ccc + '.os.uname', 'mock_uname')
+        self.add_patch(ccc + '.util.subp', 'mock_subp')
         self.add_patch(
-            'curtin.commands.curthooks.get_flash_kernel_pkgs',
+            ccc + '.get_flash_kernel_pkgs',
             'mock_get_flash_kernel_pkgs')
 
         self.fk_env = {'FK_FORCE': 'yes', 'FK_FORCE_CONTAINER': 'yes'}
@@ -83,17 +86,47 @@ class TestCurthooksInstallKernel(CiTestCase):
         kernel_package = "mock-linux-kernel"
         kernel_cfg = {'kernel': {'package': kernel_package}}
         self.mock_get_flash_kernel_pkgs.return_value = None
-
         with patch.dict(os.environ, clear=True):
             curthooks.install_kernel(kernel_cfg, self.target)
 
             self.mock_instpkg.assert_called_with(
                 [kernel_package], target=self.target, env=self.fk_env)
 
+    def test__installs_kernel_fallback_package(self):
+        fallback_package = "mock-linux-kernel-fallback"
+        kernel_cfg = {'kernel': {'fallback-package': fallback_package}}
+
+        self.mock_subp.return_value = ("warty", "")
+        self.mock_uname.return_value = (None, None, "1.2.3-4-flavor")
+
+        with patch.dict(os.environ, clear=True):
+            curthooks.install_kernel(kernel_cfg, self.target)
+
+            self.mock_instpkg.assert_called_with(
+                [fallback_package], target=self.target, env=self.fk_env)
+
+    def test__installs_kernel_from_mapping(self):
+        kernel_cfg = {
+            "kernel": {
+                "mapping": {
+                    "warty": {
+                        "1.2.3": "-lts-dapper"
+                    }
+                }
+            }
+        }
+        self.mock_subp.return_value = ("warty", "")
+        self.mock_uname.return_value = (None, None, "1.2.3-4-flavor")
+
+        with patch.dict(os.environ, clear=True):
+            curthooks.install_kernel(kernel_cfg, self.target)
+
+            self.mock_instpkg.assert_called_with(
+                ["linux-flavor-lts-dapper"],
+                target=self.target, env=self.fk_env)
+
     def test__installs_kernel_null(self):
         kernel_cfg = {'kernel': None}
-        self.mock_get_flash_kernel_pkgs.return_value = None
-
         with patch.dict(os.environ, clear=True):
             curthooks.install_kernel(kernel_cfg, self.target)
 
