@@ -61,38 +61,34 @@ class TestCurthooksInstallKernel(CiTestCase):
             'curtin.commands.curthooks.get_flash_kernel_pkgs',
             'mock_get_flash_kernel_pkgs')
 
-        self.kernel_cfg = {'kernel': {'package': 'mock-linux-kernel',
-                                      'fallback-package': 'mock-fallback',
-                                      'mapping': {}}}
+        self.fk_env = {'FK_FORCE': 'yes', 'FK_FORCE_CONTAINER': 'yes'}
         # Tests don't actually install anything so we just need a name
         self.target = self.tmp_dir()
 
     def test__installs_flash_kernel_packages_when_needed(self):
-        kernel_package = self.kernel_cfg.get('kernel', {}).get('package', {})
+        kernel_package = "mock-linux-kernel"
+        kernel_cfg = {'kernel': {'package': kernel_package}}
         self.mock_get_flash_kernel_pkgs.return_value = 'u-boot-tools'
 
         with patch.dict(os.environ, clear=True):
-            curthooks.install_kernel(self.kernel_cfg, self.target)
-
-            env = {'FK_FORCE': 'yes', 'FK_FORCE_CONTAINER': 'yes'}
+            curthooks.install_kernel(kernel_cfg, self.target)
 
             inst_calls = [
                 call(['u-boot-tools'], target=self.target),
-                call([kernel_package], target=self.target, env=env)]
+                call([kernel_package], target=self.target, env=self.fk_env)]
 
             self.mock_instpkg.assert_has_calls(inst_calls)
 
     def test__installs_kernel_package(self):
-        kernel_package = self.kernel_cfg.get('kernel', {}).get('package', {})
+        kernel_package = "mock-linux-kernel"
+        kernel_cfg = {'kernel': {'package': kernel_package}}
         self.mock_get_flash_kernel_pkgs.return_value = None
 
         with patch.dict(os.environ, clear=True):
-            curthooks.install_kernel(self.kernel_cfg, self.target)
-
-            env = {'FK_FORCE': 'yes', 'FK_FORCE_CONTAINER': 'yes'}
+            curthooks.install_kernel(kernel_cfg, self.target)
 
             self.mock_instpkg.assert_called_with(
-                [kernel_package], target=self.target, env=env)
+                [kernel_package], target=self.target, env=self.fk_env)
 
     def test__installs_kernel_null(self):
         kernel_cfg = {'kernel': None}
