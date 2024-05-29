@@ -1,5 +1,6 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
 from collections import namedtuple
+from contextlib import contextmanager
 import os
 import re
 import textwrap
@@ -475,6 +476,109 @@ def install_packages(pkglist, osfamily=None, opts=None, target=None, env=None,
                        download_retries=download_retries,
                        download_only=download_only,
                        assume_downloaded=assume_downloaded)
+
+
+def grep_status_list_kernels(target=None):
+    target = target_path(target)
+    cmd = [
+        "grep-status",
+        "--whole-pkg",
+        "-FProvides",
+        "linux-image",
+        "--and",
+        "-FStatus",
+        "installed",
+        "--show-field=Package",
+        "--no-field-names",
+    ]
+    out, _ = subp(cmd, capture=True, target=target, rcs=(0, 1))
+    return out.splitlines()
+
+
+def list_kernels(osfamily=None, target=None):
+    if not osfamily:
+        osfamily = get_osfamily(target=target)
+
+    distro_cfg = {
+        DISTROS.debian: grep_status_list_kernels
+    }
+
+    list_kernels_cmd = distro_cfg.get(osfamily)
+    if list_kernels_cmd is None:
+        raise ValueError('No package purge command for distro: %s' %
+                         osfamily)
+
+    return list_kernels_cmd(target=target)
+
+
+@contextmanager
+def ensure_one_kernel(osfamily=None, target=None):
+    """ensure_one_kernel is a context manager that evalutates the state of
+    installed kernels, before and after doing package operations.  With that
+    information, kernels that only appear before and not after are removed.
+    """
+    before = set(list_kernels(osfamily=osfamily, target=target))
+    yield
+
+    if not bool(before):
+        LOG.debug('No kernels to remove - no kernels preinstalled')
+        return
+
+    # the second part of ensure_one_kernel is intended to be run after any
+    # kernels we're installing have been installed.  We expect the list of
+    # kernels to grow as a result.  So if the set has not changed, that means
+    # that the kernel we asked to install was installed already, so we
+    # shouldn't be removing one.  This should work fine for a single kernel
+    # being preinstalled, but will fail to remove in the case of 2 kernels
+    # preinstalled but only one of them is intended.
+    after = set(list_kernels(osfamily=osfamily, target=target))
+    if not bool(after - before):
+        LOG.debug(
+            'No kernels to remove - kernel to install was already installed'
+        )
+        return
+
+    purge_packages(list(before), target=target)
+
+
+def purge_all_kernels(osfamily=None, target=None):
+    kernels = list_kernels(osfamily=osfamily, target=target)
+    if not bool(kernels):
+        LOG.debug('No kernels to remove - no kernels preinstalled')
+        return
+
+    purge_packages(kernels, target=target)
+
+
+def purge_packages(pkglist, osfamily=None, opts=None, target=None, env=None):
+    if isinstance(pkglist, str):
+        pkglist = [pkglist]
+
+    LOG.debug('Removing packages %s', pkglist)
+
+    if not osfamily:
+        osfamily = get_osfamily(target=target)
+
+    distro_cfg = {
+        DISTROS.debian: {'function': run_apt_command,
+                         'subcommands': ('purge', 'autoremove')},
+    }
+
+    purge_cmd = distro_cfg.get(osfamily)
+    if not purge_cmd:
+        raise ValueError('No package purge command for distro: %s' %
+                         osfamily)
+
+    for mode in distro_cfg[osfamily]['subcommands']:
+        ret = distro_cfg[osfamily]['function'](
+            mode,
+            args=pkglist,
+            opts=opts,
+            target=target,
+            env=env,
+            assume_downloaded=True,
+        )
+    return ret
 
 
 def has_pkg_available(pkg, target=None, osfamily=None):
