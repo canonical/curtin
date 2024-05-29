@@ -375,55 +375,69 @@ def install_kernel(cfg, target):
 
     kernel_cfg = config.fromdict(config.KernelConfig, kernel_cfg_d)
 
-    mapping = copy.deepcopy(KERNEL_MAPPING)
-    config.merge_config(mapping, kernel_cfg.mapping)
-
-    # Machines using flash-kernel may need additional dependencies installed
-    # before running. Run those checks in the ephemeral environment so the
-    # target only has required packages installed.  See LP: #1640519
-    fk_packages = get_flash_kernel_pkgs()
-    if fk_packages:
-        distro.install_packages(fk_packages.split(), target=target)
-
-    if kernel_cfg.package:
-        install(kernel_cfg.package)
+    if not kernel_cfg.install:
+        if kernel_cfg.remove_existing:
+            distro.purge_all_kernels(target=target)
+        LOG.debug(
+            "Not installing any kernel since kernel: {install: false} "
+            "was specified"
+        )
         return
 
-    # uname[2] is kernel name (ie: 3.16.0-7-generic)
-    # version gets X.Y.Z, flavor gets anything after second '-'.
-    kernel = os.uname()[2]
-    codename, _ = util.subp(['lsb_release', '--codename', '--short'],
-                            capture=True, target=target)
-    codename = codename.strip()
-    version, abi, flavor = kernel.split('-', 2)
+    with contextlib.ExitStack() as exitstack:
+        if kernel_cfg.remove_existing:
+            exitstack.enter_context(distro.ensure_one_kernel(target=target))
 
-    try:
-        map_suffix = mapping[codename][version]
-    except KeyError:
-        LOG.warn("Couldn't detect kernel package to install for %s."
-                 % kernel)
-        if kernel_cfg.fallback_package is not None:
-            install(kernel_cfg.fallback_package)
-        return
+        mapping = copy.deepcopy(KERNEL_MAPPING)
+        config.merge_config(mapping, kernel_cfg.mapping)
 
-    package = "linux-{flavor}{map_suffix}".format(
-        flavor=flavor, map_suffix=map_suffix)
+        # Machines using flash-kernel may need additional dependencies
+        # installed before running. Run those checks in the ephemeral
+        # environment so the target only has required packages installed.
+        # See LP: #1640519
+        fk_packages = get_flash_kernel_pkgs()
+        if fk_packages:
+            distro.install_packages(fk_packages.split(), target=target)
 
-    if distro.has_pkg_available(package, target):
-        if distro.has_pkg_installed(package, target):
-            LOG.debug("Kernel package '%s' already installed", package)
+        if kernel_cfg.package:
+            install(kernel_cfg.package)
+            return
+
+        # uname[2] is kernel name (ie: 3.16.0-7-generic)
+        # version gets X.Y.Z, flavor gets anything after second '-'.
+        kernel = os.uname()[2]
+        codename, _ = util.subp(['lsb_release', '--codename', '--short'],
+                                capture=True, target=target)
+        codename = codename.strip()
+        version, abi, flavor = kernel.split('-', 2)
+
+        try:
+            map_suffix = mapping[codename][version]
+        except KeyError:
+            LOG.warn("Couldn't detect kernel package to install for %s."
+                     % kernel)
+            if kernel_cfg.fallback_package is not None:
+                install(kernel_cfg.fallback_package)
+            return
+
+        package = "linux-{flavor}{map_suffix}".format(
+            flavor=flavor, map_suffix=map_suffix)
+
+        if distro.has_pkg_available(package, target):
+            if distro.has_pkg_installed(package, target):
+                LOG.debug("Kernel package '%s' already installed", package)
+            else:
+                LOG.debug("installing kernel package '%s'", package)
+                install(package)
         else:
-            LOG.debug("installing kernel package '%s'", package)
-            install(package)
-    else:
-        if kernel_cfg.fallback_package is not None:
-            LOG.info("Kernel package '%s' not available.  "
-                     "Installing fallback package '%s'.",
-                     package, kernel_cfg.fallback_package)
-            install(kernel_cfg.fallback_package)
-        else:
-            LOG.warn("Kernel package '%s' not available and no fallback."
-                     " System may not boot.", package)
+            if kernel_cfg.fallback_package is not None:
+                LOG.info("Kernel package '%s' not available.  "
+                         "Installing fallback package '%s'.",
+                         package, kernel_cfg.fallback_package)
+                install(kernel_cfg.fallback_package)
+            else:
+                LOG.warn("Kernel package '%s' not available and no fallback."
+                         " System may not boot.", package)
 
 
 def uefi_remove_old_loaders(grubcfg: config.GrubConfig, target: str):

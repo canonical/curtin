@@ -434,14 +434,37 @@ Default mapping for Releases to package names is as follows::
 
 Specify the exact package to install in the target OS.
 
-**Example**::
+**install**: *<boolean>*
+
+Defaults to True.  If False, no kernel install is attempted.
+
+**remove_existing**: *<boolean>*
+
+Supported on Debian and Ubuntu OSes.  Defaults to False.  If True, known
+kernels in .deb packages are removed from the target system (packages which
+``Provides: linux-image``), followed by an ``apt-get autoremove``.  If no
+kernel is being installed, this also implies the removal of the
+``linux-firmware`` package.
+
+**Examples**::
 
   kernel:
     fallback-package: linux-image-generic
     package: linux-image-generic-lts-xenial
     mapping:
       - xenial:
-        - 4.4.0: -my-custom-kernel    
+        - 4.4.0: -my-custom-kernel
+
+  # install this kernel if not yet installed,
+  # and remove other kernels if present
+  kernel:
+    package: linux-image-generic-hwe-24.04
+    remove_existing: true
+
+  # install nothing and remove existing kernels
+  kernel:
+    install: false
+    remove_existing: true
 
 
 kexec

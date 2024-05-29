@@ -159,6 +159,8 @@ class KernelConfig:
     package: typing.Optional[str] = None
     fallback_package: str = "linux-generic"
     mapping: dict = attr.Factory(dict)
+    install: bool = attr.ib(default=True, converter=value_as_boolean)
+    remove_existing: bool = attr.ib(default=False, converter=value_as_boolean)
 
 
 class SerializationError(Exception):

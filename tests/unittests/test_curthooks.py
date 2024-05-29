@@ -6,6 +6,7 @@ import textwrap
 from typing import Optional
 
 import attr
+from parameterized import parameterized
 
 from curtin.commands import curthooks
 from curtin.commands.block_meta import extract_storage_ordered_dict
@@ -58,12 +59,20 @@ class TestCurthooksInstallKernel(CiTestCase):
         ccc = 'curtin.commands.curthooks'
         self.add_patch('curtin.distro.has_pkg_available', 'mock_haspkg')
         self.add_patch('curtin.distro.install_packages', 'mock_instpkg')
+        self.add_patch('curtin.distro.purge_packages', 'mock_purgepkg')
+        self.add_patch(
+            'curtin.distro.grep_status_list_kernels', 'mock_list_kernels',
+        )
+        self.add_patch(
+            'curtin.distro.os_release', return_value={"ID": "ubuntu"}
+        )
         self.add_patch(ccc + '.os.uname', 'mock_uname')
         self.add_patch(ccc + '.util.subp', 'mock_subp')
         self.add_patch(
             ccc + '.get_flash_kernel_pkgs',
             'mock_get_flash_kernel_pkgs')
 
+        self.mock_get_flash_kernel_pkgs.return_value = None
         self.fk_env = {'FK_FORCE': 'yes', 'FK_FORCE_CONTAINER': 'yes'}
         # Tests don't actually install anything so we just need a name
         self.target = self.tmp_dir()
@@ -85,7 +94,6 @@ class TestCurthooksInstallKernel(CiTestCase):
     def test__installs_kernel_package(self):
         kernel_package = "mock-linux-kernel"
         kernel_cfg = {'kernel': {'package': kernel_package}}
-        self.mock_get_flash_kernel_pkgs.return_value = None
         with patch.dict(os.environ, clear=True):
             curthooks.install_kernel(kernel_cfg, self.target)
 
@@ -125,12 +133,92 @@ class TestCurthooksInstallKernel(CiTestCase):
                 ["linux-flavor-lts-dapper"],
                 target=self.target, env=self.fk_env)
 
-    def test__installs_kernel_null(self):
-        kernel_cfg = {'kernel': None}
+    @parameterized.expand((
+        [{'kernel': None}],
+        [{'kernel': {'install': 'false'}}],
+    ))
+    def test__not_installs_kernel(self, kernel_cfg):
         with patch.dict(os.environ, clear=True):
             curthooks.install_kernel(kernel_cfg, self.target)
 
             self.mock_instpkg.assert_not_called()
+
+    def test__removes_and_installs_kernel(self):
+        to_install_kernel_package = "mock-linux-kernel"
+        to_remove_kernel_package = "mock-to-remove"
+        kernel_cfg = {
+            'kernel': {
+                'package': to_install_kernel_package,
+                'remove_existing': 'true',
+            }
+        }
+        self.mock_subp.return_value = ("warty", "")
+        self.mock_uname.return_value = (None, None, "1.2.3-4-flavor")
+        self.mock_list_kernels.side_effect = [
+            [to_remove_kernel_package],
+            [to_install_kernel_package, to_remove_kernel_package],
+        ]
+
+        with patch.dict(os.environ, clear=True):
+            curthooks.install_kernel(kernel_cfg, self.target)
+
+            self.mock_instpkg.assert_called_with(
+                [to_install_kernel_package],
+                target=self.target,
+                env=self.fk_env,
+            )
+            self.mock_purgepkg.assert_called_with(
+                [to_remove_kernel_package], target=self.target
+            )
+
+    def test__installs_kernel_nothing_to_remove(self):
+        to_install_kernel_package = "mock-linux-kernel"
+        kernel_cfg = {
+            'kernel': {
+                'package': to_install_kernel_package,
+                'remove_existing': 'true',
+            }
+        }
+        self.mock_subp.return_value = ("warty", "")
+        self.mock_uname.return_value = (None, None, "1.2.3-4-flavor")
+        self.mock_list_kernels.return_value = []
+
+        with patch.dict(os.environ, clear=True):
+            curthooks.install_kernel(kernel_cfg, self.target)
+
+            self.mock_instpkg.assert_called_with(
+                [to_install_kernel_package],
+                target=self.target,
+                env=self.fk_env,
+            )
+            self.mock_purgepkg.assert_not_called()
+
+    def test__target_already_has_kernel(self):
+        to_install_kernel_package = "mock-linux-kernel"
+        kernel_cfg = {
+            'kernel': {
+                'package': to_install_kernel_package,
+                'remove_existing': 'true',
+            }
+        }
+        self.mock_subp.return_value = ("warty", "")
+        self.mock_uname.return_value = (None, None, "1.2.3-4-flavor")
+        self.mock_list_kernels.return_value = ["mock-kernel-1.2.3-4-generic"]
+
+        with patch.dict(os.environ, clear=True):
+            curthooks.install_kernel(kernel_cfg, self.target)
+
+            # the mapping from kernel to install and what list_kernls returns
+            # is not straightforward, so we ask apt to install the package and
+            # apt shouldn't have to do very much
+            self.mock_instpkg.assert_called_with(
+                [to_install_kernel_package],
+                target=self.target,
+                env=self.fk_env,
+            )
+            # but because nothing actually gets installed, there is nothing to
+            # remove
+            self.mock_purgepkg.assert_not_called()
 
 
 class TestEnableDisableUpdateInitramfs(CiTestCase):
