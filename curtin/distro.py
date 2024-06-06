@@ -478,23 +478,6 @@ def install_packages(pkglist, osfamily=None, opts=None, target=None, env=None,
                        assume_downloaded=assume_downloaded)
 
 
-def grep_status_list_kernels(target=None):
-    target = target_path(target)
-    cmd = [
-        "grep-status",
-        "--whole-pkg",
-        "-FProvides",
-        "linux-image",
-        "--and",
-        "-FStatus",
-        "installed",
-        "--show-field=Package",
-        "--no-field-names",
-    ]
-    out, _ = subp(cmd, capture=True, target=target, rcs=(0, 1))
-    return out.splitlines()
-
-
 def dpkg_query_list_kernels(target=None):
     target = target_path(target)
     cmd = [
@@ -521,7 +504,7 @@ def list_kernels(osfamily=None, target=None):
         osfamily = get_osfamily(target=target)
 
     distro_cfg = {
-        DISTROS.debian: grep_status_list_kernels
+        DISTROS.debian: dpkg_query_list_kernels
     }
 
     list_kernels_cmd = distro_cfg.get(osfamily)

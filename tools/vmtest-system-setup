@@ -15,7 +15,6 @@ DEPS=(
   build-essential
   cloud-image-utils
   cryptsetup
-  dctrl-tools
   git
   make
   net-tools

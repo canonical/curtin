@@ -60,9 +60,7 @@ class TestCurthooksInstallKernel(CiTestCase):
         self.add_patch('curtin.distro.has_pkg_available', 'mock_haspkg')
         self.add_patch('curtin.distro.install_packages', 'mock_instpkg')
         self.add_patch('curtin.distro.purge_packages', 'mock_purgepkg')
-        self.add_patch(
-            'curtin.distro.grep_status_list_kernels', 'mock_list_kernels',
-        )
+        self.add_patch('curtin.distro.list_kernels', 'mock_list_kernels')
         self.add_patch(
             'curtin.distro.os_release', return_value={"ID": "ubuntu"}
         )
