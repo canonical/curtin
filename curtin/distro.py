@@ -524,6 +524,7 @@ def ensure_one_kernel(osfamily=None, target=None):
     before = set(list_kernels(osfamily=osfamily, target=target))
     yield
 
+    LOG.debug('ensure_one_kernel: kernels before install %s', before)
     if not bool(before):
         LOG.debug('No kernels to remove - no kernels preinstalled')
         return
@@ -536,6 +537,7 @@ def ensure_one_kernel(osfamily=None, target=None):
     # being preinstalled, but will fail to remove in the case of 2 kernels
     # preinstalled but only one of them is intended.
     after = set(list_kernels(osfamily=osfamily, target=target))
+    LOG.debug('ensure_one_kernel: kernels after install %s', after)
     if not bool(after - before):
         LOG.debug(
             'No kernels to remove - kernel to install was already installed'
