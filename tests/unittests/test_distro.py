@@ -745,4 +745,56 @@ class TestGetArchitecture(CiTestCase):
                          self.m_rpm_get_arch.call_args_list)
         self.assertEqual(0, self.m_dpkg_get_arch.call_count)
 
+
+class TestListKernels(CiTestCase):
+    def setUp(self):
+        self.add_patch('curtin.distro.subp', 'm_subp')
+
+    def test_dpkg_query_list_kernels_installed(self):
+        data = """\
+linux-image-6.8.0-26-generic/rc /a, linux-image, b
+linux-image-6.8.0-27-generic/ii /a, linux-image, b
+linux-image-6.8.0-28-generic/ii /a, linux-image, b
+"""
+        self.m_subp.return_value = (data, None)
+        actual = distro.dpkg_query_list_kernels()
+        expected = [
+            "linux-image-6.8.0-27-generic",
+            "linux-image-6.8.0-28-generic",
+        ]
+
+        self.assertEqual(expected, actual)
+
+    def test_dpkg_query_list_kernels_no_provide(self):
+        data = """\
+linux-image-6.8.0-28-generic/ii /
+"""
+        self.m_subp.return_value = (data, None)
+        actual = distro.dpkg_query_list_kernels()
+        self.assertEqual([], actual)
+
+    def test_dpkg_query_list_kernels_not_installed(self):
+        data = """\
+linux-image-6.8.0-22-generic/rc /a, linux-image, b
+"""
+        self.m_subp.return_value = (data, None)
+        actual = distro.dpkg_query_list_kernels()
+        self.assertEqual([], actual)
+
+    def test_dpkg_query_list_kernels_provide_no_commas(self):
+        data = """\
+linux-image-6.8.0-28-generic/ii /linux-image
+"""
+        self.m_subp.return_value = (data, None)
+        actual = distro.dpkg_query_list_kernels()
+        self.assertEqual(["linux-image-6.8.0-28-generic"], actual)
+
+    def test_dpkg_query_list_kernels_provides_last(self):
+        data = """\
+linux-image-6.8.0-28-generic/ii /a, linux-image
+"""
+        self.m_subp.return_value = (data, None)
+        actual = distro.dpkg_query_list_kernels()
+        self.assertEqual(["linux-image-6.8.0-28-generic"], actual)
+
 # vi: ts=4 expandtab syntax=python

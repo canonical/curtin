@@ -495,6 +495,27 @@ def grep_status_list_kernels(target=None):
     return out.splitlines()
 
 
+def dpkg_query_list_kernels(target=None):
+    target = target_path(target)
+    cmd = [
+        "dpkg-query",
+        "--show",
+        "--showformat=${Package}/${db:Status-Abbrev}/${Provides}\n",
+    ]
+
+    out, _ = subp(cmd, capture=True, target=target)
+    results = []
+    for line in out.splitlines():
+        package, status, provides = line.strip().split("/")
+        # status abbreviation is 3 columns, 3rd is error state
+        if status != "ii ":
+            continue
+        provide_packages = provides.split(", ")
+        if "linux-image" in provide_packages:
+            results.append(package)
+    return results
+
+
 def list_kernels(osfamily=None, target=None):
     if not osfamily:
         osfamily = get_osfamily(target=target)
