@@ -51,7 +51,7 @@ This can have various "global" subelements as listed in the examples below.
 The file ``apt-source.yaml`` holds more examples.
 
 These global configurations are valid throughput all of the apt feature.
-So for exmaple a global specification of a ``primary`` mirror will apply to all rendered sources entries.
+So for example a global specification of a ``primary`` mirror will apply to all rendered sources entries.
 
 Then there is a section ``sources`` which can hold any number of source subelements itself.
 The key is the filename and will be prepended by /etc/apt/sources.list.d/ if it doesn't start with a ``/``.
