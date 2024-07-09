@@ -11,18 +11,18 @@ from .helpers import CiTestCase
 class TestBlockIscsiPortalParsing(CiTestCase):
 
     def test_iscsi_portal_parsing_string(self):
-        with self.assertRaisesRegexp(ValueError, 'not a string'):
+        with self.assertRaisesRegex(ValueError, 'not a string'):
             iscsi.assert_valid_iscsi_portal(1234)
 
     def test_iscsi_portal_parsing_no_port(self):
         # port must be specified
-        with self.assertRaisesRegexp(ValueError, 'not in the format'):
+        with self.assertRaisesRegex(ValueError, 'not in the format'):
             iscsi.assert_valid_iscsi_portal('192.168.1.12')
-        with self.assertRaisesRegexp(ValueError, 'not in the format'):
+        with self.assertRaisesRegex(ValueError, 'not in the format'):
             iscsi.assert_valid_iscsi_portal('fe80::a634:d9ff:fe40:768a')
-        with self.assertRaisesRegexp(ValueError, 'not in the format'):
+        with self.assertRaisesRegex(ValueError, 'not in the format'):
             iscsi.assert_valid_iscsi_portal('192.168.1.12:')
-        with self.assertRaisesRegexp(ValueError, 'not in the format'):
+        with self.assertRaisesRegex(ValueError, 'not in the format'):
             iscsi.assert_valid_iscsi_portal('test.example.com:')
 
     def test_iscsi_portal_parsing_valid_ip(self):
@@ -32,13 +32,13 @@ class TestBlockIscsiPortalParsing(CiTestCase):
         self.assertEquals(host, 'fe80::a634:d9ff:fe40:768a')
         self.assertEquals(port, 9999)
         # IP must not be in [] if port is specified for IPv4
-        with self.assertRaisesRegexp(ValueError, 'Invalid IPv6 address'):
+        with self.assertRaisesRegex(ValueError, 'Invalid IPv6 address'):
             iscsi.assert_valid_iscsi_portal('[192.168.1.12]:9000')
-        with self.assertRaisesRegexp(ValueError, 'Invalid IPv6 address'):
+        with self.assertRaisesRegex(ValueError, 'Invalid IPv6 address'):
             iscsi.assert_valid_iscsi_portal('[test.example.com]:8000')
 
     def test_iscsi_portal_parsing_ip(self):
-        with self.assertRaisesRegexp(ValueError, 'Invalid IPv6 address'):
+        with self.assertRaisesRegex(ValueError, 'Invalid IPv6 address'):
             iscsi.assert_valid_iscsi_portal(
                 '[1200::AB00:1234::2552:7777:1313]:9999')
         # cannot distinguish between bad IP and bad hostname
@@ -47,11 +47,11 @@ class TestBlockIscsiPortalParsing(CiTestCase):
         self.assertEquals(port, 9000)
 
     def test_iscsi_portal_parsing_port(self):
-        with self.assertRaisesRegexp(ValueError, 'not in the format'):
+        with self.assertRaisesRegex(ValueError, 'not in the format'):
             iscsi.assert_valid_iscsi_portal('192.168.1.12:ABCD')
-        with self.assertRaisesRegexp(ValueError, 'not in the format'):
+        with self.assertRaisesRegex(ValueError, 'not in the format'):
             iscsi.assert_valid_iscsi_portal('[fe80::a634:d9ff:fe40:768a]:ABCD')
-        with self.assertRaisesRegexp(ValueError, 'not in the format'):
+        with self.assertRaisesRegex(ValueError, 'not in the format'):
             iscsi.assert_valid_iscsi_portal('test.example.com:ABCD')
 
     def test_iscsi_portal_parsing_good_portals(self):
@@ -74,17 +74,17 @@ class TestBlockIscsiPortalParsing(CiTestCase):
     # root=iscsi:user:password@$TARGETSPEC
     # root=iscsi:user:password:initiatoruser:initiatorpassword@$TARGETSPEC
     def test_iscsi_disk_basic(self):
-        with self.assertRaisesRegexp(ValueError, 'must be specified'):
+        with self.assertRaisesRegex(ValueError, 'must be specified'):
             iscsi.IscsiDisk('')
 
         # typo
-        with self.assertRaisesRegexp(ValueError, 'must be specified'):
+        with self.assertRaisesRegex(ValueError, 'must be specified'):
             iscsi.IscsiDisk('iscs:')
 
         # no specification
-        with self.assertRaisesRegexp(ValueError, 'must be specified'):
+        with self.assertRaisesRegex(ValueError, 'must be specified'):
             iscsi.IscsiDisk('iscsi:')
-        with self.assertRaisesRegexp(ValueError, 'Both host and targetname'):
+        with self.assertRaisesRegex(ValueError, 'Both host and targetname'):
             iscsi.IscsiDisk('iscsi:::::')
 
     def test_iscsi_disk_ip_valid(self):
@@ -123,24 +123,24 @@ class TestBlockIscsiPortalParsing(CiTestCase):
         self.assertEquals(i.target, 'target')
 
     def test_iscsi_disk_port(self):
-        with self.assertRaisesRegexp(ValueError, 'Specified iSCSI port'):
+        with self.assertRaisesRegex(ValueError, 'Specified iSCSI port'):
             iscsi.IscsiDisk('iscsi:192.168.1.12::ABCD::target')
-        with self.assertRaisesRegexp(ValueError, 'Specified iSCSI port'):
+        with self.assertRaisesRegex(ValueError, 'Specified iSCSI port'):
             iscsi.IscsiDisk('iscsi:[fe80::a634:d9ff:fe40:768a:6]::ABCD::'
                             'target')
-        with self.assertRaisesRegexp(ValueError, 'Specified iSCSI port'):
+        with self.assertRaisesRegex(ValueError, 'Specified iSCSI port'):
             iscsi.IscsiDisk('iscsi:test.example.com::ABCD::target')
 
     def test_iscsi_disk_target(self):
-        with self.assertRaisesRegexp(ValueError, 'Both host and targetname'):
+        with self.assertRaisesRegex(ValueError, 'Both host and targetname'):
             iscsi.IscsiDisk('iscsi:192.168.1.12::::')
-        with self.assertRaisesRegexp(ValueError, 'Both host and targetname'):
+        with self.assertRaisesRegex(ValueError, 'Both host and targetname'):
             iscsi.IscsiDisk('iscsi:[fe80::a634:d9ff:fe40:768a:6]::::')
-        with self.assertRaisesRegexp(ValueError, 'Both host and targetname'):
+        with self.assertRaisesRegex(ValueError, 'Both host and targetname'):
             iscsi.IscsiDisk('iscsi:test.example.com::::')
 
     def test_iscsi_disk_ip(self):
-        with self.assertRaisesRegexp(ValueError, 'Both host and targetname'):
+        with self.assertRaisesRegex(ValueError, 'Both host and targetname'):
             iscsi.IscsiDisk('iscsi:::::target')
 
     def test_iscsi_disk_auth(self):

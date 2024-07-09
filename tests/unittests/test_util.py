@@ -388,20 +388,20 @@ class TestGetUnsharePidArgs(CiTestCase):
         """Passing unshare_pid in as True and no command should raise."""
         self.mock_has_unshare_pid.return_value = False
         expected_msg = 'no unshare command'
-        with self.assertRaisesRegexp(RuntimeError, expected_msg):
+        with self.assertRaisesRegex(RuntimeError, expected_msg):
             util._get_unshare_pid_args(True)
 
-        with self.assertRaisesRegexp(RuntimeError, expected_msg):
+        with self.assertRaisesRegex(RuntimeError, expected_msg):
             util._get_unshare_pid_args(True, "/foo", 0)
 
     def test_unshare_pid_true_and_not_root_raises(self):
         """When unshare_pid is True for non-root an error is raised."""
         expected_msg = 'euid.* != 0'
-        with self.assertRaisesRegexp(RuntimeError, expected_msg):
+        with self.assertRaisesRegex(RuntimeError, expected_msg):
             util._get_unshare_pid_args(True, "/foo", 500)
 
         self.mock_geteuid.return_value = 500
-        with self.assertRaisesRegexp(RuntimeError, expected_msg):
+        with self.assertRaisesRegex(RuntimeError, expected_msg):
             util._get_unshare_pid_args(True)
 
     def test_euid0_target_not_slash(self):

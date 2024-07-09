@@ -112,7 +112,7 @@ class TestBlockZfsZpoolCreate(CiTestCase):
         for val in [None, '', {'a': 1}, 'mydev']:
             with self.assertRaises(TypeError):
                 # All the assert methods (except assertRaises(),
-                # assertRaisesRegexp()) accept a msg argument that,
+                # assertRaisesRegex()) accept a msg argument that,
                 # if specified, is used as the error message on failure
                 print('vdev value: %s' % val)
                 zfs.zpool_create('mypool', val)
