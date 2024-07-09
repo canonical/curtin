@@ -33,8 +33,8 @@ class TestDownload(CiTestCase):
         self.assertRaises(url_helper.UrlError, url_helper.download,
                           "file://" + self.src_file, self.target_file,
                           retries=3, retry_delay=0)
-        self.assertEquals(4, urlreader_mock.call_count,
-                          "Didn't call UrlReader 4 times (retries=3)")
+        self.assertEqual(4, urlreader_mock.call_count,
+                         "Didn't call UrlReader 4 times (retries=3)")
 
     @mock.patch('curtin.url_helper.UrlReader')
     def test_download_file_url_no_retry(self, urlreader_mock):
@@ -45,8 +45,8 @@ class TestDownload(CiTestCase):
         self.assertRaises(url_helper.UrlError, url_helper.download,
                           "file://" + self.src_file, self.target_file,
                           retry_delay=0)
-        self.assertEquals(1, urlreader_mock.call_count,
-                          "Didn't call UrlReader once (retries=0)")
+        self.assertEqual(1, urlreader_mock.call_count,
+                         "Didn't call UrlReader once (retries=0)")
 
     @mock.patch('curtin.url_helper.UrlReader')
     def test_download_file_url_no_retry_on_client_error(self, urlreader_mock):
@@ -56,8 +56,8 @@ class TestDownload(CiTestCase):
         self.assertRaises(url_helper.UrlError, url_helper.download,
                           "file://" + self.src_file, self.target_file,
                           retries=3, retry_delay=0)
-        self.assertEquals(1, urlreader_mock.call_count,
-                          "Didn't call UrlReader once (400 class error)")
+        self.assertEqual(1, urlreader_mock.call_count,
+                         "Didn't call UrlReader once (400 class error)")
 
     def test_download_file_url_retry_then_success(self):
         """Retry downloading a file with server error and then succeed."""
@@ -71,9 +71,9 @@ class TestDownload(CiTestCase):
             urlreader_mock.side_effect = urlreader_download
             url_helper.download("file://" + self.src_file, self.target_file,
                                 retries=3, retry_delay=0)
-        self.assertEquals(2, urlreader_mock.call_count,
-                          "Didn't call UrlReader twice (first failing,"
-                          "then success)")
+        self.assertEqual(2, urlreader_mock.call_count,
+                         "Didn't call UrlReader twice (first failing,"
+                         "then success)")
         self.assertTrue(filecmp.cmp(self.src_file, self.target_file),
                         "Downloaded file differed from source file.")
 

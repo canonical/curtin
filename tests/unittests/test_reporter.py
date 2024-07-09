@@ -123,7 +123,7 @@ class TestReporter(CiTestCase):
         webhook_handler.publish_event(event)
         webhook_handler = handlers.WebHookHandler('127.0.0.1:8000',
                                                   level="INVALID")
-        self.assertEquals(webhook_handler.level, 30)
+        self.assertEqual(webhook_handler.level, 30)
 
     @patch('curtin.reporter.events.report_event')
     def test_report_start_event(self, mock_report_event):

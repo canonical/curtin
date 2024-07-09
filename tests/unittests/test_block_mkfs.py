@@ -25,14 +25,14 @@ class TestBlockMkfs(CiTestCase):
                 self.assertIn(flag_name, call)
                 flag_index = call.index(flag_name)
                 self.assertTrue(len(call) > flag_index)
-                self.assertEquals(call[flag_index + 1], flag_val)
+                self.assertEqual(call[flag_index + 1], flag_val)
                 call.remove(flag_name)
                 call.remove(flag_val)
             else:
                 self.assertIn(flag, call)
                 call.remove(flag)
         # Only remaining vals in call should be mkfs.fstype and dev path
-        self.assertEquals(len(call), 2)
+        self.assertEqual(len(call), 2)
 
     @mock.patch("curtin.block.mkfs.block")
     @mock.patch("curtin.block.mkfs.os")
@@ -49,12 +49,12 @@ class TestBlockMkfs(CiTestCase):
         mkfs.mkfs_from_config("/dev/null", config, strict=strict)
         self.assertTrue(mock_util.subp.called)
         calls = mock_util.subp.call_args_list
-        self.assertEquals(len(calls), 1)
+        self.assertEqual(len(calls), 1)
 
         # Get first function call, tuple of first positional arg and its
         # (nonexistant) keyword arg, and unpack to get cmd
         call = calls[0][0][0]
-        self.assertEquals(call[0], expected_cmd)
+        self.assertEqual(call[0], expected_cmd)
         self._assert_same_flags(call, expected_flags)
 
     def test_mkfs_ext(self):
@@ -149,9 +149,9 @@ class TestBlockMkfs(CiTestCase):
                   label="testlabel", force=True)
         expected_flags = ["-F", ["-L", "testlabel"], ["-U", self.test_uuid]]
         calls = mock_util.subp.call_args_list
-        self.assertEquals(len(calls), 1)
+        self.assertEqual(len(calls), 1)
         call = calls[0][0][0]
-        self.assertEquals(call[0], "mkfs.ext4")
+        self.assertEqual(call[0], "mkfs.ext4")
         self._assert_same_flags(call, expected_flags)
 
     @mock.patch("curtin.block.mkfs.os")

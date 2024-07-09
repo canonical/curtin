@@ -893,7 +893,7 @@ class TestGetEFIBootMGR(CiTestCase):
     def test_calls_efibootmgr_verbose(self):
         self.in_chroot_subp_output.append(('', ''))
         util.get_efibootmgr('target')
-        self.assertEquals(
+        self.assertEqual(
             (['efibootmgr', '-v'],),
             self.mock_in_chroot_subp.call_args_list[0][0])
 
@@ -911,7 +911,7 @@ class TestGetEFIBootMGR(CiTestCase):
             Boot0005* UEFI:Network Device	BBS(131,,0x0)
             """), ''))
         observed = util.get_efibootmgr('target')
-        self.assertEquals({
+        self.assertEqual({
             'current': '0000',
             'timeout': '1 seconds',
             'order': ['0000', '0002', '0001', '0003', '0004', '0005'],
@@ -958,7 +958,7 @@ class TestGetEFIBootMGR(CiTestCase):
             Boot0005* UEFI:Network Device	BBS(131,,0x0)
             """), ''))
         observed = util.get_efibootmgr('target')
-        self.assertEquals({
+        self.assertEqual({
             'current': '0000',
             'timeout': '1 seconds',
             'order': ['0000', '0002', '0001', '0003', '0004', '0005'],

@@ -65,7 +65,7 @@ class TestBasicAbs(VMBaseClass):
 
         self.output_files_exist([blkid_output])
         blkid_info = self.get_blkid_data(blkid_output)
-        self.assertEquals(expected, blkid_info["PTTYPE"])
+        self.assertEqual(expected, blkid_info["PTTYPE"])
 
     def _test_partition_numbers(self, disk, expected):
         found = []
