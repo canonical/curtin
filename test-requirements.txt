@@ -1,9 +1,10 @@
-pip
-wheel
-virtualenv
+coverage
+flake8
 jsonschema
 mock
 nose
-pyflakes
-coverage
 parameterized
+pip
+pyflakes
+virtualenv
+wheel
