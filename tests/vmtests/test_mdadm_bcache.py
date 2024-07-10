@@ -166,6 +166,10 @@ class ImpishTestMdadmBcache(relbase.impish, TestMdadmBcacheAbs):
     __test__ = True
 
 
+class JammyTestMdadmBcache(relbase.jammy, TestMdadmBcacheAbs):
+    __test__ = True
+
+
 class TestMirrorbootAbs(TestMdadmAbs):
     # alternative config for more complex setup
     conf_file = "examples/tests/mirrorboot.yaml"
@@ -212,6 +216,10 @@ class HirsuteTestMirrorboot(relbase.hirsute, TestMirrorbootAbs):
 
 
 class ImpishTestMirrorboot(relbase.impish, TestMirrorbootAbs):
+    __test__ = True
+
+
+class JammyTestMirrorboot(relbase.jammy, TestMirrorbootAbs):
     __test__ = True
 
 
@@ -267,6 +275,11 @@ class HirsuteTestMirrorbootPartitions(relbase.hirsute,
 
 class ImpishTestMirrorbootPartitions(relbase.impish,
                                      TestMirrorbootPartitionsAbs):
+    __test__ = True
+
+
+class JammyTestMirrorbootPartitions(relbase.jammy,
+                                    TestMirrorbootPartitionsAbs):
     __test__ = True
 
 
@@ -370,6 +383,11 @@ class ImpishTestMirrorbootPartitionsUEFI(relbase.impish,
     __test__ = True
 
 
+class JammyTestMirrorbootPartitionsUEFI(relbase.jammy,
+                                        TestMirrorbootPartitionsUEFIAbs):
+    __test__ = True
+
+
 class TestRaid5bootAbs(TestMdadmAbs):
     # alternative config for more complex setup
     conf_file = "examples/tests/raid5boot.yaml"
@@ -419,6 +437,10 @@ class HirsuteTestRaid5boot(relbase.hirsute, TestRaid5bootAbs):
 
 
 class ImpishTestRaid5boot(relbase.impish, TestRaid5bootAbs):
+    __test__ = True
+
+
+class JammyTestRaid5boot(relbase.jammy, TestRaid5bootAbs):
     __test__ = True
 
 
@@ -487,6 +509,10 @@ class ImpishTestRaid6boot(relbase.impish, TestRaid6bootAbs):
     __test__ = True
 
 
+class JammyTestRaid6boot(relbase.jammy, TestRaid6bootAbs):
+    __test__ = True
+
+
 class TestRaid10bootAbs(TestMdadmAbs):
     # alternative config for more complex setup
     conf_file = "examples/tests/raid10boot.yaml"
@@ -535,6 +561,10 @@ class HirsuteTestRaid10boot(relbase.hirsute, TestRaid10bootAbs):
 
 
 class ImpishTestRaid10boot(relbase.impish, TestRaid10bootAbs):
+    __test__ = True
+
+
+class JammyTestRaid10boot(relbase.jammy, TestRaid10bootAbs):
     __test__ = True
 
 
@@ -643,6 +673,10 @@ class HirsuteTestAllindata(relbase.hirsute, TestAllindataAbs):
 
 
 class ImpishTestAllindata(relbase.impish, TestAllindataAbs):
+    __test__ = True
+
+
+class JammyTestAllindata(relbase.jammy, TestAllindataAbs):
     __test__ = True
 
 

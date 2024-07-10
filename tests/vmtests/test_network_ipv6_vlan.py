@@ -34,6 +34,10 @@ class ImpishTestNetworkIPV6Vlan(relbase.impish, TestNetworkIPV6VlanAbs):
     __test__ = True
 
 
+class JammyTestNetworkIPV6Vlan(relbase.jammy, TestNetworkIPV6VlanAbs):
+    __test__ = True
+
+
 class Centos70TestNetworkIPV6Vlan(centos_relbase.centos70_xenial,
                                   CentosTestNetworkIPV6VlanAbs):
     __test__ = True

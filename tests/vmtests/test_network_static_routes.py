@@ -43,6 +43,11 @@ class ImpishTestNetworkStaticRoutes(relbase.impish,
     __test__ = True
 
 
+class JammyTestNetworkStaticRoutes(relbase.jammy,
+                                   TestNetworkStaticRoutesAbs):
+    __test__ = True
+
+
 class Centos70TestNetworkStaticRoutes(centos_relbase.centos70_xenial,
                                       CentosTestNetworkStaticRoutesAbs):
     __test__ = False

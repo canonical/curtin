@@ -108,6 +108,10 @@ class ImpishUefiTestBasic(relbase.impish, TestBasicAbs):
     __test__ = True
 
 
+class JammyUefiTestBasic(relbase.jammy, TestBasicAbs):
+    __test__ = True
+
+
 class Centos70UefiTestBasic4k(centos_relbase.centos70_xenial, TestBasicAbs):
     __test__ = True
     disk_block_size = 4096
@@ -134,6 +138,11 @@ class HirsuteUefiTestBasic4k(relbase.hirsute, TestBasicAbs):
 
 
 class ImpishUefiTestBasic4k(relbase.impish, TestBasicAbs):
+    __test__ = True
+    disk_block_size = 4096
+
+
+class JammyUefiTestBasic4k(relbase.jammy, TestBasicAbs):
     __test__ = True
     disk_block_size = 4096
 

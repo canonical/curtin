@@ -35,6 +35,10 @@ class ImpishTestNetworkIPV6Static(relbase.impish, TestNetworkIPV6StaticAbs):
     __test__ = True
 
 
+class JammyTestNetworkIPV6Static(relbase.jammy, TestNetworkIPV6StaticAbs):
+    __test__ = True
+
+
 class Centos70TestNetworkIPV6Static(centos_relbase.centos70_xenial,
                                     CentosTestNetworkIPV6StaticAbs):
     __test__ = True

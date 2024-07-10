@@ -81,4 +81,8 @@ class ImpishTestLvmPreserve(relbase.impish, TestLvmPreserveAbs):
     __test__ = True
 
 
+class JammyTestLvmPreserve(relbase.jammy, TestLvmPreserveAbs):
+    __test__ = True
+
+
 # vi: ts=4 expandtab syntax=python

@@ -31,4 +31,8 @@ class ImpishTestBcacheBug1718699(relbase.impish, TestBcacheBug1718699):
     __test__ = True
 
 
+class JammyTestBcacheBug1718699(relbase.jammy, TestBcacheBug1718699):
+    __test__ = True
+
+
 # vi: ts=4 expandtab syntax=python

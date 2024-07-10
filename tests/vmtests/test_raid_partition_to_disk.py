@@ -30,4 +30,8 @@ class ImpishTestRAIDPartitionToDisk(relbase.impish, TestRAIDPartitionToDisk):
     __test__ = True
 
 
+class JammyTestRAIDPartitionToDisk(relbase.jammy, TestRAIDPartitionToDisk):
+    __test__ = True
+
+
 # vi: ts=4 expandtab syntax=python

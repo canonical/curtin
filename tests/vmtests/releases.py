@@ -179,6 +179,13 @@ class _ImpishBase(_UbuntuBase):
         subarch = "ga-21.10"
 
 
+class _JammyBase(_UbuntuBase):
+    release = "jammy"
+    target_release = "jammy"
+    if _UbuntuBase.arch == "arm64":
+        subarch = "ga-22.04"
+
+
 class _Releases(object):
     trusty = _TrustyBase
     precise = _PreciseBase
@@ -199,6 +206,7 @@ class _Releases(object):
     focal = _FocalBase
     hirsute = _HirsuteBase
     impish = _ImpishBase
+    jammy = _JammyBase
 
 
 class _CentosReleases(object):

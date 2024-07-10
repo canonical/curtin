@@ -44,4 +44,8 @@ class ImpishTestJournaldReporter(relbase.impish, TestJournaldReporter):
     __test__ = True
 
 
+class JammyTestJournaldReporter(relbase.jammy, TestJournaldReporter):
+    __test__ = True
+
+
 # vi: ts=4 expandtab syntax=python

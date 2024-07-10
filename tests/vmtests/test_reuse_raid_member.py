@@ -40,6 +40,10 @@ class ImpishTestReuseRAIDMember(relbase.impish, TestReuseRAIDMember):
     __test__ = True
 
 
+class JammyTestReuseRAIDMember(relbase.jammy, TestReuseRAIDMember):
+    __test__ = True
+
+
 class BionicTestReuseRAIDMemberPartition(relbase.bionic,
                                          TestReuseRAIDMemberPartition):
     __test__ = True
@@ -57,6 +61,11 @@ class HirsuteTestReuseRAIDMemberPartition(relbase.hirsute,
 
 class ImpishTestReuseRAIDMemberPartition(relbase.impish,
                                          TestReuseRAIDMemberPartition):
+    __test__ = True
+
+
+class JammyTestReuseRAIDMemberPartition(relbase.jammy,
+                                        TestReuseRAIDMemberPartition):
     __test__ = True
 
 

@@ -89,4 +89,8 @@ class ImpishTestLvm(relbase.impish, TestLvmAbs):
     __test__ = True
 
 
+class JammyTestLvm(relbase.jammy, TestLvmAbs):
+    __test__ = True
+
+
 # vi: ts=4 expandtab syntax=python

@@ -37,6 +37,10 @@ class ImpishTestPreserveRAID(relbase.impish, TestPreserveRAID):
     __test__ = True
 
 
+class JammyTestPreserveRAID(relbase.jammy, TestPreserveRAID):
+    __test__ = True
+
+
 class TestPartitionExistingRAID(VMBaseClass):
     """ Test that curtin can repartition an existing RAID. """
     conf_file = "examples/tests/partition-existing-raid.yaml"
@@ -72,6 +76,11 @@ class HirsuteTestPartitionExistingRAID(
 
 class ImpishTestPartitionExistingRAID(
         relbase.impish, TestPartitionExistingRAID):
+    __test__ = True
+
+
+class JammyTestPartitionExistingRAID(
+        relbase.jammy, TestPartitionExistingRAID):
     __test__ = True
 
 

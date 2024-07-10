@@ -37,6 +37,10 @@ class ImpishTestPreserveWipeLvm(relbase.impish, TestPreserveWipeLvm):
     __test__ = True
 
 
+class JammyTestPreserveWipeLvm(relbase.jammy, TestPreserveWipeLvm):
+    __test__ = True
+
+
 class TestPreserveWipeLvmSimple(VMBaseClass):
     conf_file = "examples/tests/preserve-partition-wipe-vg-simple.yaml"
     uefi = False
@@ -63,6 +67,11 @@ class HirsuteTestPreserveWipeLvmSimple(relbase.hirsute,
 
 class ImpishTestPreserveWipeLvmSimple(relbase.impish,
                                       TestPreserveWipeLvmSimple):
+    __test__ = True
+
+
+class JammyTestPreserveWipeLvmSimple(relbase.jammy,
+                                     TestPreserveWipeLvmSimple):
     __test__ = True
 
 

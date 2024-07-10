@@ -111,6 +111,11 @@ class ImpishTestZfsRoot(relbase.impish, TestZfsRootAbs):
     mem = 4096
 
 
+class JammyTestZfsRoot(relbase.jammy, TestZfsRootAbs):
+    __test__ = True
+    mem = 4096
+
+
 class TestZfsRootFsTypeAbs(TestZfsRootAbs):
     conf_file = "examples/tests/basic-zfsroot.yaml"
 
@@ -141,6 +146,11 @@ class HirsuteTestZfsRootFsType(relbase.hirsute, TestZfsRootFsTypeAbs):
 
 
 class ImpishTestZfsRootFsType(relbase.impish, TestZfsRootFsTypeAbs):
+    __test__ = True
+    mem = 4096
+
+
+class JammyTestZfsRootFsType(relbase.jammy, TestZfsRootFsTypeAbs):
     __test__ = True
     mem = 4096
 

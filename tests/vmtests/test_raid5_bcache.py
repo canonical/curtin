@@ -100,4 +100,8 @@ class ImpishTestRaid5Bcache(relbase.impish, TestMdadmBcacheAbs):
     __test__ = True
 
 
+class JammyTestRaid5Bcache(relbase.jammy, TestMdadmBcacheAbs):
+    __test__ = True
+
+
 # vi: ts=4 expandtab syntax=python

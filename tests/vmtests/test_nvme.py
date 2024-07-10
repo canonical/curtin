@@ -87,6 +87,10 @@ class ImpishTestNvme(relbase.impish, TestNvmeAbs):
     __test__ = False
 
 
+class JammyTestNvme(relbase.jammy, TestNvmeAbs):
+    __test__ = False
+
+
 class TestNvmeBcacheAbs(TestNvmeAbs):
     arch_skip = [
         "s390x",  # nvme is a pci device, no pci on s390x
@@ -158,6 +162,10 @@ class HirsuteTestNvmeBcache(relbase.hirsute, TestNvmeBcacheAbs):
 
 
 class ImpishTestNvmeBcache(relbase.impish, TestNvmeBcacheAbs):
+    __test__ = True
+
+
+class JammyTestNvmeBcache(relbase.jammy, TestNvmeBcacheAbs):
     __test__ = True
 
 

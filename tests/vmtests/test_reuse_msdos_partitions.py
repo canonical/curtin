@@ -33,4 +33,9 @@ class ImpishTestReuseMSDOSPartitions(relbase.impish,
     __test__ = True
 
 
+class JammyTestReuseMSDOSPartitions(relbase.jammy,
+                                    TestReuseMSDOSPartitions):
+    __test__ = True
+
+
 # vi: ts=4 expandtab syntax=python

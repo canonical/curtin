@@ -37,4 +37,8 @@ class ImpishTestBcachePartitions(relbase.impish, TestBcachePartitions):
     __test__ = True
 
 
+class JammyTestBcachePartitions(relbase.jammy, TestBcachePartitions):
+    __test__ = True
+
+
 # vi: ts=4 expandtab syntax=python

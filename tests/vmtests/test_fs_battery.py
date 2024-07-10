@@ -251,4 +251,8 @@ class ImpishTestFsBattery(relbase.impish, TestFsBattery):
     __test__ = True
 
 
+class JammyTestFsBattery(relbase.jammy, TestFsBattery):
+    __test__ = True
+
+
 # vi: ts=4 expandtab syntax=python

@@ -61,6 +61,13 @@ class ImpishTestSimple(relbase.impish, TestSimple):
         self.output_files_exist(["netplan.yaml"])
 
 
+class JammyTestSimple(relbase.jammy, TestSimple):
+    __test__ = True
+
+    def test_output_files_exist(self):
+        self.output_files_exist(["netplan.yaml"])
+
+
 class TestSimpleStorage(VMBaseClass):
     """ Test curtin runs clear-holders when mode=simple with storage cfg. """
     conf_file = "examples/tests/simple-storage.yaml"
@@ -124,6 +131,13 @@ class ImpishTestSimpleStorage(relbase.impish, TestSimpleStorage):
         self.output_files_exist(["netplan.yaml"])
 
 
+class JammyTestSimpleStorage(relbase.jammy, TestSimpleStorage):
+    __test__ = True
+
+    def test_output_files_exist(self):
+        self.output_files_exist(["netplan.yaml"])
+
+
 class TestGrubNoDefaults(VMBaseClass):
     """ Test that curtin does not emit any grub configuration files. """
     conf_file = "examples/tests/no-grub-file.yaml"
@@ -158,6 +172,13 @@ class HirsuteTestGrubNoDefaults(relbase.hirsute, TestGrubNoDefaults):
 
 
 class ImpishTestGrubNoDefaults(relbase.impish, TestGrubNoDefaults):
+    __test__ = True
+
+    def test_output_files_exist(self):
+        self.output_files_exist(["netplan.yaml"])
+
+
+class JammyTestGrubNoDefaults(relbase.jammy, TestGrubNoDefaults):
     __test__ = True
 
     def test_output_files_exist(self):

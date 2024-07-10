@@ -40,6 +40,10 @@ class ImpishTestNetworkStatic(relbase.impish, TestNetworkStaticAbs):
     __test__ = True
 
 
+class JammyTestNetworkStatic(relbase.jammy, TestNetworkStaticAbs):
+    __test__ = True
+
+
 class Centos70TestNetworkStatic(centos_relbase.centos70_xenial,
                                 CentosTestNetworkStaticAbs):
     __test__ = True
