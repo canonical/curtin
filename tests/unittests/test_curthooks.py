@@ -2386,6 +2386,45 @@ network:
             },
         }))
 
+    def test_nvmeotcp_requires_firmware_support__root_on_remote(self):
+        self.assertTrue(curthooks.nvmeotcp_requires_firmware_support({
+            "storage": {
+                "config": [
+                    {
+                        "type": "mount",
+                        "path": "/",
+                        "options": "default,_netdev",
+                    },
+                ],
+            },
+        }))
+        self.assertFalse(curthooks.nvmeotcp_requires_firmware_support({
+            "storage": {
+                "config": [
+                    {
+                        "type": "mount",
+                        "path": "/boot",
+                    }, {
+                        "type": "mount",
+                        "path": "/",
+                        "options": "default,_netdev",
+                    },
+                ],
+            },
+        }))
+
+    def test_nvmeotcp_requires_firmware_support__empty_conf(self):
+        self.assertFalse(curthooks.nvmeotcp_requires_firmware_support({}))
+        self.assertFalse(curthooks.nvmeotcp_need_network_in_initramfs(
+            {"storage": False}))
+        self.assertFalse(curthooks.nvmeotcp_need_network_in_initramfs(
+            {"storage": {}}))
+        self.assertFalse(curthooks.nvmeotcp_need_network_in_initramfs({
+            "storage": {
+                "config": "disabled",
+            },
+        }))
+
 
 class TestUefiFindGrubDeviceIds(CiTestCase):
 

@@ -11,7 +11,7 @@ import sys
 import shlex
 import shutil
 import textwrap
-from typing import List, Set, Tuple
+from typing import List, Optional, Set, Tuple
 
 import yaml
 
@@ -1600,6 +1600,42 @@ def nvmeotcp_need_network_in_initramfs(cfg) -> bool:
             return True
 
     return False
+
+
+def nvmeotcp_requires_firmware_support(cfg) -> bool:
+    """Parse the storage configuration and check if the bootfs or ESP are on
+    remote storage. If they are, we need firmware support to reach the
+    initramfs.
+    """
+    rootfs_is_remote = False
+    bootfs_is_remote: Optional[bool] = None
+    esp_is_remote: Optional[bool] = None
+
+    if 'storage' not in cfg or not isinstance(cfg['storage'], dict):
+        return False
+    storage = cfg['storage']
+    if 'config' not in storage or storage['config'] == 'disabled':
+        return False
+    config = storage['config']
+    for item in config:
+        if item['type'] != 'mount':
+            continue
+        path = item['path']
+        if path == '/':
+            rootfs_is_remote = '_netdev' in item.get('options', '').split(',')
+        elif path == '/boot':
+            bootfs_is_remote = '_netdev' in item.get('options', '').split(',')
+            # TODO maybe return true if true
+        elif path == '/boot/efi':
+            esp_is_remote = '_netdev' in item.get('options', '').split(',')
+            # TODO maybe return true if true
+
+    if bootfs_is_remote is None:
+        bootfs_is_remote = rootfs_is_remote
+    if esp_is_remote is None:
+        esp_is_remote = bootfs_is_remote
+
+    return bootfs_is_remote or esp_is_remote
 
 
 def nvmeotcp_get_ip_commands(cfg) -> List[Tuple[str]]:
