@@ -1728,6 +1728,30 @@ install() {
     module_setup.chmod(0o755)
 
 
+def nvmeotcp_configure_nvme_stas(cfg, target: pathlib.Path) -> None:
+    LOG.info('writing nvme-stas configuration')
+
+    controllers = get_nvme_stas_controller_directives(cfg)
+
+    if not controllers:
+        return
+
+    stas_dir = target / 'etc' / 'stas'
+    stas_dir.mkdir(parents=True, exist_ok=True)
+    with (stas_dir / 'stafd-curtin.conf').open('w', encoding='utf-8') as fh:
+        header = '''\
+# This file was created by curtin.
+'''
+        print(header, file=fh)
+        print('[Controllers]', file=fh)
+        for controller in controllers:
+            print(controller, file=fh)
+
+    with contextlib.suppress(FileNotFoundError):
+        (stas_dir / 'stafd.conf').replace(stas_dir / '.stafd.conf.bak')
+    (stas_dir / 'stafd.conf').symlink_to('stafd-curtin.conf')
+
+
 def nvmeotcp_initramfs_tools_configure(cfg, target: pathlib.Path) -> None:
     """Configure initramfs-tools for NVMe/TCP. This is a legacy approach where
     the network is hardcoded and nvme connect-all commands are manually
@@ -1836,22 +1860,8 @@ def configure_nvme_over_tcp(cfg, target: pathlib.Path) -> None:
         return
 
     LOG.info('NVMe-over-TCP configuration found')
-    LOG.info('writing nvme-stas configuration')
     distro.install_packages('nvme-stas', target=str(target))
-    stas_dir = target / 'etc' / 'stas'
-    stas_dir.mkdir(parents=True, exist_ok=True)
-    with (stas_dir / 'stafd-curtin.conf').open('w', encoding='utf-8') as fh:
-        header = '''\
-# This file was created by curtin.
-'''
-        print(header, file=fh)
-        print('[Controllers]', file=fh)
-        for controller in controllers:
-            print(controller, file=fh)
-
-    with contextlib.suppress(FileNotFoundError):
-        (stas_dir / 'stafd.conf').replace(stas_dir / '.stafd.conf.bak')
-    (stas_dir / 'stafd.conf').symlink_to('stafd-curtin.conf')
+    nvmeotcp_configure_nvme_stas(cfg, target)
 
     if not nvmeotcp_need_network_in_initramfs(cfg):
         # nvme-stas should be enough to boot.
