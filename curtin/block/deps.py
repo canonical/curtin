@@ -75,7 +75,7 @@ def detect_required_packages_mapping(osfamily=DISTROS.debian):
             'lvm_volgroup': ['lvm2'],
             'ntfs': ['ntfs-3g'],
             'nvme_controller': [],
-            'nvme_of_controller': ['nvme-cli', 'nvme-stas'],
+            'nvme_of_controller': ['nvme-cli'],
             'raid': ['mdadm'],
             'reiserfs': ['reiserfsprogs'],
             'xfs': ['xfsprogs'],

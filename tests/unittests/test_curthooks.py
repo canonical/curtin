@@ -1634,7 +1634,7 @@ class TestDetectRequiredPackages(CiTestCase):
             ({'storage': {
                 'version': 1,
                 'items': ('nvme_controller_tcp',)}},
-             ('nvme-cli', 'nvme-stas')),
+             ('nvme-cli', )),
         ))
 
     def test_network_v1_detect(self):

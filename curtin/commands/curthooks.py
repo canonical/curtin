@@ -1702,6 +1702,7 @@ def configure_nvme_over_tcp(cfg, target: pathlib.Path) -> None:
 
     LOG.info('NVMe-over-TCP configuration found')
     LOG.info('writing nvme-stas configuration')
+    distro.install_packages('nvme-stas', target=str(target))
     stas_dir = target / 'etc' / 'stas'
     stas_dir.mkdir(parents=True, exist_ok=True)
     with (stas_dir / 'stafd-curtin.conf').open('w', encoding='utf-8') as fh:
