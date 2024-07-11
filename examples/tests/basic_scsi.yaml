@@ -16,7 +16,7 @@ storage:
       - id: sda1
         type: partition
         number: 1
-        size: 3GB
+        size: 6GB
         device: sda
         flag: boot
       - id: sda2
