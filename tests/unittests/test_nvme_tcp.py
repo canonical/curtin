@@ -263,3 +263,77 @@ network:
         )
         self.assertTrue(cmdline_sh.exists())
         self.assertTrue(setup_sh.exists())
+
+    def test_initramfs_tools_configure(self):
+        target = self.tmp_dir()
+
+        nvme_cmds = [
+            ('nvme', 'connect-all', '--transport', 'tcp', '--traddr',
+             '172.16.82.77', '--trsvcid', '4420'),
+        ]
+
+        ip_cmds = [
+            ('dhcpcd', '-4', 'ens3'),
+        ]
+
+        get_nvme_cmds_sym = "curtin.nvme_tcp.get_nvme_commands"
+        get_ip_cmds_sym = "curtin.nvme_tcp.get_ip_commands"
+
+        with (patch(get_nvme_cmds_sym, return_value=nvme_cmds),
+              patch(get_ip_cmds_sym, return_value=ip_cmds)):
+            nvme_tcp.initramfs_tools_configure({}, target=Path(target))
+
+        init_premount_dir = 'etc/initramfs-tools/scripts/init-premount'
+
+        hook = Path(target + '/etc/initramfs-tools/hooks/curtin-nvme-over-tcp')
+        bootscript = Path(
+            f'{target}/{init_premount_dir}/curtin-nvme-over-tcp')
+        netup_script = Path(target + '/etc/curtin-nvme-over-tcp/network-up')
+        connect_nvme_script = Path(
+                target + '/etc/curtin-nvme-over-tcp/connect-nvme')
+
+        self.assertTrue(hook.exists())
+        self.assertTrue(bootscript.exists())
+
+        netup_expected_contents = '''\
+#!/bin/sh
+
+# This file was created by curtin.
+# If you make modifications to it, please remember to regenerate the initramfs
+# using the command `update-initramfs -u`.
+
+dhcpcd -4 ens3
+'''
+        self.assertEqual(netup_expected_contents, netup_script.read_text())
+        connect_nvme_expected_contents = '''\
+#!/bin/sh
+
+# This file was created by curtin.
+# If you make modifications to it, please remember to regenerate the initramfs
+# using the command `update-initramfs -u`.
+
+nvme connect-all --transport tcp --traddr 172.16.82.77 --trsvcid 4420
+'''
+        self.assertEqual(connect_nvme_expected_contents,
+                         connect_nvme_script.read_text())
+
+    def test_configure_nvme_stas(self):
+        target = self.tmp_dir()
+
+        directives = [
+            'controller = transport=tcp;traddr=172.16.82.77;trsvcid=4420',
+        ]
+
+        with patch('curtin.nvme_tcp.get_nvme_stas_controller_directives',
+                   return_value=directives):
+            nvme_tcp.configure_nvme_stas({}, target=Path(target))
+
+        stafd = Path(target + '/etc/stas/stafd.conf')
+
+        stafd_expected_contents = '''\
+# This file was created by curtin.
+
+[Controllers]
+controller = transport=tcp;traddr=172.16.82.77;trsvcid=4420
+'''
+        self.assertEqual(stafd_expected_contents, stafd.read_text())
