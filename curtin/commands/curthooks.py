@@ -1688,7 +1688,7 @@ def nvmeotcp_get_ip_commands(cfg) -> List[Tuple[str]]:
     return commands
 
 
-def configure_nvme_over_tcp(cfg, target):
+def configure_nvme_over_tcp(cfg, target: pathlib.Path) -> None:
     """If any NVMe controller using the TCP transport is present in the storage
     configuration, create a nvme-stas configuration and configure the initramfs
     so that the remote drives can be made available at boot.
@@ -1702,7 +1702,6 @@ def configure_nvme_over_tcp(cfg, target):
 
     LOG.info('NVMe-over-TCP configuration found')
     LOG.info('writing nvme-stas configuration')
-    target = pathlib.Path(target)
     stas_dir = target / 'etc' / 'stas'
     stas_dir.mkdir(parents=True, exist_ok=True)
     with (stas_dir / 'stafd-curtin.conf').open('w', encoding='utf-8') as fh:
@@ -2082,7 +2081,7 @@ def builtin_curthooks(cfg, target, state):
             name=stack_prefix + '/configuring-nvme-over-tcp',
             reporting_enabled=True, level="INFO",
             description="configuring NVMe over TCP"):
-        configure_nvme_over_tcp(cfg, target)
+        configure_nvme_over_tcp(cfg, pathlib.Path(target))
 
     if osfamily == DISTROS.debian:
         with events.ReportEventStack(
