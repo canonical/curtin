@@ -1,6 +1,7 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
 
 import os
+from pathlib import Path
 from unittest.mock import call, patch
 import textwrap
 from typing import Optional
@@ -2424,6 +2425,20 @@ network:
                 "config": "disabled",
             },
         }))
+
+    def test_nvmeotcp_dracut_add_systemd_network_cmdline(self):
+        target = self.tmp_dir()
+        curthooks.nvmeotcp_dracut_add_systemd_network_cmdline(
+                target=Path(target))
+        mod_name = "35curtin-systemd-network-cmdline"
+        cmdline_sh = Path(
+            f"{target}/usr/lib/dracut/modules.d/{mod_name}/networkd-cmdline.sh"
+        )
+        setup_sh = Path(
+            f"{target}/usr/lib/dracut/modules.d/{mod_name}/module-setup.sh"
+        )
+        self.assertTrue(cmdline_sh.exists())
+        self.assertTrue(setup_sh.exists())
 
 
 class TestUefiFindGrubDeviceIds(CiTestCase):

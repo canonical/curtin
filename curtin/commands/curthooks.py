@@ -1688,41 +1688,51 @@ def nvmeotcp_get_ip_commands(cfg) -> List[Tuple[str]]:
     return commands
 
 
-def configure_nvme_over_tcp(cfg, target: pathlib.Path) -> None:
-    """If any NVMe controller using the TCP transport is present in the storage
-    configuration, create a nvme-stas configuration and configure the initramfs
-    so that the remote drives can be made available at boot.
-    Please note that the NVMe over TCP support in curtin is experimental and in
-    active development. Currently, it only works with trivial network
-    configurations ; supplied by Subiquity."""
-    controllers = get_nvme_stas_controller_directives(cfg)
+def nvmeotcp_dracut_add_systemd_network_cmdline(target: pathlib.Path) -> None:
+    LOG.info('adding curtin-systemd-network-cmdline module to dracut')
 
-    if not controllers:
-        return
+    hook_contents = '''\
+#!/bin/bash
 
-    LOG.info('NVMe-over-TCP configuration found')
-    LOG.info('writing nvme-stas configuration')
-    distro.install_packages('nvme-stas', target=str(target))
-    stas_dir = target / 'etc' / 'stas'
-    stas_dir.mkdir(parents=True, exist_ok=True)
-    with (stas_dir / 'stafd-curtin.conf').open('w', encoding='utf-8') as fh:
-        header = '''\
-# This file was created by curtin.
+type getcmdline > /dev/null 2>&1 || . /lib/dracut-lib.sh
+
+/usr/lib/systemd/systemd-network-generator -- $(getcmdline)
 '''
-        print(header, file=fh)
-        print('[Controllers]', file=fh)
-        for controller in controllers:
-            print(controller, file=fh)
+    module_setup_contents = '''\
+#!/bin/bash
 
-    with contextlib.suppress(FileNotFoundError):
-        (stas_dir / 'stafd.conf').replace(stas_dir / '.stafd.conf.bak')
-    (stas_dir / 'stafd.conf').symlink_to('stafd-curtin.conf')
+# called by dracut
+depends() {
+    echo systemd-networkd
+    return 0
+}
 
-    if not nvmeotcp_need_network_in_initramfs(cfg):
-        # nvme-stas should be enough to boot.
-        return
+# called by dracut
+install() {
+    inst_hook pre-udev 99 "$moddir/networkd-cmdline.sh"
+}
+'''
 
-    LOG.info('configuring network in initramfs for NVMe over TCP')
+    dracut_mods_dir = target / 'usr' / 'lib' / 'dracut' / 'modules.d'
+    dracut_curtin_mod = dracut_mods_dir / '35curtin-systemd-network-cmdline'
+    dracut_curtin_mod.mkdir(parents=True, exist_ok=True)
+
+    hook = dracut_curtin_mod / 'networkd-cmdline.sh'
+    with hook.open('w', encoding='utf-8') as fh:
+        print(hook_contents, file=fh)
+    hook.chmod(0o755)
+
+    module_setup = dracut_curtin_mod / 'module-setup.sh'
+    with module_setup.open('w', encoding='utf-8') as fh:
+        print(module_setup_contents, file=fh)
+    module_setup.chmod(0o755)
+
+
+def nvmeotcp_initramfs_tools_configure(cfg, target: pathlib.Path) -> None:
+    """Configure initramfs-tools for NVMe/TCP. This is a legacy approach where
+    the network is hardcoded and nvme connect-all commands are manually
+    crafted. However, this implementation does not require firmware support."""
+    LOG.info('configuring initramfs-tools for NVMe over TCP')
 
     hook_contents = '''\
 #!/bin/sh
@@ -1811,6 +1821,43 @@ modprobe nvme-tcp
         print(script_header, file=fh)
         for cmd in nvmeotcp_get_ip_commands(cfg):
             print(shlex.join(cmd), file=fh)
+
+
+def configure_nvme_over_tcp(cfg, target: pathlib.Path) -> None:
+    """If any NVMe controller using the TCP transport is present in the storage
+    configuration, create a nvme-stas configuration and configure the initramfs
+    so that the remote drives can be made available at boot.
+    Please note that the NVMe over TCP support in curtin is experimental and in
+    active development. Currently, it only works with trivial network
+    configurations ; supplied by Subiquity."""
+    controllers = get_nvme_stas_controller_directives(cfg)
+
+    if not controllers:
+        return
+
+    LOG.info('NVMe-over-TCP configuration found')
+    LOG.info('writing nvme-stas configuration')
+    distro.install_packages('nvme-stas', target=str(target))
+    stas_dir = target / 'etc' / 'stas'
+    stas_dir.mkdir(parents=True, exist_ok=True)
+    with (stas_dir / 'stafd-curtin.conf').open('w', encoding='utf-8') as fh:
+        header = '''\
+# This file was created by curtin.
+'''
+        print(header, file=fh)
+        print('[Controllers]', file=fh)
+        for controller in controllers:
+            print(controller, file=fh)
+
+    with contextlib.suppress(FileNotFoundError):
+        (stas_dir / 'stafd.conf').replace(stas_dir / '.stafd.conf.bak')
+    (stas_dir / 'stafd.conf').symlink_to('stafd-curtin.conf')
+
+    if not nvmeotcp_need_network_in_initramfs(cfg):
+        # nvme-stas should be enough to boot.
+        return
+
+    nvmeotcp_initramfs_tools_configure(cfg, target)
 
 
 def handle_cloudconfig(cfg, base_dir=None):
