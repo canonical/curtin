@@ -1708,9 +1708,6 @@ def configure_nvme_over_tcp(cfg, target: pathlib.Path) -> None:
     with (stas_dir / 'stafd-curtin.conf').open('w', encoding='utf-8') as fh:
         header = '''\
 # This file was created by curtin.
-# If you make modifications to it, please remember to also update
-# scripts in etc/curtin-nvme-over-tcp and then regenerate the initramfs using
-# the command `update-initramfs -u`.
 '''
         print(header, file=fh)
         print('[Controllers]', file=fh)
