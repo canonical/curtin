@@ -1384,3 +1384,18 @@ table-length: 256'''.encode()
         self.assertPartitions(
             PartData(number=1, offset=1 << 20, size=1 << 20, boot=False,
                      partition_type='E3C9E316-0B5C-4DB8-817D-F92DF00215AE'))
+
+    def test_quick_zero_loop(self):
+        """ attempt to provoke ordering problems in partition wiping with
+            superblock-recursive """
+        self.img = self.tmp_path('image.img')
+        config = StorageConfigBuilder(version=2)
+        config.add_image(path=self.img, create=True, size='20M',
+                         ptable='gpt', wipe='superblock-recursive')
+        parts = []
+        for i in range(1, 19):
+            config.add_part(number=i, offset=i << 20, size=1 << 20)
+            parts.append(PartData(number=1, offset=i << 20, size=1 << 20))
+        for run in range(5):
+            self.run_bm(config.render())
+            self.assertPartitions(*parts)
