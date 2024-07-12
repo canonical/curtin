@@ -1227,11 +1227,10 @@ def wipe_file(path, reader=None, buflen=4 * 1024 * 1024, exclusive=True):
 
 def quick_zero(path, partitions=True, exclusive=True):
     """
-    call wipefs -a -f on path, then zero 1M at front, 1M at end
-    if this is a block device and partitions is true, then
-    zero 1M at front and end of each partition.
+    Call wipefs -a -f on path, then zero 1M at front, 1M at end.
+    If this is a block device and partitions is true, then
+    zero 1M at front and end of each partition before zeroing path.
     """
-    util.subp(['wipefs', '--all', '--force', path])
     buflen = 1024
     count = 1024
     zero_size = buflen * count
@@ -1251,6 +1250,8 @@ def quick_zero(path, partitions=True, exclusive=True):
         LOG.debug('Wiping path: dev:%s kname:%s partnum:%s',
                   pt, kname, ptnum)
         quick_zero(pt, partitions=False)
+
+    util.subp(['wipefs', '--all', '--force', path])
 
     LOG.debug("wiping 1M on %s at offsets %s", path, offsets)
     util.not_exclusive_retry(
