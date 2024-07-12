@@ -1000,21 +1000,28 @@ def sysfs_partition_data(blockdev=None, sysfs_path=None):
         sysfs_prefix = sys_block_path(parent)
         partnum = int(partnum)
 
+    keys = {'partition', 'start', 'size'}
     ptdata = []
     for part_sysfs in get_sysfs_partitions(sysfs_prefix):
         data = {}
-        for sfile in ('partition', 'start', 'size'):
+        for sfile in keys:
             dfile = os.path.join(part_sysfs, sfile)
             if not os.path.isfile(dfile):
                 continue
             data[sfile] = int(util.load_file(dfile))
         if partnum is None or data['partition'] == partnum:
-            ptdata.append((
-                path_to_kname(part_sysfs),
-                data['partition'],
-                data['start'] * SECTOR_SIZE_BYTES,
-                data['size'] * SECTOR_SIZE_BYTES,
-                ))
+            if data.keys() == keys:
+                ptdata.append((
+                    path_to_kname(part_sysfs),
+                    data['partition'],
+                    data['start'] * SECTOR_SIZE_BYTES,
+                    data['size'] * SECTOR_SIZE_BYTES,
+                    ))
+            else:
+                LOG.debug(
+                    "sysfs_partition_data: "
+                    f"skipping {part_sysfs} - incomplete sysfs read"
+                )
 
     return ptdata
 
