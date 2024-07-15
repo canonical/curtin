@@ -5,7 +5,7 @@
 import contextlib
 import pathlib
 import shlex
-from typing import Any, Dict, Iterator, List, Optional, Set, Tuple
+from typing import Any, Dict, Iterator, List, Set, Tuple
 
 import yaml
 
@@ -89,26 +89,23 @@ def requires_firmware_support(cfg) -> bool:
     initramfs.
     """
     rootfs_is_remote = False
-    bootfs_is_remote: Optional[bool] = None
-    esp_is_remote: Optional[bool] = None
+    mounts_found = {'/boot': False, '/boot/efi': False}
 
     for item in _iter_cfg_mounts(cfg):
         path = item['path']
         if path == '/':
             rootfs_is_remote = _mount_item_requires_network(item)
-        elif path == '/boot':
-            bootfs_is_remote = _mount_item_requires_network(item)
-            # TODO maybe return true if true
-        elif path == '/boot/efi':
-            esp_is_remote = _mount_item_requires_network(item)
-            # TODO maybe return true if true
+        elif path in mounts_found.keys():
+            mounts_found[path] = True
+            if _mount_item_requires_network(item):
+                # /boot or /boot/efi on remote storage mandates firmware
+                # support. No need to continue checking other mounts.
+                return True
 
-    if bootfs_is_remote is None:
-        bootfs_is_remote = rootfs_is_remote
-    if esp_is_remote is None:
-        esp_is_remote = bootfs_is_remote
+    if not rootfs_is_remote:
+        return False
 
-    return bootfs_is_remote or esp_is_remote
+    return not mounts_found['/boot']
 
 
 def get_ip_commands(cfg) -> List[Tuple[str]]:
