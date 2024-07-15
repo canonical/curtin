@@ -5,7 +5,7 @@
 import contextlib
 import pathlib
 import shlex
-from typing import List, Optional, Set, Tuple
+from typing import Any, Dict, Iterator, List, Optional, Set, Tuple
 
 import yaml
 
@@ -51,19 +51,27 @@ def get_nvme_commands(cfg) -> List[Tuple[str]]:
     return sorted(commands)
 
 
+def _iter_cfg_mounts(cfg) -> Iterator[Dict[str, Any]]:
+    if 'storage' not in cfg or not isinstance(cfg['storage'], dict):
+        return
+    storage = cfg['storage']
+    if 'config' not in storage or storage['config'] == 'disabled':
+        return
+    config = storage['config']
+    for item in config:
+        if item['type'] == 'mount':
+            yield item
+
+
+def _mount_item_requires_network(mount_item: Dict[str, Any]) -> bool:
+    return '_netdev' in mount_item.get('options', '').split(',')
+
+
 def need_network_in_initramfs(cfg) -> bool:
     """Parse the storage configuration and check if any of the mountpoints
     essential for booting requires network."""
-    if 'storage' not in cfg or not isinstance(cfg['storage'], dict):
-        return False
-    storage = cfg['storage']
-    if 'config' not in storage or storage['config'] == 'disabled':
-        return False
-    config = storage['config']
-    for item in config:
-        if item['type'] != 'mount':
-            continue
-        if '_netdev' not in item.get('options', '').split(','):
+    for item in _iter_cfg_mounts(cfg):
+        if not _mount_item_requires_network(item):
             continue
 
         # We found a mountpoint that requires network. Let's check if it is
@@ -84,23 +92,15 @@ def requires_firmware_support(cfg) -> bool:
     bootfs_is_remote: Optional[bool] = None
     esp_is_remote: Optional[bool] = None
 
-    if 'storage' not in cfg or not isinstance(cfg['storage'], dict):
-        return False
-    storage = cfg['storage']
-    if 'config' not in storage or storage['config'] == 'disabled':
-        return False
-    config = storage['config']
-    for item in config:
-        if item['type'] != 'mount':
-            continue
+    for item in _iter_cfg_mounts(cfg):
         path = item['path']
         if path == '/':
-            rootfs_is_remote = '_netdev' in item.get('options', '').split(',')
+            rootfs_is_remote = _mount_item_requires_network(item)
         elif path == '/boot':
-            bootfs_is_remote = '_netdev' in item.get('options', '').split(',')
+            bootfs_is_remote = _mount_item_requires_network(item)
             # TODO maybe return true if true
         elif path == '/boot/efi':
-            esp_is_remote = '_netdev' in item.get('options', '').split(',')
+            esp_is_remote = _mount_item_requires_network(item)
             # TODO maybe return true if true
 
     if bootfs_is_remote is None:
