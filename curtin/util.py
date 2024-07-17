@@ -185,6 +185,10 @@ def _has_unshare_pid():
         return False
     out, err = subp(["unshare", "--help"], capture=True, decode=False,
                     unshare_pid=False)
+    if isinstance(out, str):
+        out = out.encode()
+    if isinstance(err, str):
+        err = err.encode()
     joined = b'\n'.join([out, err])
     _HAS_UNSHARE_PID = b'--fork' in joined and b'--pid' in joined
     return _HAS_UNSHARE_PID
