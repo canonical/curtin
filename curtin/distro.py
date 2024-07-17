@@ -185,11 +185,11 @@ def _lsb_release(target=None):
                 data[fmap[fname]] = val.strip()
         missing = [k for k in fmap.values() if k not in data]
         if len(missing):
-            LOG.warn("Missing fields in lsb_release --all output: %s",
-                     ','.join(missing))
+            LOG.warning("Missing fields in lsb_release --all output: %s",
+                        ','.join(missing))
 
     except ProcessExecutionError as err:
-        LOG.warn("Unable to get lsb_release --all: %s", err)
+        LOG.warning("Unable to get lsb_release --all: %s", err)
         data = {v: "UNAVAILABLE" for v in fmap.values()}
 
     return data
