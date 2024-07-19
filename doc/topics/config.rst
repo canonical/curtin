@@ -446,6 +446,10 @@ kernels in .deb packages are removed from the target system (packages which
 kernel is being installed, this also implies the removal of the
 ``linux-firmware`` package.
 
+**remove**: *<List of kernel package names>*
+
+After kernel installation, remove the listed packages.
+
 **Examples**::
 
   kernel:
@@ -465,6 +469,11 @@ kernel is being installed, this also implies the removal of the
   kernel:
     install: false
     remove_existing: true
+
+  # install hwe kernel, remove generic kernel
+  kernel:
+    package: linux-image-generic-hwe-24.04
+    remove: ["linux-generic"]
 
 
 kexec

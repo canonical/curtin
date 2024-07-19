@@ -372,18 +372,19 @@ def install_kernel(cfg, target):
 
     kernel_cfg = config.fromdict(config.KernelConfig, kernel_cfg_d)
 
-    if not kernel_cfg.install:
-        if kernel_cfg.remove_existing:
-            distro.purge_all_kernels(target=target)
-        LOG.debug(
-            "Not installing any kernel since kernel: {install: false} "
-            "was specified"
-        )
-        return
-
     with contextlib.ExitStack() as exitstack:
         if kernel_cfg.remove_existing:
             exitstack.enter_context(distro.ensure_one_kernel(target=target))
+        if kernel_cfg.remove:
+            exitstack.callback(
+                distro.purge_packages, kernel_cfg.remove, target=target
+            )
+        if not kernel_cfg.install:
+            LOG.debug(
+                "Not installing any kernel since kernel: {install: false} "
+                "was specified"
+            )
+            return
 
         mapping = copy.deepcopy(KERNEL_MAPPING)
         config.merge_config(mapping, kernel_cfg.mapping)

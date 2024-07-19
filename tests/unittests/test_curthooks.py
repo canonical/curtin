@@ -219,6 +219,52 @@ class TestCurthooksInstallKernel(CiTestCase):
             # remove
             self.mock_purgepkg.assert_not_called()
 
+    def test__remove_explicitly(self):
+        to_remove_kernel_package = "mock-linux-kernel"
+        kernel_cfg = {
+            'kernel': {
+                'install': False,
+                'remove': [to_remove_kernel_package],
+            }
+        }
+        self.mock_subp.return_value = ("warty", "")
+        self.mock_uname.return_value = (None, None, "1.2.3-4-flavor")
+        self.mock_list_kernels.return_value = ["mock-kernel-1.2.3-4-generic"]
+
+        with patch.dict(os.environ, clear=True):
+            curthooks.install_kernel(kernel_cfg, self.target)
+
+            self.mock_instpkg.assert_not_called()
+            self.mock_purgepkg.assert_called_with(
+                [to_remove_kernel_package], target=self.target,
+            )
+
+    def test__install_and_remove(self):
+        to_remove_kernel_package = "mock-linux-kernel"
+        to_install_kernel_package = "mock-linux-hwe-kernel"
+        kernel_cfg = {
+            'kernel': {
+                'package': to_install_kernel_package,
+                'remove': [to_remove_kernel_package],
+            }
+        }
+        self.mock_subp.return_value = ("warty", "")
+        self.mock_uname.return_value = (None, None, "1.2.3-4-flavor")
+        self.mock_list_kernels.return_value = []
+
+        with patch.dict(os.environ, clear=True):
+            curthooks.install_kernel(kernel_cfg, self.target)
+
+            self.mock_instpkg.assert_called_with(
+                [to_install_kernel_package],
+                target=self.target,
+                env=self.fk_env,
+            )
+
+            self.mock_purgepkg.assert_called_with(
+                [to_remove_kernel_package], target=self.target,
+            )
+
 
 class TestEnableDisableUpdateInitramfs(CiTestCase):
 
