@@ -516,12 +516,15 @@ def list_kernels(osfamily=None, target=None):
 
 
 @contextmanager
-def ensure_one_kernel(osfamily=None, target=None):
+def ensure_one_kernel(osfamily=None, target=None, before=None):
     """ensure_one_kernel is a context manager that evalutates the state of
     installed kernels, before and after doing package operations.  With that
     information, kernels that only appear before and not after are removed.
     """
-    before = set(list_kernels(osfamily=osfamily, target=target))
+    if bool(before):
+        before = set(before)
+    else:
+        before = set(list_kernels(osfamily=osfamily, target=target))
     yield
 
     LOG.debug('ensure_one_kernel: kernels before install %s', before)

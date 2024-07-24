@@ -250,7 +250,9 @@ class TestCurthooksInstallKernel(CiTestCase):
         }
         self.mock_subp.return_value = ("warty", "")
         self.mock_uname.return_value = (None, None, "1.2.3-4-flavor")
-        self.mock_list_kernels.return_value = []
+        self.mock_list_kernels.return_value = [
+            to_install_kernel_package, to_remove_kernel_package
+        ]
 
         with patch.dict(os.environ, clear=True):
             curthooks.install_kernel(kernel_cfg, self.target)

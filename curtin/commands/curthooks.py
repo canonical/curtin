@@ -373,11 +373,11 @@ def install_kernel(cfg, target):
     kernel_cfg = config.fromdict(config.KernelConfig, kernel_cfg_d)
 
     with contextlib.ExitStack() as exitstack:
-        if kernel_cfg.remove_existing:
-            exitstack.enter_context(distro.ensure_one_kernel(target=target))
-        if kernel_cfg.remove:
-            exitstack.callback(
-                distro.purge_packages, kernel_cfg.remove, target=target
+        if kernel_cfg.remove_existing or kernel_cfg.remove:
+            exitstack.enter_context(
+                distro.ensure_one_kernel(
+                    target=target, before=kernel_cfg.remove,
+                )
             )
         if not kernel_cfg.install:
             LOG.debug(
