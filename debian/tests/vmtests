@@ -1,0 +1,9 @@
+#!/usr/bin/sh
+
+./tools/vmtest-system-setup
+mkdir -p /srv/images
+python3 tools/vmtest-sync-images
+# pytest doesn't work at all for vmtests
+# python3 -m pytest -ra --cov="$(pwd)" --cov-branch --cov-report=xml tests/vmtests
+# fallback on nosetests3
+./tools/jenkins-runner -p4

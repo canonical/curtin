@@ -1,0 +1,4 @@
+#!/usr/bin/sh
+
+
+python3 -m pytest -ra --cov="$(pwd)" --cov-branch --cov-report=xml tests/integration/
