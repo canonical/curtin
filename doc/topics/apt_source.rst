@@ -130,7 +130,7 @@ That would be specified as ::
           =PBAe
           -----END PGP PUBLIC KEY BLOCK-----
 
-The file examples/apt-source.yaml holds various further examples that can be configured with this feature.
+The file `examples/apt-source.yaml <https://git.launchpad.net/curtin/tree/examples/apt-source.yaml>`_ holds various further examples that can be configured with this feature.
 
 deb822 sources on Ubuntu >= 24.04
 ---------------------------------
@@ -159,7 +159,7 @@ Common snippets
 ~~~~~~~~~~~~~~~
 This is a collection of additional ideas people can use the feature for customizing their to-be-installed system.
 
-* enable proposed on installing
+* Enable proposed on installing:
 
 ::
 
@@ -169,7 +169,17 @@ This is a collection of additional ideas people can use the feature for customiz
        source: |
          deb $MIRROR $RELEASE-proposed main restricted universe multiverse
 
-* Make debug symbols available
+* Add a PPA:
+
+::
+
+  apt:
+    sources:
+      curtin-ppa:
+        source: ppa:curtin-dev/test-archive
+
+
+* Make debug symbols available:
 
 ::
 
