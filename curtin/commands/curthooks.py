@@ -1580,6 +1580,25 @@ def configure_nvme_over_tcp(cfg, target: pathlib.Path) -> None:
         # jq is needed for the nvmf dracut module.
         distro.install_packages(['dracut', 'dracut-network', 'jq'],
                                 target=str(target))
+        # Let's make sure initramfs-tools does not get reinstalled over dracut.
+        # intel-microcode (pulled by linux-generic) is known to have
+        # initramfs-tools as a recommends. LP: #2073125
+        preferences_d = target / 'etc/apt/preferences.d'
+        preferences_d.mkdir(parents=True, exist_ok=True)
+        (preferences_d / 'nvmeotcp-poc-initramfs').write_text('''\
+# The NVMe/TCP proof of concept on Ubuntu uses dracut instead of
+# initramfs-tools.
+# That said, dracut is a universe package and is not the supported tool for
+# initramfs management. Installing packages that explicitly depend on
+# initramfs-tools will cause dracut to be removed, making the system unable to
+# boot. Furthermore, installing packages that have initramfs-tools as a
+# recommends can also trigger removal of dracut. Let's make sure
+# initramfs-tools does not get installed. See LP: #2073125.
+
+Package: initramfs-tools
+Pin: version *
+Pin-Priority: -1
+''')
         # This will take care of reading the network configuration from the
         # NBFT and pass it to systemd-networkd.
         nvme_tcp.dracut_add_systemd_network_cmdline(target)
