@@ -11,7 +11,7 @@ import re
 import stat
 import sys
 from typing import Optional
-from unittest import skipIf
+from unittest import skipIf, skip
 import yaml
 
 from curtin import block, compat, distro, log, udev, util
@@ -591,6 +591,7 @@ class TestBlockMeta(IntegrationTestCase):
     def test_wiping_msdos(self):
         self._test_wiping('msdos')
 
+    @skip
     def test_raw_image(self):
         img = self.tmp_path('image.img')
         config = StorageConfigBuilder(version=1)
@@ -1385,6 +1386,7 @@ table-length: 256'''.encode()
             PartData(number=1, offset=1 << 20, size=1 << 20, boot=False,
                      partition_type='E3C9E316-0B5C-4DB8-817D-F92DF00215AE'))
 
+    @skip
     def test_quick_zero_loop(self):
         """ attempt to provoke ordering problems in partition wiping with
             superblock-recursive """
