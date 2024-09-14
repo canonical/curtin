@@ -21,6 +21,7 @@ Curtin's top level config keys are as follows:
 - http_proxy (``http_proxy``)
 - install (``install``)
 - kernel (``kernel``)
+- kernel-crash-dumps (``kernel-crash-dumps``)
 - kexec (``kexec``)
 - multipath (``multipath``)
 - network (``network``)
@@ -439,6 +440,51 @@ Specify the exact package to install in the target OS.
       - xenial:
         - 4.4.0: -my-custom-kernel    
 
+kernel-crash-dumps
+~~~~~~~~~~~~~~~~~~
+Configure how Curtin will configure kernel crash dumps in the target system
+using the ``kdump-tools`` package. If ``kernel-crash-dumps`` is not configured,
+Curtin will attempt to use ``kdump-tools`` to enable kernel crash dumps on the
+target machine if certain criteria are met. This requires ``kdump-tools`` to be
+installed in the target system before the hook is ran, which will be run
+during execution of the hook to determine if the system meets the minimum
+requirements based on criteria such as architecture, number of cores,
+disk space, and available memory. The hook will not install ``kdump-tools``
+by default.
+
+**enabled**: *<boolean or None: default None>*
+
+Enable, disable, or allow ``kdump-tools`` to detect whether kernel crash
+dumps should be enabled or disabled on the target system for values of
+``true``, ``false``, and ``None``, respectively.
+
+If ``enabled`` is set to ``true``, Curtin will install the ``kdump-tools``
+package if it is not installed already and then enable kernel crash dumps in
+the target system unconditionally.
+
+If ``enabled`` is set to ``false``, Curtin will ensure kernel crash dumps are
+disabled in the target system but it **will not uninstall the package**.
+
+If ``enabled`` is set to ``null``, Curtin will check that ``kdump-tools``
+is installed in the target system and provides the automatic detection
+capability, and if so, will invoke ``kdump-tools`` to detect if the system
+meets the minimum criteria and enable or disable kernel crash dumps
+accordingly.
+
+**Examples**::
+
+  # Default: dynamically enable kernel crash dumps if kdump-tools is installed.
+  # on the target system.
+  kernel-crash-dumps:
+    enabled: null
+
+  # Unconditionally enable kernel-crash-dumps.
+  kernel-crash-dumps:
+    enabled: true
+
+  # Unconditionally disable kernel-crash-dumps.
+  kernel-crash-dumps:
+    enabled: false
 
 kexec
 ~~~~~

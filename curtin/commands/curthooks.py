@@ -3,6 +3,7 @@
 import copy
 import glob
 import os
+import pathlib
 import platform
 import re
 import sys
@@ -21,6 +22,7 @@ from curtin import paths
 from curtin import swap
 from curtin import util
 from curtin import version as curtin_version
+from curtin import kernel_crash_dumps
 from curtin.block import deps as bdeps
 from curtin.distro import DISTROS
 from curtin.net import deps as ndeps
@@ -1480,6 +1482,29 @@ def configure_mdadm(cfg, state_etcd, target, osfamily=DISTROS.debian):
                 data=None, target=target)
 
 
+def configure_kernel_crash_dumps(cfg, target: pathlib.Path) -> None:
+    """Configure kernel crash dumps on target system.
+
+    kernel-crash-dumps:
+        enabled: bool | None
+
+    If `enabled` is `None` then kernel crash dumps will be dynamically enabled
+    if both the kdump-tools package is installed on the target system and it
+    also provides the expected enablement script (Starting in 24.10).
+    """
+    kdump_cfg = cfg.get("kernel-crash-dumps", {})
+
+    enabled: bool = kdump_cfg.get("enabled")
+    automatic = enabled is None
+
+    if automatic:
+        kernel_crash_dumps.automatic_detect(target)
+    elif enabled:
+        kernel_crash_dumps.manual_enable(target)
+    else:
+        kernel_crash_dumps.manual_disable(target)
+
+
 def handle_cloudconfig(cfg, base_dir=None):
     """write cloud-init configuration files into base_dir.
 
@@ -1850,6 +1875,15 @@ def builtin_curthooks(cfg, target, state):
     udev_rules_d = os.path.join(state['scratch'], "rules.d")
     if os.path.isdir(udev_rules_d):
         copy_dname_rules(udev_rules_d, target)
+
+    # Setup kernel crash dumps
+    with events.ReportEventStack(
+        name=stack_prefix + "/configuring-kernel-crash-dumps",
+        reporting_enabled=True,
+        level="INFO",
+        description="configuring kernel crash dumps settings",
+    ):
+        configure_kernel_crash_dumps(cfg, pathlib.Path(target))
 
     with events.ReportEventStack(
             name=stack_prefix + '/updating-initramfs-configuration',
