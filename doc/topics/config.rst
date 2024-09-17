@@ -439,17 +439,21 @@ Specify the exact package to install in the target OS.
 
 Defaults to True.  If False, no kernel install is attempted.
 
-**remove_existing**: *<boolean>*
 
-Supported on Debian and Ubuntu OSes.  Defaults to False.  If True, known
-kernels in .deb packages are removed from the target system (packages which
-``Provides: linux-image``), followed by an ``apt-get autoremove``.  If no
-kernel is being installed, this also implies the removal of the
-``linux-firmware`` package.
+**remove**: *<List of kernel package names> | "existing"*
 
-**remove**: *<List of kernel package names>*
+After kernel installation, remove the listed packages.  Defaults to no action.
 
-After kernel installation, remove the listed packages.
+Instead of a list, the keyword ``existing`` may be supplied, indicating that
+all existing kernels must be removed.  (Supported on Debian and Ubuntu OSes)
+Known kernels in .deb packages are removed from the target system (packages
+which ``Provides: linux-image``), followed by an ``apt-get autoremove``.
+It's expected that some sort of other kernel is specified with ``package`` to
+be the replacement.
+
+The kernel removal code has a guardrail against the case where the target
+system is left without a kernel installed, in which case this ``remove``
+directive may be ignored.
 
 **Examples**::
 
@@ -464,12 +468,7 @@ After kernel installation, remove the listed packages.
   # and remove other kernels if present
   kernel:
     package: linux-image-generic-hwe-24.04
-    remove_existing: true
-
-  # install nothing and remove existing kernels
-  kernel:
-    install: false
-    remove_existing: true
+    remove: existing
 
   # install hwe kernel, remove generic kernel
   kernel:

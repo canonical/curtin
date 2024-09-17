@@ -152,7 +152,7 @@ class TestCurthooksInstallKernel(CiTestCase):
         kernel_cfg = {
             'kernel': {
                 'package': to_install_kernel_package,
-                'remove_existing': 'true',
+                'remove': 'existing',
             }
         }
         self.mock_subp.return_value = ("warty", "")
@@ -179,7 +179,7 @@ class TestCurthooksInstallKernel(CiTestCase):
         kernel_cfg = {
             'kernel': {
                 'package': to_install_kernel_package,
-                'remove_existing': 'true',
+                'remove': 'existing',
             }
         }
         self.mock_subp.return_value = ("warty", "")
@@ -201,7 +201,7 @@ class TestCurthooksInstallKernel(CiTestCase):
         kernel_cfg = {
             'kernel': {
                 'package': to_install_kernel_package,
-                'remove_existing': 'true',
+                'remove': 'existing',
             }
         }
         self.mock_subp.return_value = ("warty", "")

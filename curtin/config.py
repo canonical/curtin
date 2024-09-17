@@ -160,8 +160,18 @@ class KernelConfig:
     fallback_package: str = "linux-generic"
     mapping: dict = attr.Factory(dict)
     install: bool = attr.ib(default=True, converter=value_as_boolean)
-    remove_existing: bool = attr.ib(default=False, converter=value_as_boolean)
-    remove: list = attr.Factory(list)
+    remove: typing.Union[list | str | None] = None
+
+    def remove_needed(self) -> bool:
+        to_remove = self.kernels_to_remove()
+        if bool(to_remove):
+            return bool(to_remove)
+        return self.remove == "existing"
+
+    def kernels_to_remove(self) -> typing.Optional[list]:
+        if isinstance(self.remove, list):
+            return self.remove
+        return None
 
 
 class SerializationError(Exception):
