@@ -206,5 +206,24 @@ class TestDeserializer(CiTestCase):
             DashToUnderscore(a_b=True),
             deserializer.deserialize(DashToUnderscore, {"a-b": True}))
 
+    def test_union_str_list(self):
+        deserializer = config.Deserializer()
+
+        @attr.s(auto_attribs=True)
+        class UnionClass:
+            val: typing.Union[str | list | None]
+
+        self.assertEqual(
+            UnionClass(val="a"),
+            deserializer.deserialize(UnionClass, {"val": "a"}))
+
+        self.assertEqual(
+            UnionClass(val=["b"]),
+            deserializer.deserialize(UnionClass, {"val": ["b"]}))
+
+        self.assertEqual(
+            UnionClass(val=None),
+            deserializer.deserialize(UnionClass, {"val": None}))
+
 
 # vi: ts=4 expandtab syntax=python

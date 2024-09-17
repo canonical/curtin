@@ -225,14 +225,18 @@ class Deserializer:
             ]
 
     def _walk_Union(self, meth, args, context):
+        if context.cur is None:
+            return context.cur
         NoneType = type(None)
         if NoneType in args:
             args = [a for a in args if a is not NoneType]
             if len(args) == 1:
                 # I.e. Optional[thing]
-                if context.cur is None:
-                    return context.cur
                 return meth(args[0], context)
+        if isinstance(context.cur, list):
+            return meth(list, context)
+        if isinstance(context.cur, str):
+            return meth(str, context)
         context.error(f"cannot serialize Union[{args}]")
 
     def _deserialize_attr(self, annotation, context):
