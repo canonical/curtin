@@ -519,7 +519,7 @@ def list_kernels(osfamily=None, target=None):
 def ensure_one_kernel(osfamily=None, target=None, before=None):
     """ensure_one_kernel is a context manager that evalutates the state of
     installed kernels, before and after doing package operations.  With that
-    information, kernels that only appear before and not after are removed.
+    information, kernels that are unique to the before set are removed.
     """
     if bool(before):
         before = set(before)
@@ -538,7 +538,9 @@ def ensure_one_kernel(osfamily=None, target=None, before=None):
     # that the kernel we asked to install was installed already, so we
     # shouldn't be removing one.  This should work fine for a single kernel
     # being preinstalled, but will fail to remove in the case of 2 kernels
-    # preinstalled but only one of them is intended.
+    # preinstalled but only one of them is intended.  We seed the before list
+    # externally to handle that case, when the above `before = list_kernels()`
+    # is too late to accurately capture the initial state.
     after = set(list_kernels(osfamily=osfamily, target=target))
     LOG.debug('ensure_one_kernel: kernels after install %s', after)
     if not bool(after - before):
