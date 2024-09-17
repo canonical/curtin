@@ -1,0 +1,105 @@
+---
+name: CI
+
+on:  # yamllint disable-line rule:truthy
+  - push
+  - pull_request
+
+env:
+  DEBIAN_FRONTEND: noninteractive
+
+# Note: ca-certificates and git are needed for actions/checkout to use git
+# which is needed for codecov/codecov-action.
+
+jobs:
+  linter:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true
+      matrix:
+        container:
+          - ubuntu:noble
+    container:
+      image: ${{ matrix.container }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install dependencies
+        run: >
+          apt-get update
+          && apt-get install --no-install-recommends --yes
+          python3
+          python3-pycodestyle
+          python3-pyflakes
+          tox
+      - name: Run linter tests
+        run: |
+          tox -e tip-pycodestyle
+          tox -e tip-pyflakes
+
+  unit:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true
+      matrix:
+        serie:
+          - jammy
+          - noble
+    container:
+      image: ubuntu:${{ matrix.serie }}
+    steps:
+      - name: Install dependencies
+        run: >
+          apt-get update
+          && apt-get install --no-install-recommends --yes
+          git
+          python3
+          python3-apt
+          python3-attr
+          python3-debian
+          python3-jsonschema
+          python3-parameterized
+          python3-pytest
+          python3-pytest-cov
+          python3-simplestreams
+          python3-yaml
+          tox
+      - uses: actions/checkout@v4
+      - name: Run unit tests
+        run: >
+          python3 -m pytest -ra --cov=$(pwd) --cov-branch --cov-report=xml tests/unittests/
+      - name: Upload coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-${{ github.job }}-${{ matrix.serie }}
+          path: ./coverage*.xml
+
+  woke:
+    name: woke
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: woke
+        uses: get-woke/woke-action@v0
+        with:
+          # Cause the check to fail on any broke rules
+          fail-on-error: false
+
+  # upload-to-codecov:
+  #   if: ${{ always() }}
+  #   needs:
+  #     - unit-and-integration
+  #     - unit-and-integration-installed
+  #     - skip
+  #     - system
+  #     - system-installed
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - name: Download artifacts
+  #       uses: actions/download-artifact@v4
+  #     - name: Upload coverage to Codecov
+  #       uses: codecov/codecov-action@v4
+  #       with:
+  #         token: ${{ secrets.CODECOV_TOKEN }}
+  #         fail_ci_if_error: true
