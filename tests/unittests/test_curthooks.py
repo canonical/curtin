@@ -98,6 +98,7 @@ class TestCurthooksInstallKernel(CiTestCase):
 
             self.mock_instpkg.assert_called_with(
                 [kernel_package], target=self.target, env=self.fk_env)
+            self.mock_purgepkg.assert_not_called()
 
     def test__installs_kernel_fallback_package(self):
         fallback_package = "mock-linux-kernel-fallback"
@@ -111,6 +112,7 @@ class TestCurthooksInstallKernel(CiTestCase):
 
             self.mock_instpkg.assert_called_with(
                 [fallback_package], target=self.target, env=self.fk_env)
+            self.mock_purgepkg.assert_not_called()
 
     def test__installs_kernel_from_mapping(self):
         kernel_cfg = {
@@ -131,6 +133,7 @@ class TestCurthooksInstallKernel(CiTestCase):
             self.mock_instpkg.assert_called_with(
                 ["linux-flavor-lts-dapper"],
                 target=self.target, env=self.fk_env)
+            self.mock_purgepkg.assert_not_called()
 
     @parameterized.expand((
         [{'kernel': None}],
@@ -141,6 +144,7 @@ class TestCurthooksInstallKernel(CiTestCase):
             curthooks.install_kernel(kernel_cfg, self.target)
 
             self.mock_instpkg.assert_not_called()
+            self.mock_purgepkg.assert_not_called()
 
     def test__removes_and_installs_kernel(self):
         to_install_kernel_package = "mock-linux-kernel"
