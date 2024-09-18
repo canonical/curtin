@@ -160,7 +160,7 @@ class KernelConfig:
     fallback_package: str = "linux-generic"
     mapping: dict = attr.Factory(dict)
     install: bool = attr.ib(default=True, converter=value_as_boolean)
-    remove: typing.Union[list | str | None] = None
+    remove: typing.Union[list, str, None] = None
 
     def remove_needed(self) -> bool:
         to_remove = self.kernels_to_remove()
