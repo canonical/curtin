@@ -414,6 +414,8 @@ class TestUpdateInitramfs(CiTestCase):
         post = [call(['udevadm', 'settle'])]
         return pre + [mycall] + post
 
+    @patch("curtin.commands.curthooks.util.which",
+           Mock(return_value=True))
     def test_does_nothing_if_binary_diverted(self):
         self.mock_which.return_value = None
         binary = 'update-initramfs'
@@ -430,6 +432,32 @@ class TestUpdateInitramfs(CiTestCase):
         self.mock_subp.assert_has_calls(calls)
         self.assertEqual(6, self.mock_subp.call_count)
 
+    @patch("curtin.commands.curthooks.update_initramfs_is_disabled",
+           Mock(return_value=False))
+    @patch("curtin.commands.curthooks.util.which",
+           Mock(side_effect=[False, True]))
+    def test_does_nothing_if_dracut_installed(self):
+        curthooks.update_initramfs(self.target)
+        self.mock_subp.assert_not_called()
+
+    @patch("curtin.commands.curthooks.update_initramfs_is_disabled",
+           Mock(return_value=False))
+    @patch("curtin.commands.curthooks.util.which",
+           Mock(return_value=False))
+    def test_fails_if_no_tool_to_update_initramfs(self):
+        with patch("curtin.commands.curthooks.glob.glob",
+                   return_value=["/boot/vmlinuz"]):
+            with self.assertRaises(RuntimeError):
+                curthooks.update_initramfs(self.target)
+
+        with patch("curtin.commands.curthooks.glob.glob", return_value=[]):
+            # Failure is ignored if there's no initramfs to generate.
+            curthooks.update_initramfs(self.target)
+
+        self.mock_subp.assert_not_called()
+
+    @patch("curtin.commands.curthooks.util.which",
+           Mock(return_value=True))
     def test_mounts_and_runs(self):
         # in_chroot calls to dpkg-divert, update-initramfs
         effects = self._side_eff() * 2
@@ -443,6 +471,8 @@ class TestUpdateInitramfs(CiTestCase):
         self.mock_subp.assert_has_calls(subp_calls)
         self.assertEqual(12, self.mock_subp.call_count)
 
+    @patch("curtin.commands.curthooks.util.which",
+           Mock(return_value=True))
     def test_mounts_and_runs_for_all_kernels(self):
         kversion2 = '5.4.0-generic'
         with open(os.path.join(self.boot, 'vmlinuz-' + kversion2), 'w'):
@@ -467,6 +497,8 @@ class TestUpdateInitramfs(CiTestCase):
         self.mock_subp.assert_has_calls(subp_calls)
         self.assertEqual(24, self.mock_subp.call_count)
 
+    @patch("curtin.commands.curthooks.util.which",
+           Mock(return_value=True))
     def test_calls_update_if_initrd_exists_else_create(self):
         kversion2 = '5.2.0-generic'
         with open(os.path.join(self.boot, 'vmlinuz-' + kversion2), 'w'):

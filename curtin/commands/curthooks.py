@@ -866,49 +866,74 @@ def update_initramfs(target=None, all_kernels=False):
     if update_initramfs_is_disabled(target):
         return
 
-    # We keep the all_kernels flag for callers, the implementation
-    # now will operate correctly on all kernels present in the image
-    # which is almost always exactly one.
-    #
-    # Ideally curtin should be able to use update-initramfs -k all
-    # however, update-initramfs expects to be able to find out which
-    # versions of kernels are installed by using values from the
-    # kernel package invoking update-initramfs -c <kernel version>.
-    # With update-initramfs diverted, nothing captures the kernel
-    # version strings in the place where update-initramfs expects
-    # to find this information.  Instead, curtin will examine
-    # /boot to see what kernels and initramfs are installed and
-    # either create or update as needed.
-    #
-    # This loop below will examine the contents of target's
-    # /boot and pattern match for kernel files. On Ubuntu this
-    # is in the form of /boot/vmlinu[xz]-<uname -r version>.
-    #
-    # For each kernel, we extract the version string and then
-    # construct the name of of the initrd file that *would*
-    # have been created when the kernel package was installed
-    # if curtin had not diverted update-initramfs to prevent
-    # duplicate initrd creation.
-    #
-    # if the initrd file exists, then we only need to invoke
-    # update-initramfs's -u (update) method.  If the file does
-    # not exist, then we need to run the -c (create) method.
+    # Ensure target is resolved even if it's None
+    target = paths.target_path(target)
     boot = paths.target_path(target, 'boot')
-    for kernel in sorted(glob.glob(boot + '/vmlinu*-*')):
-        kfile = os.path.basename(kernel)
-        # handle vmlinux or vmlinuz
-        kprefix = kfile.split('-')[0]
-        version = kfile.replace(kprefix + '-', '')
-        initrd = kernel.replace(kprefix, 'initrd.img')
-        # -u == update, -c == create
-        mode = '-u' if os.path.exists(initrd) else '-c'
-        cmd = ['update-initramfs', mode, '-k', version]
-        with util.ChrootableTarget(target) as in_chroot:
-            in_chroot.subp(cmd)
-            if not os.path.exists(initrd):
-                files = os.listdir(target + '/boot')
-                LOG.debug('Failed to find initrd %s', initrd)
-                LOG.debug('Files in target /boot: %s', files)
+
+    if util.which('update-initramfs', target=target):
+        # We keep the all_kernels flag for callers, the implementation
+        # now will operate correctly on all kernels present in the image
+        # which is almost always exactly one.
+        #
+        # Ideally curtin should be able to use update-initramfs -k all
+        # however, update-initramfs expects to be able to find out which
+        # versions of kernels are installed by using values from the
+        # kernel package invoking update-initramfs -c <kernel version>.
+        # With update-initramfs diverted, nothing captures the kernel
+        # version strings in the place where update-initramfs expects
+        # to find this information.  Instead, curtin will examine
+        # /boot to see what kernels and initramfs are installed and
+        # either create or update as needed.
+        #
+        # This loop below will examine the contents of target's
+        # /boot and pattern match for kernel files. On Ubuntu this
+        # is in the form of /boot/vmlinu[xz]-<uname -r version>.
+        #
+        # For each kernel, we extract the version string and then
+        # construct the name of of the initrd file that *would*
+        # have been created when the kernel package was installed
+        # if curtin had not diverted update-initramfs to prevent
+        # duplicate initrd creation.
+        #
+        # if the initrd file exists, then we only need to invoke
+        # update-initramfs's -u (update) method.  If the file does
+        # not exist, then we need to run the -c (create) method.
+        for kernel in sorted(glob.glob(boot + '/vmlinu*-*')):
+            kfile = os.path.basename(kernel)
+            # handle vmlinux or vmlinuz
+            kprefix = kfile.split('-')[0]
+            version = kfile.replace(kprefix + '-', '')
+            initrd = kernel.replace(kprefix, 'initrd.img')
+            # -u == update, -c == create
+            mode = '-u' if os.path.exists(initrd) else '-c'
+            cmd = ['update-initramfs', mode, '-k', version]
+            with util.ChrootableTarget(target) as in_chroot:
+                in_chroot.subp(cmd)
+                if not os.path.exists(initrd):
+                    files = os.listdir(target + '/boot')
+                    LOG.debug('Failed to find initrd %s', initrd)
+                    LOG.debug('Files in target /boot: %s', files)
+
+    elif util.which('dracut', target=target):
+        # This check is specifically intended for the Ubuntu NVMe/TCP POC.
+        # When running the POC, we install dracut and remove initramfs-tools
+        # (the packages are mutually exclusive). Therefore, trying to call
+        # update-initramfs would fail.
+        # If we were using a dpkg-divert to disable dracut (we don't do that
+        # currently), we would need to explicitly invoke dracut here instead of
+        # just returning.
+        pass
+    else:
+        # Curtin only knows update-initramfs (provided by initramfs-tools) and
+        # dracut.
+        if not glob.glob(boot + '/vmlinu*-*'):
+            LOG.debug("neither update-initramfs or dracut found in target %s"
+                      " but there is no initramfs to generate, so ignoring",
+                      target)
+        else:
+            raise RuntimeError(
+                    "cannot update the initramfs: neither update-initramfs or"
+                    f" dracut found in target {target}")
 
 
 def copy_fstab(fstab, target):
@@ -1556,6 +1581,25 @@ def configure_nvme_over_tcp(cfg, target: pathlib.Path) -> None:
         # jq is needed for the nvmf dracut module.
         distro.install_packages(['dracut', 'dracut-network', 'jq'],
                                 target=str(target))
+        # Let's make sure initramfs-tools does not get reinstalled over dracut.
+        # intel-microcode (pulled by linux-generic) is known to have
+        # initramfs-tools as a recommends. LP: #2073125
+        preferences_d = target / 'etc/apt/preferences.d'
+        preferences_d.mkdir(parents=True, exist_ok=True)
+        (preferences_d / 'nvmeotcp-poc-initramfs').write_text('''\
+# The NVMe/TCP proof of concept on Ubuntu uses dracut instead of
+# initramfs-tools.
+# That said, dracut is a universe package and is not the supported tool for
+# initramfs management. Installing packages that explicitly depend on
+# initramfs-tools will cause dracut to be removed, making the system unable to
+# boot. Furthermore, installing packages that have initramfs-tools as a
+# recommends can also trigger removal of dracut. Let's make sure
+# initramfs-tools does not get installed. See LP: #2073125.
+
+Package: initramfs-tools
+Pin: version *
+Pin-Priority: -1
+''')
         # This will take care of reading the network configuration from the
         # NBFT and pass it to systemd-networkd.
         nvme_tcp.dracut_add_systemd_network_cmdline(target)
