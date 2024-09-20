@@ -26,6 +26,7 @@ from curtin.udev import (
 import glob
 import json
 import os
+import pathlib
 import platform
 import string
 import sys
@@ -1294,6 +1295,11 @@ def _get_volume_fstype(device_path):
     return lsblock[kname]['FSTYPE']
 
 
+def devlink_is_child_of(devlink: str, path: str) -> bool:
+    """ Tells whether a given devlink is a direct child of path. """
+    return pathlib.Path(devlink).parent == pathlib.Path(path)
+
+
 def get_volume_spec(device_path):
     """
        Return the most reliable spec for a device per Ubuntu FSTAB wiki
@@ -1318,11 +1324,11 @@ def get_volume_spec(device_path):
     elif block_type in ['disk', 'part']:
         if device_path.startswith('/dev/bcache'):
             devlinks = [link for link in info['DEVLINKS']
-                        if link.startswith('/dev/bcache/by-uuid')]
+                        if devlink_is_child_of(link, '/dev/bcache/by-uuid')]
         # on s390x prefer by-path links which are stable and unique.
         if platform.machine() == 's390x':
             devlinks = [link for link in info['DEVLINKS']
-                        if link.startswith('/dev/disk/by-path')]
+                        if devlink_is_child_of(link, '/dev/disk/by-path')]
         # use device-mapper uuid if present
         if 'DM_UUID' in info:
             devlinks = [link for link in info['DEVLINKS']
@@ -1330,10 +1336,10 @@ def get_volume_spec(device_path):
         if len(devlinks) == 0:
             # use FS UUID if present
             devlinks = [link for link in info['DEVLINKS']
-                        if '/by-uuid' in link]
-            if len(devlinks) == 0 and block_type == 'part':
-                devlinks = [link for link in info['DEVLINKS']
-                            if '/by-partuuid' in link]
+                        if devlink_is_child_of(link, '/dev/disk/by-uuid')]
+        if len(devlinks) == 0 and block_type == 'part':
+            devlinks = [link for link in info['DEVLINKS']
+                        if devlink_is_child_of(link, '/dev/disk/by-partuuid')]
 
     return devlinks[0] if len(devlinks) else device_path
 
