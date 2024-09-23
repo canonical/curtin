@@ -1463,6 +1463,17 @@ class TestFstabVolumeSpec(CiTestCase):
             "/dev/disk/by-partlabel/zfs-fa8d6afc7a67405c",
             "/dev/disk/by-partuuid/0b3eae85-960f-fb4f-b5ae-0b3551e763f8",
             "/dev/disk/by-path/pci-0000:00:17.0-ata-1-part1",
+            # New symlinks in systemd 256
+            ("/dev/disk/by-path/pci-0000:00:17.0-ata-1-part/" +
+             "by-uuid/14011020183977000633"),
+            "/dev/disk/by-path/pci-0000:00:17.0-ata-1-part/by-partnum/1",
+            ("/dev/disk/by-path/pci-0000:00:17.0-ata-1-part/" +
+             "by-partlabel/zfs-fa8d6afc7a67405c"),
+            ("/dev/disk/by-path/pci-0000:00:17.0-ata-1-part/by-partuuid/" +
+             "0b3eae85-960f-fb4f-b5ae-0b3551e763f8"),
+            "/dev/disk/by-path/pci-0000:00:17.0-ata-1-part/by-label/tank",
+            # Place this one last and make sure it gets used rather than
+            # /dev/disk/by-path/.../by-uuid
             "/dev/disk/by-uuid/14011020183977000633"],
         'raid': [
             "/dev/md/ubuntu-server:0",
