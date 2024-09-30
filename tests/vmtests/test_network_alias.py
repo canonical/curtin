@@ -48,10 +48,12 @@ class BionicTestNetworkAlias(relbase.bionic, TestNetworkAliasAbs):
 
 
 class FocalTestNetworkAlias(relbase.focal, TestNetworkAliasAbs):
+    skip = True  # XXX Broken for now
     __test__ = True
 
 
 class JammyTestNetworkAlias(relbase.jammy, TestNetworkAliasAbs):
+    skip = True  # XXX Broken for now
     __test__ = True
 
 

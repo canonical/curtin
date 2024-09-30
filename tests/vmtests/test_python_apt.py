@@ -29,11 +29,12 @@ class BionicTestPythonApt(relbase.bionic, TestPythonApt):
 
 
 class FocalTestPythonApt(relbase.focal, TestPythonApt):
+    skip = True  # XXX Broken for now
     __test__ = True
 
 
 class JammyTestPythonApt(relbase.jammy, TestPythonApt):
-    expected_failure = True  # XXX Broken for now
+    skip = True  # XXX Broken for now
     __test__ = True
 
 

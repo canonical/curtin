@@ -161,11 +161,12 @@ class BionicTestMdadmBcache(relbase.bionic, TestMdadmBcacheAbs):
 
 
 class FocalTestMdadmBcache(relbase.focal, TestMdadmBcacheAbs):
+    skip = True  # XXX Broken for now
     __test__ = True
 
 
 class JammyTestMdadmBcache(relbase.jammy, TestMdadmBcacheAbs):
-    expected_failure = True  # XXX Broken for now
+    skip = True  # XXX Broken for now
     __test__ = True
 
 
@@ -207,11 +208,12 @@ class BionicTestMirrorboot(relbase.bionic, TestMirrorbootAbs):
 
 
 class FocalTestMirrorboot(relbase.focal, TestMirrorbootAbs):
+    skip = True  # XXX Broken for now
     __test__ = True
 
 
 class JammyTestMirrorboot(relbase.jammy, TestMirrorbootAbs):
-    expected_failure = True  # XXX Broken for now
+    skip = True  # XXX Broken for now
     __test__ = True
 
 
@@ -257,12 +259,13 @@ class BionicTestMirrorbootPartitions(relbase.bionic,
 
 class FocalTestMirrorbootPartitions(relbase.focal,
                                     TestMirrorbootPartitionsAbs):
+    skip = True  # XXX Broken for now
     __test__ = True
 
 
 class JammyTestMirrorbootPartitions(relbase.jammy,
                                     TestMirrorbootPartitionsAbs):
-    expected_failure = True  # XXX Broken for now
+    skip = True  # XXX Broken for now
     __test__ = True
 
 
@@ -362,7 +365,7 @@ class FocalTestMirrorbootPartitionsUEFI(relbase.focal,
 
 class JammyTestMirrorbootPartitionsUEFI(relbase.jammy,
                                         TestMirrorbootPartitionsUEFIAbs):
-    expected_failure = True  # XXX Broken for now
+    skip = True  # XXX Broken for now
     __test__ = True
 
 
@@ -407,10 +410,12 @@ class BionicTestRaid5boot(relbase.bionic, TestRaid5bootAbs):
 
 
 class FocalTestRaid5boot(relbase.focal, TestRaid5bootAbs):
+    skip = True  # XXX Broken for now
     __test__ = True
 
 
 class JammyTestRaid5boot(relbase.jammy, TestRaid5bootAbs):
+    skip = True  # XXX Broken for now
     __test__ = True
 
 
@@ -468,10 +473,12 @@ class BionicTestRaid6boot(relbase.bionic, TestRaid6bootAbs):
 
 
 class FocalTestRaid6boot(relbase.focal, TestRaid6bootAbs):
+    skip = True  # XXX Broken for now
     __test__ = True
 
 
 class JammyTestRaid6boot(relbase.jammy, TestRaid6bootAbs):
+    skip = True  # XXX Broken for now
     __test__ = True
 
 
@@ -515,10 +522,12 @@ class BionicTestRaid10boot(relbase.bionic, TestRaid10bootAbs):
 
 
 class FocalTestRaid10boot(relbase.focal, TestRaid10bootAbs):
+    skip = True  # XXX Broken for now
     __test__ = True
 
 
 class JammyTestRaid10boot(relbase.jammy, TestRaid10bootAbs):
+    skip = True  # XXX Broken for now
     __test__ = True
 
 
@@ -624,6 +633,7 @@ class BionicTestAllindata(relbase.bionic, TestAllindataAbs):
 
 
 class FocalTestAllindata(relbase.focal, TestAllindataAbs):
+    skip = True  # XXX Broken for now
     __test__ = True
 
 

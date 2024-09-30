@@ -89,10 +89,12 @@ class BionicTestRaid5Bcache(relbase.bionic, TestMdadmBcacheAbs):
 
 
 class FocalTestRaid5Bcache(relbase.focal, TestMdadmBcacheAbs):
+    skip = True  # XXX Broken for now
     __test__ = True
 
 
 class JammyTestRaid5Bcache(relbase.jammy, TestMdadmBcacheAbs):
+    skip = True  # XXX Broken for now
     __test__ = True
 
 

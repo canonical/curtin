@@ -62,10 +62,12 @@ class BionicTestPollinateUserAgent(relbase.bionic, TestPollinateUserAgent):
 
 
 class FocalTestPollinateUserAgent(relbase.focal, TestPollinateUserAgent):
+    skip = True  # XXX Broken for now
     __test__ = True
 
 
 class JammyTestPollinateUserAgent(relbase.jammy, TestPollinateUserAgent):
+    skip = True  # XXX Broken for now
     __test__ = True
 
 

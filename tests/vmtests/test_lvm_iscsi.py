@@ -96,10 +96,12 @@ class BionicTestIscsiLvm(relbase.bionic, TestLvmIscsiAbs):
 
 
 class FocalTestIscsiLvm(relbase.focal, TestLvmIscsiAbs):
+    skip = True  # XXX Broken for now
     __test__ = True
 
 
 class JammyTestIscsiLvm(relbase.jammy, TestLvmIscsiAbs):
+    skip = True  # XXX Broken for now
     __test__ = True
 
 

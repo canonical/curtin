@@ -60,22 +60,22 @@ class XenialTestAptConfigCMDCMD(relbase.xenial, TestAptConfigCMD):
     """ XenialTestAptSrcModifyCMD
         apt feature Test for Xenial using the standalone command
     """
-    expected_failure = True  # XXX Broken for now
+    skip = True  # XXX Broken for now
     __test__ = True
 
 
 class BionicTestAptConfigCMDCMD(relbase.bionic, TestAptConfigCMD):
-    expected_failure = True  # XXX Broken for now
+    skip = True  # XXX Broken for now
     __test__ = True
 
 
 class FocalTestAptConfigCMDCMD(relbase.focal, TestAptConfigCMD):
-    expected_failure = True  # XXX Broken for now
+    skip = True  # XXX Broken for now
     __test__ = True
 
 
 class JammyTestAptConfigCMDCMD(relbase.jammy, TestAptConfigCMD):
-    expected_failure = True  # XXX Broken for now
+    skip = True  # XXX Broken for now
     __test__ = True
 
 

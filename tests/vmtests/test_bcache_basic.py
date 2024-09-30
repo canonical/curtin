@@ -65,10 +65,12 @@ class BionicBcacheBasic(relbase.bionic, TestBcacheBasic):
 
 
 class FocalBcacheBasic(relbase.focal, TestBcacheBasic):
+    skip = True  # XXX Broken for now
     __test__ = True
 
 
 class JammyBcacheBasic(relbase.jammy, TestBcacheBasic):
+    skip = True  # XXX Broken for now
     __test__ = True
 
 

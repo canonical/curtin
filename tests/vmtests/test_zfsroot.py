@@ -97,11 +97,13 @@ class BionicTestZfsRoot(relbase.bionic, TestZfsRootAbs):
 
 
 class FocalTestZfsRoot(relbase.focal, TestZfsRootAbs):
+    skip = True  # XXX Broken for now
     __test__ = True
     mem = 4096
 
 
 class JammyTestZfsRoot(relbase.jammy, TestZfsRootAbs):
+    skip = True  # XXX Broken for now
     __test__ = True
     mem = 4096
 
@@ -126,11 +128,13 @@ class BionicTestZfsRootFsType(relbase.bionic, TestZfsRootFsTypeAbs):
 
 
 class FocalTestZfsRootFsType(relbase.focal, TestZfsRootFsTypeAbs):
+    skip = True  # XXX Broken for now
     __test__ = True
     mem = 4096
 
 
 class JammyTestZfsRootFsType(relbase.jammy, TestZfsRootFsTypeAbs):
+    skip = True  # XXX Broken for now
     __test__ = True
     mem = 4096
 

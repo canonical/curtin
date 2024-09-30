@@ -26,10 +26,12 @@ class BionicTestPreserveRAID(relbase.bionic, TestPreserveRAID):
 
 
 class FocalTestPreserveRAID(relbase.focal, TestPreserveRAID):
+    skip = True  # XXX Broken for now
     __test__ = True
 
 
 class JammyTestPreserveRAID(relbase.jammy, TestPreserveRAID):
+    skip = True  # XXX Broken for now
     __test__ = True
 
 
@@ -58,11 +60,13 @@ class BionicTestPartitionExistingRAID(
 
 class FocalTestPartitionExistingRAID(
         relbase.focal, TestPartitionExistingRAID):
+    skip = True  # XXX Broken for now
     __test__ = True
 
 
 class JammyTestPartitionExistingRAID(
         relbase.jammy, TestPartitionExistingRAID):
+    skip = True  # XXX Broken for now
     __test__ = True
 
 

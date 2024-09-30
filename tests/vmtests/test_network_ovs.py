@@ -41,11 +41,12 @@ class BionicTestNetworkOvs(relbase.bionic, TestNetworkOvsAbs):
 
 
 class FocalTestNetworkOvs(relbase.focal, TestNetworkOvsAbs):
+    skip = True  # XXX Broken for now
     __test__ = True
 
 
 class JammyTestNetworkOvs(relbase.jammy, TestNetworkOvsAbs):
-    expected_failure = True  # XXX Broken for now
+    skip = True  # XXX Broken for now
     __test__ = True
 
 

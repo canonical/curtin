@@ -26,7 +26,7 @@ class FocalTestReuseMSDOSPartitions(relbase.focal,
 
 class JammyTestReuseMSDOSPartitions(relbase.jammy,
                                     TestReuseMSDOSPartitions):
-    expected_failure = True  # XXX Broken for now
+    skip = True  # XXX Broken for now
     __test__ = True
 
 

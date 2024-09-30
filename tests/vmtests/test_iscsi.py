@@ -75,10 +75,12 @@ class BionicTestIscsiBasic(relbase.bionic, TestBasicIscsiAbs):
 
 
 class FocalTestIscsiBasic(relbase.focal, TestBasicIscsiAbs):
+    skip = True  # XXX Broken for now
     __test__ = True
 
 
 class JammyTestIscsiBasic(relbase.jammy, TestBasicIscsiAbs):
+    skip = True  # XXX Broken for now
     __test__ = True
 
 

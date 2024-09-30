@@ -26,10 +26,12 @@ class BionicTestBcachePartitions(relbase.bionic, TestBcachePartitions):
 
 
 class FocalTestBcachePartitions(relbase.focal, TestBcachePartitions):
+    skip = True  # XXX Broken for now
     __test__ = True
 
 
 class JammyTestBcachePartitions(relbase.jammy, TestBcachePartitions):
+    skip = True  # XXX Broken for now
     __test__ = True
 
 

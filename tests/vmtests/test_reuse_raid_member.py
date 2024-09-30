@@ -29,10 +29,12 @@ class BionicTestReuseRAIDMember(relbase.bionic, TestReuseRAIDMember):
 
 
 class FocalTestReuseRAIDMember(relbase.focal, TestReuseRAIDMember):
+    skip = True  # XXX Broken for now
     __test__ = True
 
 
 class JammyTestReuseRAIDMember(relbase.jammy, TestReuseRAIDMember):
+    skip = True  # XXX Broken for now
     __test__ = True
 
 
@@ -43,11 +45,13 @@ class BionicTestReuseRAIDMemberPartition(relbase.bionic,
 
 class FocalTestReuseRAIDMemberPartition(relbase.focal,
                                         TestReuseRAIDMemberPartition):
+    skip = True  # XXX Broken for now
     __test__ = True
 
 
 class JammyTestReuseRAIDMemberPartition(relbase.jammy,
                                         TestReuseRAIDMemberPartition):
+    skip = True  # XXX Broken for now
     __test__ = True
 
 

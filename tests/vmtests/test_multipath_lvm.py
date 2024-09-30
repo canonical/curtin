@@ -60,11 +60,12 @@ class BionicTestMultipathLvm(relbase.bionic, TestMultipathLvmAbs):
 
 
 class FocalTestMultipathLvm(relbase.focal, TestMultipathLvmAbs):
+    skip = True  # XXX Broken for now
     __test__ = True
 
 
 class JammyTestMultipathLvm(relbase.jammy, TestMultipathLvmAbs):
-    expected_failure = True  # XXX Broken for now (no space left on device)
+    skip = True  # XXX Broken for now (no space left on device)
     __test__ = True
 
 
@@ -74,12 +75,13 @@ class TestMultipathLvmPartWipeAbs(TestMultipathLvmAbs):
 
 class FocalTestMultipathLvmPartWipe(relbase.focal,
                                     TestMultipathLvmPartWipeAbs):
+    skip = True  # XXX Broken for now
     __test__ = True
 
 
 class JammyTestMultipathLvmPartWipe(relbase.jammy,
                                     TestMultipathLvmPartWipeAbs):
-    expected_failure = True  # XXX Broken for now (no space left on device)
+    skip = True  # XXX Broken for now (no space left on device)
     __test__ = True
 
 

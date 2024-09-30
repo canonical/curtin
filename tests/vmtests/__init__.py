@@ -875,6 +875,9 @@ class VMBaseClass(TestCase):
         logger = _initialize_logging(name=cls.__name__)
         cls.logger = logger
 
+        if hasattr(cls, "skip") and cls.skip:
+            raise SkipTest('"%s" is marked as skip.' % cls.__name__)
+
         # allow env to update VMRAM setting
         if VMRAM:
             cls.mem = str(VMRAM)

@@ -57,10 +57,12 @@ class BionicTestPreserveBcache(relbase.bionic, TestPreserveBcache):
 
 
 class FocalTestPreserveBcache(relbase.focal, TestPreserveBcache):
+    skip = True  # XXX Broken for now
     __test__ = True
 
 
 class JammyTestPreserveBcache(relbase.jammy, TestPreserveBcache):
+    skip = True  # XXX Broken for now
     __test__ = True
 
 

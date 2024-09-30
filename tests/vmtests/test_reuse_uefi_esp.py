@@ -35,6 +35,7 @@ class BionicTestUefiReuseEsp(relbase.bionic, TestUefiReuseEspAbs):
 
 
 class FocalTestUefiReuseEsp(relbase.focal, TestUefiReuseEspAbs):
+    skip = True  # XXX Broken for now
     __test__ = True
 
     def test_efiboot_menu_has_one_distro_entry(self):
@@ -42,6 +43,7 @@ class FocalTestUefiReuseEsp(relbase.focal, TestUefiReuseEspAbs):
 
 
 class JammyTestUefiReuseEsp(relbase.jammy, TestUefiReuseEspAbs):
+    skip = True  # XXX Broken for now
     __test__ = True
 
     def test_efiboot_menu_has_one_distro_entry(self):

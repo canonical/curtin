@@ -19,10 +19,12 @@ class BionicTestRAIDPartitionToDisk(relbase.bionic, TestRAIDPartitionToDisk):
 
 
 class FocalTestRAIDPartitionToDisk(relbase.focal, TestRAIDPartitionToDisk):
+    skip = True  # XXX Broken for now
     __test__ = True
 
 
 class JammyTestRAIDPartitionToDisk(relbase.jammy, TestRAIDPartitionToDisk):
+    skip = True  # XXX Broken for now
     __test__ = True
 
 

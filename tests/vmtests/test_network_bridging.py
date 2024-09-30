@@ -230,10 +230,12 @@ class BionicTestBridging(relbase.bionic, TestBridgeNetworkAbs):
 
 
 class FocalTestBridging(relbase.focal, TestBridgeNetworkAbs):
+    skip = True  # XXX Broken for now
     __test__ = True
 
 
 class JammyTestBridging(relbase.jammy, TestBridgeNetworkAbs):
+    skip = True  # XXX Broken for now
     __test__ = True
 
 

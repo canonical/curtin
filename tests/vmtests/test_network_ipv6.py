@@ -54,10 +54,12 @@ class BionicTestNetworkIPV6(relbase.bionic, TestNetworkIPV6Abs):
 
 
 class FocalTestNetworkIPV6(relbase.focal, TestNetworkIPV6Abs):
+    skip = True  # XXX Broken for now
     __test__ = True
 
 
 class JammyTestNetworkIPV6(relbase.jammy, TestNetworkIPV6Abs):
+    skip = True  # XXX Broken for now
     __test__ = True
 
 

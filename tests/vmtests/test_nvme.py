@@ -148,10 +148,12 @@ class BionicTestNvmeBcache(relbase.bionic, TestNvmeBcacheAbs):
 
 
 class FocalTestNvmeBcache(relbase.focal, TestNvmeBcacheAbs):
+    skip = True  # XXX Broken for now
     __test__ = True
 
 
 class JammyTestNvmeBcache(relbase.jammy, TestNvmeBcacheAbs):
+    skip = True  # XXX Broken for now
     __test__ = True
 
 

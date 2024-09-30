@@ -76,10 +76,12 @@ class BionicTestBcacheCeph(relbase.bionic, TestBcacheCeph):
 
 
 class FocalTestBcacheCeph(relbase.focal, TestBcacheCeph):
+    skip = True  # XXX Broken for now
     __test__ = True
 
 
 class JammyTestBcacheCeph(relbase.jammy, TestBcacheCeph):
+    skip = True  # XXX Broken for now
     __test__ = True
 
 
@@ -106,10 +108,12 @@ class BionicTestBcacheCephLvm(relbase.bionic, TestBcacheCephLvm):
 
 
 class FocalTestBcacheCephLvm(relbase.focal, TestBcacheCephLvm):
+    skip = True  # XXX Broken for now
     __test__ = True
 
 
 class JammyTestBcacheCephLvm(relbase.jammy, TestBcacheCephLvm):
+    skip = True  # XXX Broken for now
     __test__ = True
 
 

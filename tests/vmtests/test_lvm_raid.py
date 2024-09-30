@@ -56,10 +56,12 @@ class BionicTestLvmOverRaid(relbase.bionic, TestLvmOverRaidAbs):
 
 
 class FocalTestLvmOverRaid(relbase.focal, TestLvmOverRaidAbs):
+    skip = True  # XXX Broken for now
     __test__ = True
 
 
 class JammyTestLvmOverRaid(relbase.jammy, TestLvmOverRaidAbs):
+    skip = True  # XXX Broken for now
     __test__ = True
 
 

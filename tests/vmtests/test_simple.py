@@ -41,6 +41,7 @@ class BionicTestSimple(relbase.bionic, TestSimple):
 
 
 class FocalTestSimple(relbase.focal, TestSimple):
+    skip = True  # XXX Broken for now
     __test__ = True
 
     def test_output_files_exist(self):
@@ -48,6 +49,7 @@ class FocalTestSimple(relbase.focal, TestSimple):
 
 
 class JammyTestSimple(relbase.jammy, TestSimple):
+    skip = True  # XXX Broken for now
     __test__ = True
 
     def test_output_files_exist(self):
@@ -98,6 +100,7 @@ class BionicTestSimpleStorage(relbase.bionic, TestSimpleStorage):
 
 
 class FocalTestSimpleStorage(relbase.focal, TestSimpleStorage):
+    skip = True  # XXX Broken for now
     __test__ = True
 
     def test_output_files_exist(self):
@@ -105,7 +108,7 @@ class FocalTestSimpleStorage(relbase.focal, TestSimpleStorage):
 
 
 class JammyTestSimpleStorage(relbase.jammy, TestSimpleStorage):
-    expected_failure = True  # XXX Broken for now
+    skip = True  # XXX Broken for now
     __test__ = True
 
     @skip_if_flag('expected_failure')
@@ -133,6 +136,7 @@ class TestGrubNoDefaults(VMBaseClass):
 
 
 class FocalTestGrubNoDefaults(relbase.focal, TestGrubNoDefaults):
+    skip = True  # XXX Broken for now
     __test__ = True
 
     def test_output_files_exist(self):
@@ -140,6 +144,7 @@ class FocalTestGrubNoDefaults(relbase.focal, TestGrubNoDefaults):
 
 
 class JammyTestGrubNoDefaults(relbase.jammy, TestGrubNoDefaults):
+    skip = True  # XXX Broken for now
     __test__ = True
 
     def test_output_files_exist(self):

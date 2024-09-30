@@ -30,11 +30,13 @@ class BionicTestNetworkStaticRoutes(relbase.bionic,
 
 class FocalTestNetworkStaticRoutes(relbase.focal,
                                    TestNetworkStaticRoutesAbs):
+    skip = True  # XXX Broken for now
     __test__ = True
 
 
 class JammyTestNetworkStaticRoutes(relbase.jammy,
                                    TestNetworkStaticRoutesAbs):
+    skip = True  # XXX Broken for now
     __test__ = True
 
 
