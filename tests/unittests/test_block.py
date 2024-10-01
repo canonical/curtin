@@ -192,6 +192,11 @@ class TestBlock(CiTestCase):
         m_exists.return_value = False
         self.assertEqual(None, block.disk_to_byid_path('/dev/sdb'))
 
+    def test_get_partition_sfdisk_info__not_present(self):
+        with self.assertRaisesRegex(RuntimeError,
+                                    "not present in sfdisk dump"):
+            block.get_partition_sfdisk_info("/dev/sda1", {"partitions": []})
+
 
 class TestSysBlockPath(CiTestCase):
     @mock.patch("os.path.exists")
