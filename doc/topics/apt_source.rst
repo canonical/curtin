@@ -130,7 +130,7 @@ That would be specified as ::
           =PBAe
           -----END PGP PUBLIC KEY BLOCK-----
 
-The file `examples/apt-source.yaml <https://git.launchpad.net/curtin/tree/examples/apt-source.yaml>`_ holds various further examples that can be configured with this feature.
+The file `examples/apt-source.yaml <https://github.com/canonical/curtin/blob/master/examples/apt-source.yaml>`_ holds various further examples that can be configured with this feature.
 
 deb822 sources on Ubuntu >= 24.04
 ---------------------------------
@@ -204,6 +204,55 @@ This is a collection of additional ideas people can use the feature for customiz
          URIs: http://ddebs.ubuntu.com
          Suites: $RELEASE $RELEASE-updates $RELEASE-security $RELEASE-proposed
          Components: main restricted universe multiverse
+
+Using templates
+~~~~~~~~~~~~~~~
+
+Curtin supports the usage of custom templates for rendering ``sources.list`` or ``ubuntu.sources``.
+If a template is not provided, curtin will try to modify the ``sources.list`` (or ``ubuntu.sources`` in the case of deb822) in the target at
+``/etc/apt/sources.list`` (or ``/etc/apt/sources.list.d/ubuntu.sources`` in the case of deb822). Within these templates you can use the following
+replacement variables: ``$RELEASE, $MIRROR, $PRIMARY, $SECURITY``.
+
+The following example configures ``ubuntu.sources`` in deb822 format, supplies a custom GPG key, and uses the template feature to genericise the configuration across releases.
+
+::
+
+ apt:
+   primary:
+     - arches: [amd64, i386, default]
+       uri: http://mymirror.local/ubuntu
+   sources_list: |
+     Types: deb
+     URIs: $PRIMARY
+     Suites: $RELEASE $RELEASE-updates $RELEASE-security $RELEASE-proposed
+     Components: main
+     key: | # full key as block
+       -----BEGIN PGP PUBLIC KEY BLOCK-----
+       Version: GnuPG v1
+       mQGiBEFEnz8RBAC7LstGsKD7McXZgd58oN68KquARLBl6rjA2vdhwl77KkPPOr3O
+       RwIbDAAKCRBAl26vQ30FtdxYAJsFjU+xbex7gevyGQ2/mhqidES4MwCggqQyo+w1
+       Twx6DKLF+3rF5nf1F3Q=
+       =PBAe
+       -----END PGP PUBLIC KEY BLOCK-----
+
+The template above will result in the following ``ubuntu.sources`` file:
+
+::
+
+ Types: deb
+ URIs: http://mymirror.local/ubuntu
+ Suites: noble noble-updates noble-security noble-backports
+ Components: main
+ Signed-By: | # full key as block
+   -----BEGIN PGP PUBLIC KEY BLOCK-----
+   Version: GnuPG v1
+   mQGiBEFEnz8RBAC7LstGsKD7McXZgd58oN68KquARLBl6rjA2vdhwl77KkPPOr3O
+   RwIbDAAKCRBAl26vQ30FtdxYAJsFjU+xbex7gevyGQ2/mhqidES4MwCggqQyo+w1
+   Twx6DKLF+3rF5nf1F3Q=
+   =PBAe
+   -----END PGP PUBLIC KEY BLOCK-----
+
+The file `examples/apt-source.yaml <https://github.com/canonical/curtin/blob/master/examples/apt-source.yaml>`_ holds more examples on how to use templates.
 
 Timing
 ~~~~~~
