@@ -1652,6 +1652,8 @@ Pin-Priority: -1
         nvme_tcp.dracut_add_systemd_network_cmdline(target)
         # Dracut will automatically call `nvme connect-all --nbft` so no need
         # to generate `nvme` commands.
+
+        nvme_tcp.dracut_adapt_netplan_config(cfg, target=target)
     elif nvme_tcp.need_network_in_initramfs(cfg):
         nvme_tcp.initramfs_tools_configure(cfg, target)
     else:

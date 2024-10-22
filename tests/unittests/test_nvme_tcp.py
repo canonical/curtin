@@ -1,11 +1,14 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
 
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import patch, Mock
 
 
 from curtin import nvme_tcp
+from curtin.util import ProcessExecutionError
 from .helpers import CiTestCase
+
+import yaml
 
 
 class TestNVMeTCP(CiTestCase):
@@ -337,3 +340,134 @@ nvme connect-all --transport tcp --traddr 172.16.82.77 --trsvcid 4420
 controller = transport=tcp;traddr=172.16.82.77;trsvcid=4420
 '''
         self.assertEqual(stafd_expected_contents, stafd.read_text())
+
+    def test__iproute2(self):
+        out = '''\
+[{"priority":0,"src":"all","table":"local"},{"priority":32766,\
+"src":"all","table":"main"},{"priority":32767,"src":"all","table":"default"}]
+'''
+        json_value = Mock()
+
+        with patch('curtin.nvme_tcp.util.subp',
+                   return_value=(out, '')) as m_subp:
+            with patch('curtin.nvme_tcp.json.loads', return_value=json_value):
+                data = nvme_tcp._iproute2(['rule', 'show'])
+
+        m_subp.assert_called_once_with(['ip', '-j', 'rule', 'show'],
+                                       capture=True)
+        # Ensure the value of json.loads is forwarded to the caller.
+        self.assertIs(json_value, data)
+
+    def test_get_route_dest_ifname(self):
+        rv = [
+            {"dst": "1.2.3.4", "gateway": "192.168.0.1", "dev": "enp1s0",
+             "prefsrc": "192.168.0.14", "flags": [], "uid": 1000, "cache": []},
+        ]
+        with patch('curtin.nvme_tcp._iproute2', return_value=rv) as m_iproute2:
+            self.assertEqual(
+                    'enp1s0', nvme_tcp.get_route_dest_ifname('1.2.3.4'))
+        m_iproute2.assert_called_once_with(['route', 'get', '1.2.3.4'])
+
+    def test_get_route_dest_ifname__no_route(self):
+        err = '''\
+RTNETLINK answers: Network is unreachable
+'''
+        pee = ProcessExecutionError(stdout='', stderr=err, exit_code=2, cmd=[])
+
+        with patch('curtin.nvme_tcp._iproute2', side_effect=pee) as m_subp:
+            with self.assertRaises(nvme_tcp.NetRuntimeError):
+                nvme_tcp.get_route_dest_ifname('1.2.3.4')
+        m_subp.assert_called_once_with(['route', 'get', '1.2.3.4'])
+
+    def test_get_iface_hw_addr(self):
+        rv = [
+            {"ifindex": 3, "ifname": "enp1s0",
+             "flags": ["BROADCAST", "MULTICAST", "UP", "LOWER_UP"],
+             "mtu": 1500, "qdisc": "fq_codel", "operstate": "UP",
+             "linkmode": "DEFAULT", "group": "default", "txqlen": 1000,
+             "link_type": "ether", "address": "4a:25:e2:5b:dc:2e",
+             "broadcast": "ff:ff:ff:ff:ff:ff"}
+        ]
+        with patch('curtin.nvme_tcp._iproute2', return_value=rv) as m_iproute2:
+            self.assertEqual(
+                    '4a:25:e2:5b:dc:2e', nvme_tcp.get_iface_hw_addr('enp1s0'))
+        m_iproute2.assert_called_once_with(['link', 'show', 'dev', 'enp1s0'])
+
+    def test_get_iface_hw_addr__no_iface(self):
+        err = '''\
+Device "enp1s0" does not exist.
+'''
+        pee = ProcessExecutionError(stdout='', stderr=err, exit_code=1, cmd=[])
+        with patch('curtin.nvme_tcp.util.subp', side_effect=pee) as m_subp:
+            with self.assertRaises(nvme_tcp.NetRuntimeError):
+                nvme_tcp.get_iface_hw_addr('enp1s0')
+        m_subp.assert_called_once_with(
+            ['ip', '-j', 'link', 'show', 'dev', 'enp1s0'],
+            capture=True)
+
+    def test_dracut_adapt_netplan_config__ens3(self):
+        content = '''\
+# This is the network config written by 'subiquity'
+network:
+  ethernets:
+    ens3:
+      addresses:
+      - 10.0.2.15/24
+      nameservers:
+        addresses:
+        - 8.8.8.8
+        - 8.4.8.4
+        search:
+        - foo
+        - bar
+        routes:
+        - to: default
+          via: 10.0.2.2
+  version: 2
+'''
+        cfg = {
+            'storage': {
+                'config': [{
+                    'type': 'nvme_controller',
+                    'id': 'nvme-controller-nvme0',
+                    'transport': 'tcp',
+                    'tcp_addr': '10.0.2.144',
+                    'tcp_port': 4420,
+                }],
+            }, 'write_files': {
+                'etc_netplan_installer': {
+                    'path': 'etc/netplan/installer.yaml'}
+            }
+        }
+
+        target = Path(self.tmp_dir())
+        netplan_conf_path = target / 'etc/netplan/installer.yaml'
+        netplan_conf_path.parent.mkdir(parents=True)
+        netplan_conf_path.write_text(content)
+
+        p_route_ifname = patch('curtin.nvme_tcp.get_route_dest_ifname',
+                               return_value='ens3')
+        p_hw_addr = patch('curtin.nvme_tcp.get_iface_hw_addr',
+                          return_value='aa:bb:cc:dd:ee:ff')
+        with p_route_ifname, p_hw_addr:
+            nvme_tcp.dracut_adapt_netplan_config(cfg, target=target)
+
+        new_content = yaml.safe_load(netplan_conf_path.read_text())
+        new_ens3_content = new_content['network']['ethernets']['ens3']
+
+        self.assertEqual(
+                new_ens3_content['match']['macaddress'], 'aa:bb:cc:dd:ee:ff')
+        self.assertTrue(new_ens3_content['critical'])
+
+    def test_dracut_adapt_netplan_config__no_config(self):
+        content = '''\
+# This is the network config written by 'subiquity'
+network:
+  ethernets: {}
+  version: 2
+'''
+        nvme_tcp.dracut_adapt_netplan_config({}, target=Path('/target'))
+        nvme_tcp.dracut_adapt_netplan_config(
+                {'write_files': {
+                    'etc_netplan_installer': {
+                        'content': content}}}, target=Path('/target'))

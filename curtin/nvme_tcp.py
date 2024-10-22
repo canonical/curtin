@@ -3,6 +3,7 @@
 '''Module that defines functions useful for dealing with NVMe/TCP'''
 
 import contextlib
+import json
 import pathlib
 import shlex
 from typing import Any, Dict, Iterator, List, Set, Tuple
@@ -11,6 +12,8 @@ import yaml
 
 from curtin.block import nvme
 from curtin.log import LOG
+from curtin.paths import target_path
+from curtin import util
 
 
 def _iter_nvme_tcp_controllers(cfg) -> Iterator[Dict[str, Any]]:
@@ -319,3 +322,81 @@ modprobe nvme-tcp
         print(script_header, file=fh)
         for cmd in get_ip_commands(cfg):
             print(shlex.join(cmd), file=fh)
+
+
+class NetRuntimeError(RuntimeError):
+    pass
+
+
+def _iproute2(subcommand: List[str]):
+    out, _ = util.subp(['ip', '-j'] + subcommand, capture=True)
+    return json.loads(out)
+
+
+def get_route_dest_ifname(dest: str) -> str:
+    try:
+        return _iproute2(['route', 'get', dest])[0]['dev']
+    except (util.ProcessExecutionError, IndexError, KeyError) as exc:
+        raise NetRuntimeError(f'could not determine route to {dest}') from exc
+
+
+def get_iface_hw_addr(ifname: str) -> str:
+    try:
+        return _iproute2(['link', 'show', 'dev', ifname])[0]['address']
+    except (util.ProcessExecutionError, IndexError, KeyError) as exc:
+        raise NetRuntimeError(f'could not retrieve MAC for {ifname}') from exc
+
+
+def dracut_adapt_netplan_config(cfg, *, target: pathlib.Path):
+    '''Modify the netplan configuration (which has already been written to
+    disk at this point) so that:
+    * critical network interfaces (those handled by dracut) are not brought
+    down during boot.
+    * netplan does not panic if such an interface gets renamed.
+    '''
+    ifnames: Set[str] = set()
+    modified = False
+
+    for controller in _iter_nvme_tcp_controllers(cfg):
+        try:
+            ifnames.add(get_route_dest_ifname(controller['tcp_addr']))
+        except NetRuntimeError as exc:
+            LOG.debug('%s, ignoring', exc)
+
+    try:
+        netplan_conf_path = pathlib.Path(
+                target_path(
+                    str(target),
+                    cfg['write_files']['etc_netplan_installer']['path']))
+    except KeyError:
+        LOG.debug('could not find netplan configuration passed to cloud-init')
+        return
+
+    config = yaml.safe_load(netplan_conf_path.read_text())
+
+    try:
+        ethernets = config['network']['ethernets']
+    except KeyError:
+        LOG.debug('no ethernet interface in netplan configuration')
+        return
+
+    macaddresses: Dict[str, str] = {}
+
+    for ifname in ifnames:
+        try:
+            macaddresses[ifname] = get_iface_hw_addr(ifname)
+        except NetRuntimeError as exc:
+            LOG.debug('%s, ignoring', exc)
+
+    for ifname, ifconfig in ethernets.items():
+        if ifname not in ifnames:
+            continue
+        # Ensure the interface is not brought down
+        ifconfig['critical'] = True
+        modified = True
+        # Ensure we match the HW address and not the ifname.
+        if 'match' not in ifconfig:
+            ifconfig['match'] = {'macaddress': macaddresses[ifname]}
+
+    if modified:
+        netplan_conf_path.write_text(yaml.dump(config))
