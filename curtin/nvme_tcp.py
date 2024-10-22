@@ -13,14 +13,18 @@ from curtin.block import nvme
 from curtin.log import LOG
 
 
+def _iter_nvme_tcp_controllers(cfg) -> Iterator[Dict[str, Any]]:
+    for controller in nvme.get_nvme_controllers_from_config(cfg):
+        if controller['transport'] == 'tcp':
+            yield controller
+
+
 def get_nvme_stas_controller_directives(cfg) -> Set[str]:
     """Parse the storage configuration and return a set of "controller ="
     directives to write in the [Controllers] section of a nvme-stas
     configuration file."""
     directives = set()
-    for controller in nvme.get_nvme_controllers_from_config(cfg):
-        if controller['transport'] != 'tcp':
-            continue
+    for controller in _iter_nvme_tcp_controllers(cfg):
         controller_props = {
             'transport': 'tcp',
             'traddr': controller["tcp_addr"],
