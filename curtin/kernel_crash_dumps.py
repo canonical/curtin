@@ -4,7 +4,7 @@ from pathlib import Path
 
 from curtin import distro
 from curtin.log import LOG
-from curtin.util import ChrootableTarget, ProcessExecutionError
+from curtin.util import ChrootableTarget
 
 ENABLEMENT_SCRIPT = "/usr/share/kdump-tools/kdump_set_default"
 
@@ -38,15 +38,20 @@ def detection_script_available(target: Path) -> bool:
 def manual_enable(target: Path) -> None:
     """Manually enable kernel crash dumps with kdump-tools on target."""
     ensure_kdump_installed(target)
-    try:
+    if detection_script_available(target):
         with ChrootableTarget(str(target)) as in_target:
             in_target.subp([ENABLEMENT_SCRIPT, "true"])
-    except ProcessExecutionError as exc:
-        # Likely the enablement script hasn't been SRU'd
-        # Let's not block the install on this.
+    else:
+        # Enablement script not found. Likely scenario is that enablement was
+        # requested on a pre-24.10 series but the script hasn't been SRU'd yet.
+        # This is OK since installing on these series will mean kdump-tools
+        # is enabled by default.
+        # Let's not block the install on this but at least warn the user.
         LOG.warning(
-            "Unable to run kernel-crash-dumps enablement script: %s",
-            exc,
+            (
+                "kernel-crash-dumps enablement requested but enablement "
+                "script not found. Not running."
+            ),
         )
 
 
