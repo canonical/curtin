@@ -1996,6 +1996,18 @@ def redhat_update_initramfs(target, cfg):
         in_chroot.subp(dracut_cmd, capture=True)
 
 
+def uses_grub(machine):
+    # As a rule, ARMv7 systems don't use grub. This may change some
+    # day, but for now, assume no. They do require the initramfs
+    # to be updated, and this also triggers boot loader setup via
+    # flash-kernel.
+    if (machine.startswith('armv7') or
+            machine.startswith('s390x') or
+            machine.startswith('aarch64') and not util.is_uefi_bootable()):
+        return False
+    return True
+
+
 def builtin_curthooks(cfg, target, state):
     LOG.info('Running curtin builtin curthooks')
     stack_prefix = state.get('report_stack_prefix', '')
@@ -2173,21 +2185,13 @@ def builtin_curthooks(cfg, target, state):
             reporting_enabled=True, level="INFO",
             description="configuring target system bootloader"):
 
-        # As a rule, ARMv7 systems don't use grub. This may change some
-        # day, but for now, assume no. They do require the initramfs
-        # to be updated, and this also triggers boot loader setup via
-        # flash-kernel.
-        if (machine.startswith('armv7') or
-                machine.startswith('s390x') or
-                machine.startswith('aarch64') and not util.is_uefi_bootable()):
-            return
-
-        with events.ReportEventStack(
-                name=stack_prefix + '/install-grub',
-                reporting_enabled=True, level="INFO",
-                description="installing grub to target devices"):
-            setup_grub(cfg, target, osfamily=osfamily,
-                       variant=distro_info.variant)
+        if uses_grub(machine):
+            with events.ReportEventStack(
+                    name=stack_prefix + '/install-grub',
+                    reporting_enabled=True, level="INFO",
+                    description="installing grub to target devices"):
+                setup_grub(cfg, target, osfamily=osfamily,
+                           variant=distro_info.variant)
 
     # Copy information from installation media
     with events.ReportEventStack(
