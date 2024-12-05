@@ -3,7 +3,6 @@ flake8
 jsonschema
 mock
 nose
-parameterized
 pip
 pyflakes
 virtualenv

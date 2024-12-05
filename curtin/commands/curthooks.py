@@ -1494,7 +1494,7 @@ def configure_kernel_crash_dumps(cfg, target: pathlib.Path) -> None:
     """
     kdump_cfg = cfg.get("kernel-crash-dumps", {})
 
-    enabled: bool = kdump_cfg.get("enabled")
+    enabled = kdump_cfg.get("enabled")
     automatic = enabled is None
 
     if automatic:

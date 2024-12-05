@@ -3,8 +3,6 @@
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-from parameterized import parameterized
-
 from curtin.commands.curthooks import configure_kernel_crash_dumps
 from curtin.kernel_crash_dumps import (ENABLEMENT_SCRIPT, automatic_detect,
                                        detection_script_available,
@@ -18,25 +16,24 @@ from tests.unittests.helpers import CiTestCase
 @patch("curtin.kernel_crash_dumps.automatic_detect")
 class TestKernelCrashDumpsCurthook(CiTestCase):
 
-    @parameterized.expand(
-        (
-            ({"kernel-crash-dumps": {}},),
-            ({"kernel-crash-dumps": {"enabled": None}},),
-        )
-    )
     def test_config__automatic(
         self,
         auto_mock,
         enable_mock,
         disable_mock,
-        config,
     ):
         """Test expected automatic configs."""
+        configs = [
+            {"kernel-crash-dumps": {}},
+            {"kernel-crash-dumps": {"enabled": None}},
+        ]
+        for config in configs:
+            configure_kernel_crash_dumps(config, "/target")
+            auto_mock.assert_called_once_with("/target")
+            enable_mock.assert_not_called()
+            disable_mock.assert_not_called()
 
-        configure_kernel_crash_dumps(config, "/target")
-        auto_mock.assert_called_once()
-        enable_mock.assert_not_called()
-        disable_mock.assert_not_called()
+            auto_mock.reset_mock()
 
     def test_config__manual_enable(
         self,
@@ -48,7 +45,7 @@ class TestKernelCrashDumpsCurthook(CiTestCase):
         config = {"kernel-crash-dumps": {"enabled": True}}
         configure_kernel_crash_dumps(config, "/target")
         auto_mock.assert_not_called()
-        enable_mock.assert_called_once()
+        enable_mock.assert_called_once_with("/target")
         disable_mock.assert_not_called()
 
     def test_config__manual_disable(
@@ -62,49 +59,51 @@ class TestKernelCrashDumpsCurthook(CiTestCase):
         configure_kernel_crash_dumps(config, "/target")
         auto_mock.assert_not_called()
         enable_mock.assert_not_called()
-        disable_mock.assert_called_once()
+        disable_mock.assert_called_once_with("/target")
 
 
 class TestKernelCrashDumpsUtilities(CiTestCase):
 
-    @parameterized.expand(
-        (
-            (True, True),
-            (False, False),
-        )
-    )
-    def test_detection_script_available(self, preinstalled, expected):
+    def test_detection_script_available(self):
         """Test detection_script_available checks for script path."""
 
-        with patch(
-            "curtin.kernel_crash_dumps.Path.exists",
-            return_value=preinstalled,
-        ):
-            self.assertEqual(detection_script_available(Path("")), expected)
+        cases = [
+            (True, True),
+            (False, False),
+        ]
 
-    @parameterized.expand(
-        (
-            (True,),
-            (False,),
-        )
-    )
-    def test_ensure_kdump_installed(self, preinstalled):
+        for preinstalled, expected in cases:
+            with patch(
+                "curtin.kernel_crash_dumps.Path.exists",
+                return_value=preinstalled,
+            ):
+                self.assertEqual(
+                    detection_script_available(Path("")),
+                    expected,
+                )
+
+    def test_ensure_kdump_installed(self):
         """Test detection of preinstall and install of kdump-tools."""
 
-        target = Path("/target")
-        with (
-            patch(
-                "curtin.distro.get_installed_packages",
-                return_value=["kdump-tools" if preinstalled else ""],
-            )
-        ):
-            with patch("curtin.distro.install_packages") as do_install:
-                ensure_kdump_installed(target)
+        cases = [True, False]
 
-        if preinstalled:
-            do_install.assert_not_called()
-        else:
-            do_install.assert_called_with(["kdump-tools"], target=str(target))
+        target = Path("/target")
+        for preinstalled in cases:
+            with (
+                patch(
+                    "curtin.distro.get_installed_packages",
+                    return_value=["kdump-tools" if preinstalled else ""],
+                )
+            ):
+                with patch("curtin.distro.install_packages") as do_install:
+                    ensure_kdump_installed(target)
+
+            if preinstalled:
+                do_install.assert_not_called()
+            else:
+                do_install.assert_called_with(
+                    ["kdump-tools"], target=str(target),
+                )
 
     def test_manual_enable(self):
         """Test manual enablement logic."""
@@ -117,58 +116,52 @@ class TestKernelCrashDumpsUtilities(CiTestCase):
                 new=MagicMock(),
             ) as chroot_mock:
                 manual_enable(target)
-        ensure_mock.assert_called_once()
+        ensure_mock.assert_called_once_with(Path("/target"))
         subp_mock = chroot_mock.return_value.__enter__.return_value.subp
         subp_mock.assert_called_with(
             [ENABLEMENT_SCRIPT, "true"],
         )
 
-    @parameterized.expand(
-        (
-            (True,),
-            (False,),
-        )
-    )
-    def test_manual_disable(self, preinstalled):
+    def test_manual_disable(self):
         """Test manual disable logic."""
+        cases = [True, False]
         target = Path("/target")
-        with patch(
-            "curtin.distro.get_installed_packages",
-            return_value=["kdump-tools" if preinstalled else ""],
-        ):
+
+        for preinstalled in cases:
             with patch(
-                "curtin.kernel_crash_dumps.ChrootableTarget",
-                new=MagicMock(),
-            ) as chroot_mock:
-                manual_disable(target)
+                "curtin.distro.get_installed_packages",
+                return_value=["kdump-tools" if preinstalled else ""],
+            ):
+                with patch(
+                    "curtin.kernel_crash_dumps.ChrootableTarget",
+                    new=MagicMock(),
+                ) as chroot_mock:
+                    manual_disable(target)
 
-        subp_mock = chroot_mock.return_value.__enter__.return_value.subp
-        if preinstalled:
-            subp_mock.assert_called_with([ENABLEMENT_SCRIPT, "false"])
-        else:
-            subp_mock.assert_not_called()
+            subp_mock = chroot_mock.return_value.__enter__.return_value.subp
+            if preinstalled:
+                subp_mock.assert_called_with([ENABLEMENT_SCRIPT, "false"])
+            else:
+                subp_mock.assert_not_called()
 
-    @parameterized.expand(
-        (
-            (True,),
-            (False,),
-        )
-    )
-    def test_automatic_detect(self, wants_enablement):
+    def test_automatic_detect(self):
         """Test automatic enablement logic."""
+        cases = [True, False]
         target = Path("/target")
-        with patch(
-            "curtin.kernel_crash_dumps.detection_script_available",
-            return_value=wants_enablement,
-        ):
-            with patch(
-                "curtin.kernel_crash_dumps.ChrootableTarget",
-                new=MagicMock(),
-            ) as chroot_mock:
-                automatic_detect(target)
 
-        subp_mock = chroot_mock.return_value.__enter__.return_value.subp
-        if wants_enablement:
-            subp_mock.assert_called_with([ENABLEMENT_SCRIPT])
-        else:
-            subp_mock.assert_not_called()
+        for wants_enablement in cases:
+            with patch(
+                "curtin.kernel_crash_dumps.detection_script_available",
+                return_value=wants_enablement,
+            ):
+                with patch(
+                    "curtin.kernel_crash_dumps.ChrootableTarget",
+                    new=MagicMock(),
+                ) as chroot_mock:
+                    automatic_detect(target)
+
+            subp_mock = chroot_mock.return_value.__enter__.return_value.subp
+            if wants_enablement:
+                subp_mock.assert_called_with([ENABLEMENT_SCRIPT])
+            else:
+                subp_mock.assert_not_called()
