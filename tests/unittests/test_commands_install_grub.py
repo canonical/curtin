@@ -578,6 +578,9 @@ class TestFindEfiLoader(CiTestCase):
             os.path.join(self.efi_path, self.bootid, 'shimx64.efi'),
             os.path.join(self.efi_path, 'BOOT', 'BOOTX64.EFI'),
             os.path.join(self.efi_path, self.bootid, 'grubx64.efi'),
+            os.path.join(self.efi_path, self.bootid, 'shimaa64.efi'),
+            os.path.join(self.efi_path, 'BOOT', 'BOOTAA64.EFI'),
+            os.path.join(self.efi_path, self.bootid, 'grubaa64.efi'),
         ]
 
     def test_return_none_with_no_loaders(self):
@@ -623,6 +626,33 @@ class TestFindEfiLoader(CiTestCase):
         print(found)
         self.assertTrue(found.endswith(
             os.path.join(self.efi_path, self.bootid, 'grubx64.efi')))
+
+    def test_prefer_existing_bootx_loader_with_no_shim_arm64(self):
+        # touch all loaders in target filesystem
+        loaders = self._possible_loaders()[4:]
+        for loader in loaders:
+            tloader = os.path.join(self.target, loader)
+            util.ensure_dir(os.path.dirname(tloader))
+            with open(tloader, 'w+') as fh:
+                fh.write('\n')
+
+        found = install_grub.find_efi_loader(self.target, self.bootid)
+        self.assertTrue(found.endswith(
+            os.path.join(self.efi_path, 'BOOT', 'BOOTAA64.EFI')))
+
+    def test_prefer_existing_grub_loader_with_no_other_loader_arm64(self):
+        # touch all loaders in target filesystem
+        loaders = self._possible_loaders()[5:]
+        for loader in loaders:
+            tloader = os.path.join(self.target, loader)
+            util.ensure_dir(os.path.dirname(tloader))
+            with open(tloader, 'w+') as fh:
+                fh.write('\n')
+
+        found = install_grub.find_efi_loader(self.target, self.bootid)
+        print(found)
+        self.assertTrue(found.endswith(
+            os.path.join(self.efi_path, self.bootid, 'grubaa64.efi')))
 
 
 class TestGetGrubInstallCommand(CiTestCase):
@@ -808,6 +838,34 @@ class TestGenUefiInstallCommands(CiTestCase):
                 grub_name, grub_target, grub_cmd, update_nvram, distroinfo,
                 devices, self.target))
 
+    def test_redhat_install_arm64(self):
+        self.m_os_release.return_value = {'ID': 'rhel'}
+        distroinfo = install_grub.distro.get_distroinfo()
+        grub_name = 'grub2-efi-aa64'
+        grub_target = 'arm64-efi'
+        grub_cmd = 'grub2-install'
+        update_nvram = True
+        devices = ['/dev/disk-a-part1']
+        disk = '/dev/disk-a'
+        part = '1'
+        self.m_get_disk_part.return_value = (disk, part)
+
+        expected_install = [
+            ['efibootmgr', '-v'],
+            [grub_cmd, '--target=%s' % grub_target,
+             '--efi-directory=/boot/efi',
+             '--bootloader-id=redhat', '--recheck'],
+        ]
+        expected_post = [
+            ['grub2-mkconfig', '-o', '/boot/grub2/grub.cfg'],
+            ['efibootmgr', '-v']
+        ]
+        self.assertEqual(
+            (expected_install, expected_post),
+            install_grub.gen_uefi_install_commands(
+                grub_name, grub_target, grub_cmd, update_nvram, distroinfo,
+                devices, self.target))
+
     def test_redhat_install_existing(self):
         # simulate existing bootloaders already installed in target system
         # by touching the files grub would have installed, including shim
@@ -818,6 +876,9 @@ class TestGenUefiInstallCommands(CiTestCase):
                 os.path.join(target_efi_path, bootid, 'shimx64.efi'),
                 os.path.join(target_efi_path, 'BOOT', 'BOOTX64.EFI'),
                 os.path.join(target_efi_path, bootid, 'grubx64.efi'),
+                os.path.join(target_efi_path, bootid, 'shimaa64.efi'),
+                os.path.join(target_efi_path, 'BOOT', 'BOOTAA64.EFI'),
+                os.path.join(target_efi_path, bootid, 'grubaa64.efi'),
             ]
             for loader in loaders:
                 util.ensure_dir(os.path.dirname(loader))
@@ -854,6 +915,55 @@ class TestGenUefiInstallCommands(CiTestCase):
                 grub_name, grub_target, grub_cmd, update_nvram, distroinfo,
                 devices, self.target))
 
+    def test_redhat_install_existing_arm64(self):
+        # simulate existing bootloaders already installed in target system
+        # by touching the files grub would have installed, including shim
+        def _enable_loaders(bootid):
+            efi_path = 'boot/efi/EFI'
+            target_efi_path = os.path.join(self.target, efi_path)
+            loaders = [
+                os.path.join(target_efi_path, bootid, 'shimx64.efi'),
+                os.path.join(target_efi_path, 'BOOT', 'BOOTX64.EFI'),
+                os.path.join(target_efi_path, bootid, 'grubx64.efi'),
+                os.path.join(target_efi_path, bootid, 'shimaa64.efi'),
+                os.path.join(target_efi_path, 'BOOT', 'BOOTAA64.EFI'),
+                os.path.join(target_efi_path, bootid, 'grubaa64.efi'),
+            ]
+            for loader in loaders:
+                util.ensure_dir(os.path.dirname(loader))
+                with open(loader, 'w+') as fh:
+                    fh.write('\n')
+
+        self.m_os_release.return_value = {'ID': 'rhel'}
+        distroinfo = install_grub.distro.get_distroinfo()
+        _enable_loaders("redhat")
+        grub_name = 'grub2-efi-aa64'
+        grub_target = 'arm64-efi'
+        grub_cmd = 'grub2-install'
+        update_nvram = True
+        devices = ['/dev/disk-a-part1']
+        disk = '/dev/disk-a'
+        part = '1'
+        self.m_get_disk_part.return_value = (disk, part)
+
+        expected_loader = '/EFI/redhat/shimx64.efi'
+        expected_install = [
+            ['efibootmgr', '-v'],
+            ['efibootmgr', '--create', '--write-signature',
+             '--label', 'redhat', '--disk', disk, '--part', part,
+             '--loader', expected_loader],
+        ]
+        expected_post = [
+            ['grub2-mkconfig', '-o', '/boot/efi/EFI/redhat/grub.cfg'],
+            ['efibootmgr', '-v']
+        ]
+
+        self.assertEqual(
+            (expected_install, expected_post),
+            install_grub.gen_uefi_install_commands(
+                grub_name, grub_target, grub_cmd, update_nvram, distroinfo,
+                devices, self.target))
+
     def test_redhat_install_existing_no_nvram(self):
         # verify grub install command is not executed if update_nvram is False
         # on redhat.
@@ -864,6 +974,9 @@ class TestGenUefiInstallCommands(CiTestCase):
                 os.path.join(target_efi_path, bootid, 'shimx64.efi'),
                 os.path.join(target_efi_path, 'BOOT', 'BOOTX64.EFI'),
                 os.path.join(target_efi_path, bootid, 'grubx64.efi'),
+                os.path.join(target_efi_path, bootid, 'shimaa64.efi'),
+                os.path.join(target_efi_path, 'BOOT', 'BOOTAA64.EFI'),
+                os.path.join(target_efi_path, bootid, 'grubaa64.efi'),
             ]
             for loader in loaders:
                 util.write_file(loader, content="")
@@ -874,6 +987,50 @@ class TestGenUefiInstallCommands(CiTestCase):
         _enable_loaders(bootid)
         grub_name = 'grub2-efi-x64'
         grub_target = 'x86_64-efi'
+        grub_cmd = 'grub2-install'
+        update_nvram = False
+        devices = ['/dev/disk-a-part1']
+        disk = '/dev/disk-a'
+        part = '1'
+        self.m_get_disk_part.return_value = (disk, part)
+
+        expected_install = [
+            ['efibootmgr', '-v'],
+        ]
+        expected_post = [
+            ['grub2-mkconfig', '-o', '/boot/efi/EFI/%s/grub.cfg' % bootid],
+            ['efibootmgr', '-v']
+        ]
+
+        self.assertEqual(
+            (expected_install, expected_post),
+            install_grub.gen_uefi_install_commands(
+                grub_name, grub_target, grub_cmd, update_nvram, distroinfo,
+                devices, self.target))
+
+    def test_redhat_install_existing_no_nvram_arm64(self):
+        # verify grub install command is not executed if update_nvram is False
+        # on redhat.
+        def _enable_loaders(bootid):
+            efi_path = 'boot/efi/EFI'
+            target_efi_path = os.path.join(self.target, efi_path)
+            loaders = [
+                os.path.join(target_efi_path, bootid, 'shimx64.efi'),
+                os.path.join(target_efi_path, 'BOOT', 'BOOTX64.EFI'),
+                os.path.join(target_efi_path, bootid, 'grubx64.efi'),
+                os.path.join(target_efi_path, bootid, 'shimaa64.efi'),
+                os.path.join(target_efi_path, 'BOOT', 'BOOTAA64.EFI'),
+                os.path.join(target_efi_path, bootid, 'grubaa64.efi'),
+            ]
+            for loader in loaders:
+                util.write_file(loader, content="")
+
+        self.m_os_release.return_value = {'ID': 'redhat'}
+        distroinfo = install_grub.distro.get_distroinfo()
+        bootid = distroinfo.variant
+        _enable_loaders(bootid)
+        grub_name = 'grub2-efi-aa64'
+        grub_target = 'arm-efi'
         grub_cmd = 'grub2-install'
         update_nvram = False
         devices = ['/dev/disk-a-part1']
@@ -923,6 +1080,34 @@ class TestGenUefiInstallCommands(CiTestCase):
                 grub_name, grub_target, grub_cmd, update_nvram, distroinfo,
                 devices, self.target))
 
+    def test_suse_install_arm64(self):
+        self.m_os_release.return_value = {'ID': 'suse'}
+        distroinfo = install_grub.distro.get_distroinfo()
+        grub_name = 'grub2-efi-aa64'
+        grub_target = 'arm-efi'
+        grub_cmd = 'grub2-install'
+        update_nvram = True
+        devices = ['/dev/disk-a-part1']
+        disk = '/dev/disk-a'
+        part = '1'
+        self.m_get_disk_part.return_value = (disk, part)
+
+        expected_install = [
+            ['efibootmgr', '-v'],
+            [grub_cmd, '--target=%s' % grub_target,
+             '--efi-directory=/boot/efi',
+             '--bootloader-id=suse', '--recheck'],
+        ]
+        expected_post = [
+            ['grub2-mkconfig', '-o', '/boot/grub2/grub.cfg'],
+            ['efibootmgr', '-v']
+        ]
+        self.assertEqual(
+            (expected_install, expected_post),
+            install_grub.gen_uefi_install_commands(
+                grub_name, grub_target, grub_cmd, update_nvram, distroinfo,
+                devices, self.target))
+
     def test_suse_install_existing(self):
         # simulate existing bootloaders already installed in target system
         # by touching the files grub would have installed, including shim
@@ -933,6 +1118,9 @@ class TestGenUefiInstallCommands(CiTestCase):
                 os.path.join(target_efi_path, bootid, 'shimx64.efi'),
                 os.path.join(target_efi_path, 'BOOT', 'BOOTX64.EFI'),
                 os.path.join(target_efi_path, bootid, 'grubx64.efi'),
+                os.path.join(target_efi_path, bootid, 'shimaa64.efi'),
+                os.path.join(target_efi_path, 'BOOT', 'BOOTAA64.EFI'),
+                os.path.join(target_efi_path, bootid, 'grubaa64.efi'),
             ]
             for loader in loaders:
                 util.ensure_dir(os.path.dirname(loader))
@@ -969,6 +1157,55 @@ class TestGenUefiInstallCommands(CiTestCase):
                 grub_name, grub_target, grub_cmd, update_nvram, distroinfo,
                 devices, self.target))
 
+    def test_suse_install_existing_arm64(self):
+        # simulate existing bootloaders already installed in target system
+        # by touching the files grub would have installed, including shim
+        def _enable_loaders(bootid):
+            efi_path = 'boot/efi/EFI'
+            target_efi_path = os.path.join(self.target, efi_path)
+            loaders = [
+                os.path.join(target_efi_path, bootid, 'shimx64.efi'),
+                os.path.join(target_efi_path, 'BOOT', 'BOOTX64.EFI'),
+                os.path.join(target_efi_path, bootid, 'grubx64.efi'),
+                os.path.join(target_efi_path, bootid, 'shimaa64.efi'),
+                os.path.join(target_efi_path, 'BOOT', 'BOOTAA64.EFI'),
+                os.path.join(target_efi_path, bootid, 'grubaa64.efi'),
+            ]
+            for loader in loaders:
+                util.ensure_dir(os.path.dirname(loader))
+                with open(loader, 'w+') as fh:
+                    fh.write('\n')
+
+        self.m_os_release.return_value = {'ID': 'suse'}
+        distroinfo = install_grub.distro.get_distroinfo()
+        _enable_loaders("suse")
+        grub_name = 'grub2-efi-aa64'
+        grub_target = 'arm64-efi'
+        grub_cmd = 'grub2-install'
+        update_nvram = True
+        devices = ['/dev/disk-a-part1']
+        disk = '/dev/disk-a'
+        part = '1'
+        self.m_get_disk_part.return_value = (disk, part)
+
+        expected_loader = '/EFI/suse/shimx64.efi'
+        expected_install = [
+            ['efibootmgr', '-v'],
+            ['efibootmgr', '--create', '--write-signature',
+             '--label', 'suse', '--disk', disk, '--part', part,
+             '--loader', expected_loader],
+        ]
+        expected_post = [
+            ['grub2-mkconfig', '-o', '/boot/efi/EFI/suse/grub.cfg'],
+            ['efibootmgr', '-v']
+        ]
+
+        self.assertEqual(
+            (expected_install, expected_post),
+            install_grub.gen_uefi_install_commands(
+                grub_name, grub_target, grub_cmd, update_nvram, distroinfo,
+                devices, self.target))
+
     def test_suse_install_existing_no_nvram(self):
         # verify grub install command is not executed if update_nvram is False
         # on suse.
@@ -979,6 +1216,9 @@ class TestGenUefiInstallCommands(CiTestCase):
                 os.path.join(target_efi_path, bootid, 'shimx64.efi'),
                 os.path.join(target_efi_path, 'BOOT', 'BOOTX64.EFI'),
                 os.path.join(target_efi_path, bootid, 'grubx64.efi'),
+                os.path.join(target_efi_path, bootid, 'shimaa64.efi'),
+                os.path.join(target_efi_path, 'BOOT', 'BOOTAA64.EFI'),
+                os.path.join(target_efi_path, bootid, 'grubaa64.efi'),
             ]
             for loader in loaders:
                 util.write_file(loader, content="")
@@ -989,6 +1229,50 @@ class TestGenUefiInstallCommands(CiTestCase):
         _enable_loaders(bootid)
         grub_name = 'grub2-efi-x64'
         grub_target = 'x86_64-efi'
+        grub_cmd = 'grub2-install'
+        update_nvram = False
+        devices = ['/dev/disk-a-part1']
+        disk = '/dev/disk-a'
+        part = '1'
+        self.m_get_disk_part.return_value = (disk, part)
+
+        expected_install = [
+            ['efibootmgr', '-v'],
+        ]
+        expected_post = [
+            ['grub2-mkconfig', '-o', '/boot/efi/EFI/%s/grub.cfg' % bootid],
+            ['efibootmgr', '-v']
+        ]
+
+        self.assertEqual(
+            (expected_install, expected_post),
+            install_grub.gen_uefi_install_commands(
+                grub_name, grub_target, grub_cmd, update_nvram, distroinfo,
+                devices, self.target))
+
+    def test_suse_install_existing_no_nvram_arm64(self):
+        # verify grub install command is not executed if update_nvram is False
+        # on suse.
+        def _enable_loaders(bootid):
+            efi_path = 'boot/efi/EFI'
+            target_efi_path = os.path.join(self.target, efi_path)
+            loaders = [
+                os.path.join(target_efi_path, bootid, 'shimx64.efi'),
+                os.path.join(target_efi_path, 'BOOT', 'BOOTX64.EFI'),
+                os.path.join(target_efi_path, bootid, 'grubx64.efi'),
+                os.path.join(target_efi_path, bootid, 'shimaa64.efi'),
+                os.path.join(target_efi_path, 'BOOT', 'BOOTAA64.EFI'),
+                os.path.join(target_efi_path, bootid, 'grubaa64.efi'),
+            ]
+            for loader in loaders:
+                util.write_file(loader, content="")
+
+        self.m_os_release.return_value = {'ID': 'suse'}
+        distroinfo = install_grub.distro.get_distroinfo()
+        bootid = distroinfo.variant
+        _enable_loaders(bootid)
+        grub_name = 'grub2-efi-aa64'
+        grub_target = 'arm-efi'
         grub_cmd = 'grub2-install'
         update_nvram = False
         devices = ['/dev/disk-a-part1']
@@ -1038,6 +1322,34 @@ class TestGenUefiInstallCommands(CiTestCase):
                 grub_name, grub_target, grub_cmd, update_nvram, distroinfo,
                 devices, self.target))
 
+    def test_ol_install_arm64(self):
+        self.m_os_release.return_value = {'ID': 'ol'}
+        distroinfo = install_grub.distro.get_distroinfo()
+        grub_name = 'grub2-efi-aa64'
+        grub_target = 'arm64-efi'
+        grub_cmd = 'grub2-install'
+        update_nvram = True
+        devices = ['/dev/disk-a-part1']
+        disk = '/dev/disk-a'
+        part = '1'
+        self.m_get_disk_part.return_value = (disk, part)
+
+        expected_install = [
+            ['efibootmgr', '-v'],
+            [grub_cmd, '--target=%s' % grub_target,
+             '--efi-directory=/boot/efi',
+             '--bootloader-id=redhat', '--recheck'],
+        ]
+        expected_post = [
+            ['grub2-mkconfig', '-o', '/boot/grub2/grub.cfg'],
+            ['efibootmgr', '-v']
+        ]
+        self.assertEqual(
+            (expected_install, expected_post),
+            install_grub.gen_uefi_install_commands(
+                grub_name, grub_target, grub_cmd, update_nvram, distroinfo,
+                devices, self.target))
+
     def test_ol_install_existing(self):
         # simulate existing bootloaders already installed in target system
         # by touching the files grub would have installed, including shim
@@ -1048,6 +1360,9 @@ class TestGenUefiInstallCommands(CiTestCase):
                 os.path.join(target_efi_path, bootid, 'shimx64.efi'),
                 os.path.join(target_efi_path, 'BOOT', 'BOOTX64.EFI'),
                 os.path.join(target_efi_path, bootid, 'grubx64.efi'),
+                os.path.join(target_efi_path, bootid, 'shimaa64.efi'),
+                os.path.join(target_efi_path, 'BOOT', 'BOOTAA64.EFI'),
+                os.path.join(target_efi_path, bootid, 'grubaa64.efi'),
             ]
             for loader in loaders:
                 util.ensure_dir(os.path.dirname(loader))
@@ -1084,6 +1399,55 @@ class TestGenUefiInstallCommands(CiTestCase):
                 grub_name, grub_target, grub_cmd, update_nvram, distroinfo,
                 devices, self.target))
 
+    def test_ol_install_existing_arm64(self):
+        # simulate existing bootloaders already installed in target system
+        # by touching the files grub would have installed, including shim
+        def _enable_loaders(bootid):
+            efi_path = 'boot/efi/EFI'
+            target_efi_path = os.path.join(self.target, efi_path)
+            loaders = [
+                os.path.join(target_efi_path, bootid, 'shimx64.efi'),
+                os.path.join(target_efi_path, 'BOOT', 'BOOTX64.EFI'),
+                os.path.join(target_efi_path, bootid, 'grubx64.efi'),
+                os.path.join(target_efi_path, bootid, 'shimaa64.efi'),
+                os.path.join(target_efi_path, 'BOOT', 'BOOTAA64.EFI'),
+                os.path.join(target_efi_path, bootid, 'grubaa64.efi'),
+            ]
+            for loader in loaders:
+                util.ensure_dir(os.path.dirname(loader))
+                with open(loader, 'w+') as fh:
+                    fh.write('\n')
+
+        self.m_os_release.return_value = {'ID': 'ol'}
+        distroinfo = install_grub.distro.get_distroinfo()
+        _enable_loaders("redhat")
+        grub_name = 'grub2-efi-aa64'
+        grub_target = 'arm64-efi'
+        grub_cmd = 'grub2-install'
+        update_nvram = True
+        devices = ['/dev/disk-a-part1']
+        disk = '/dev/disk-a'
+        part = '1'
+        self.m_get_disk_part.return_value = (disk, part)
+
+        expected_loader = '/EFI/redhat/shimx64.efi'
+        expected_install = [
+            ['efibootmgr', '-v'],
+            ['efibootmgr', '--create', '--write-signature',
+             '--label', 'redhat', '--disk', disk, '--part', part,
+             '--loader', expected_loader],
+        ]
+        expected_post = [
+            ['grub2-mkconfig', '-o', '/boot/efi/EFI/redhat/grub.cfg'],
+            ['efibootmgr', '-v']
+        ]
+
+        self.assertEqual(
+            (expected_install, expected_post),
+            install_grub.gen_uefi_install_commands(
+                grub_name, grub_target, grub_cmd, update_nvram, distroinfo,
+                devices, self.target))
+
     def test_ol_install_existing_no_nvram(self):
         # verify grub install command is not executed if update_nvram is False
         # on ol.
@@ -1094,6 +1458,9 @@ class TestGenUefiInstallCommands(CiTestCase):
                 os.path.join(target_efi_path, bootid, 'shimx64.efi'),
                 os.path.join(target_efi_path, 'BOOT', 'BOOTX64.EFI'),
                 os.path.join(target_efi_path, bootid, 'grubx64.efi'),
+                os.path.join(target_efi_path, bootid, 'shimaa64.efi'),
+                os.path.join(target_efi_path, 'BOOT', 'BOOTAA64.EFI'),
+                os.path.join(target_efi_path, bootid, 'grubaa64.efi'),
             ]
             for loader in loaders:
                 util.write_file(loader, content="")
@@ -1103,6 +1470,49 @@ class TestGenUefiInstallCommands(CiTestCase):
         _enable_loaders("redhat")
         grub_name = 'grub2-efi-x64'
         grub_target = 'x86_64-efi'
+        grub_cmd = 'grub2-install'
+        update_nvram = False
+        devices = ['/dev/disk-a-part1']
+        disk = '/dev/disk-a'
+        part = '1'
+        self.m_get_disk_part.return_value = (disk, part)
+
+        expected_install = [
+            ['efibootmgr', '-v'],
+        ]
+        expected_post = [
+            ['grub2-mkconfig', '-o', '/boot/efi/EFI/redhat/grub.cfg'],
+            ['efibootmgr', '-v']
+        ]
+
+        self.assertEqual(
+            (expected_install, expected_post),
+            install_grub.gen_uefi_install_commands(
+                grub_name, grub_target, grub_cmd, update_nvram, distroinfo,
+                devices, self.target))
+
+    def test_ol_install_existing_no_nvram_arm64(self):
+        # verify grub install command is not executed if update_nvram is False
+        # on ol.
+        def _enable_loaders(bootid):
+            efi_path = 'boot/efi/EFI'
+            target_efi_path = os.path.join(self.target, efi_path)
+            loaders = [
+                os.path.join(target_efi_path, bootid, 'shimx64.efi'),
+                os.path.join(target_efi_path, 'BOOT', 'BOOTX64.EFI'),
+                os.path.join(target_efi_path, bootid, 'grubx64.efi'),
+                os.path.join(target_efi_path, bootid, 'shimaa64.efi'),
+                os.path.join(target_efi_path, 'BOOT', 'BOOTAA64.EFI'),
+                os.path.join(target_efi_path, bootid, 'grubaa64.efi'),
+            ]
+            for loader in loaders:
+                util.write_file(loader, content="")
+
+        self.m_os_release.return_value = {'ID': 'ol'}
+        distroinfo = install_grub.distro.get_distroinfo()
+        _enable_loaders("redhat")
+        grub_name = 'grub2-efi-aa64'
+        grub_target = 'arm64-efi'
         grub_cmd = 'grub2-install'
         update_nvram = False
         devices = ['/dev/disk-a-part1']
