@@ -242,6 +242,9 @@ def find_efi_loader(target, bootid):
         os.path.join(efi_path, bootid, 'shimx64.efi'),
         os.path.join(efi_path, 'BOOT', 'BOOTX64.EFI'),
         os.path.join(efi_path, bootid, 'grubx64.efi'),
+        os.path.join(efi_path, bootid, 'shimaa64.efi'),
+        os.path.join(efi_path, 'BOOT', 'BOOTAA64.EFI'),
+        os.path.join(efi_path, bootid, 'grubaa64.efi'),
     ]
     for loader in possible_loaders:
         tloader = target_path(target, path=loader)
