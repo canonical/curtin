@@ -66,6 +66,10 @@ Do these things for each feature or bug
 
     git commit
 
+* Make sure required build/test dependencies are present by executing:
+
+    tools/vmtest-system-setup
+
 * Run unit tests and lint/formatting checks with `tox`_::
 
     tox
