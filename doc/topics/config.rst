@@ -10,6 +10,9 @@ Configuration options
 ---------------------
 Curtin's top level config keys are as follows:
 
+.. contents::
+    :depth: 1
+    :local:
 
 - apt_mirrors (``apt_mirrors``)
 - apt_proxy (``apt_proxy``)
