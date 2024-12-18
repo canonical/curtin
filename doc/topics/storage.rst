@@ -1170,6 +1170,7 @@ keystore system.  When **encryption_style** is not null, **keyfile** is
 required.
 
 This works as follows:
+
 * A LUKS device is created as a ZFS dataset in the ZPool.
 * The supplied passphrase (see **keyfile**) is used to encrypt the LUKS device.
 * The real key for the ZFS dataset is contained in the LUKS device as a simple
