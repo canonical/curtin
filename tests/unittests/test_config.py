@@ -255,5 +255,8 @@ class TestBootCfg(CiTestCase):
             config.BootCfg(['fred'])
         self.assertIn("Unknown bootloader fred: ['fred']", str(exc.exception))
 
+    def test_valid(self):
+        config.BootCfg(['grub'])
+
 
 # vi: ts=4 expandtab syntax=python

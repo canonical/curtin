@@ -4,6 +4,7 @@ placeholder_simple_install: unused
 
 # configure curtin so it does not emit a grub config file
 # in etc/default/grub/grub.d
-grub:
+boot:
+   bootloaders: ['grub']
    probe_additional_os: true
    terminal: unmodified
