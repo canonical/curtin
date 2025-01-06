@@ -17,6 +17,7 @@ Curtin's top level config keys are as follows:
 - apt_mirrors (``apt_mirrors``)
 - apt_proxy (``apt_proxy``)
 - block-meta (``block``)
+- boot (``boot``)
 - curthooks (``curthooks``)
 - debconf_selections (``debconf_selections``)
 - disable_overlayroot (``disable_overlayroot``)
@@ -115,21 +116,71 @@ Specify the filesystem label on the boot partition.
           label: my-boot-partition
 
 
+boot
+~~~~
+
+Configures which bootloader(s) Curtin installs and some associated options.
+This is a list, which can contain up to two options: `grub` and `extlinux`.
+
+Two bootloaders are available:
+
+- `GRUB <https://www.gnu.org/software/grub/>`_ (GRand Unified Bootloader)
+  installs itself on one or more block devices and takes care of booting.
+  Typically grub is built as an EFI application. Curtin controls aspects of
+  grub's configuration-file (/boot/grub/grub.cfg) which tells grub which OS
+  options to present to the user.
+
+- `extlinux <https://wiki.syslinux.org/wiki/index.php?title=EXTLINUX>`_
+  is really just a file format, similar to a grub configuration-file but much
+  less flexible. It specifies which OS options to present to the user.
+
+One or both can be installed.
+
+The following properties are used for both bootloaders:
+
+**bootloaders**: *<list of bootloaders>*
+
+Selects the bootloaders to use. Valid options are "grub" and "extlinux".
+
+**replace_linux_default**: *<boolean: default True>*
+
+Controls whether grub-install will update the Linux Default target
+value during installation.
+
+**terminal**: *<['unmodified', 'console', ...]>*
+
+For grub, this configures the target-system grub-option GRUB_TERMINAL
+``terminal`` value which is written to
+/etc/default/grub.d/50-curtin-settings.cfg.  Curtin does not attempt to validate
+this string, grub2 has many values that it accepts and the list is platform
+dependent.
+
+For extlinux, this puts the console string in an APPEND line for each OS.
+
+If ``terminal`` is not provided, Curtin will set the value to 'console'.  If the
+``terminal`` value is 'unmodified' then Curtin will not set any value at all and
+will use Grub defaults.
+
+extlinux
+""""""""
+
+Curtin can add an ``extlinux.conf`` file to a filesystem. This contains a list
+of possible kernels, etc. similar to grub. This is somewhat more flexible on
+ARM/RISC-V since it can use `FIT <https://fitspec.osfw.foundation/>`_ and deal
+with devicetree, verified boot, etc. automatically. It also avoids specifying
+which bootloader must be used, since extlinux is supported by U-Boot, for
+example.
 
 grub
-~~~~
-Curtin configures grub as the target machine's boot loader.  Users
+""""
+
+Curtin can configure grub as the target machine's grub boot loader.  Users
 can control a few options to tailor how the system will boot after
 installation.
 
 **install_devices**: *<list of block device names to install grub>*
 
 Specify a list of devices onto which grub will attempt to install.
-
-**replace_linux_default**: *<boolean: default True>*
-
-Controls whether grub-install will update the Linux Default target
-value during installation.
 
 **update_nvram**: *<boolean: default True>*
 
@@ -148,16 +199,6 @@ operating systems and adding them to the grub menu.
 When False, curtin writes "GRUB_DISABLE_OS_PROBER=true" to target system in
 /etc/default/grub.d/50-curtin-settings.cfg.  If True, curtin won't modify the
 grub configuration value in the target system.
-
-**terminal**: *<['unmodified', 'console', ...]>*
-
-Configure target system grub option GRUB_TERMINAL ``terminal`` value
-which is written to /etc/default/grub.d/50-curtin-settings.cfg.  Curtin
-does not attempt to validate this string, grub2 has many values that
-it accepts and the list is platform dependent.  If ``terminal`` is
-not provided, Curtin will set the value to 'console'.  If the ``terminal``
-value is 'unmodified' then Curtin will not set any value at all and will
-use Grub defaults.
 
 **reorder_uefi**: *<boolean: default True>*
 
@@ -198,7 +239,9 @@ This setting is ignored if *update_nvram* is False.
 
 **Example**::
 
-  grub:
+  boot:
+     bootloaders:
+        - grub
      install_devices:
        - /dev/sda1
      replace_linux_default: False
@@ -208,38 +251,61 @@ This setting is ignored if *update_nvram* is False.
 
 **Default terminal value, GRUB_TERMINAL=console**::
 
-  grub:
+  boot:
+     bootloaders:
+        - grub
      install_devices:
        - /dev/sda1
 
 **Don't set GRUB_TERMINAL in target**::
 
-  grub:
+  boot:
+     bootloaders:
+        - grub
      install_devices:
        - /dev/sda1
      terminal: unmodified
 
 **Allow grub to probe for additional OSes**::
 
-  grub:
-    install_devices:
-      - /dev/sda1
+  boot:
+     bootloaders:
+        - grub
+     install_devices:
+        - /dev/sda1
      probe_additional_os: True
 
 **Avoid writting any settings to etc/default/grub.d/50-curtin-settings.cfg**::
 
-  grub:
-    install_devices:
-      - /dev/sda1
+  boot:
+     bootloaders:
+        - grub
+     install_devices:
+        - /dev/sda1
      probe_additional_os: True
      terminal: unmodified
 
 **Enable Fallback UEFI Reordering**::
 
-  grub:
+  boot:
+     bootloaders:
+        - grub
      reorder_uefi: true
      reorder_uefi_force_fallback: true
 
+extlinux
+""""""""
+
+There are no options specific to extlinux.
+
+**Example**::
+
+  boot:
+     bootloaders:
+        - grub
+        - extlinux
+     install_devices:
+        - /dev/sda1
 
 curthooks
 ~~~~~~~~~
@@ -312,6 +378,11 @@ Curtin disables overlayroot in the target by default.
 
   disable_overlayroot: False
 
+grub
+~~~~
+
+This is an alias for **boot** with *bootloader* set to "grub". It is provided
+to maintain backwards compatibility
 
 http_proxy
 ~~~~~~~~~~

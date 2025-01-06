@@ -752,7 +752,7 @@ def setup_grub(
     from curtin.commands.block_meta import (extract_storage_ordered_dict,
                                             get_path_to_storage_volume)
 
-    bootcfg = config.fromdict(config.BootCfg, cfg.get('grub', {}))
+    bootcfg = config.fromdict(config.BootCfg, cfg.get('boot', {}))
 
     LOG.debug("setup grub on target %s", target)
     # if there is storage config, look for devices tagged with 'grub_device'
@@ -849,6 +849,29 @@ def setup_grub(
         uefi_remove_duplicate_entries(bootcfg, target)
 
 
+def translate_old_grub_schema(cfg):
+    """Translate the old top-level 'grub' configure to the new 'boot' one"""
+    grub_cfg = cfg.get('grub', {})
+
+    # Use the 'boot' key, if present
+    if 'boot' in cfg:
+        if grub_cfg:
+            raise ValueError("Configuration has both 'grub' and 'boot' keys")
+        return
+
+    # copy legacy top level name
+    if 'grub_install_devices' in cfg and 'install_devices' not in cfg:
+        grub_cfg['install_devices'] = cfg['grub_install_devices']
+
+    if 'grub' in cfg:
+        del cfg['grub']
+
+    # Create a bootloaders list with 'grub', which is implied in the old config
+    grub_cfg['bootloaders'] = ['grub']
+
+    cfg['boot'] = grub_cfg
+
+
 def setup_boot(
         cfg: dict,
         target: str,
@@ -857,17 +880,15 @@ def setup_boot(
         osfamily: str,
         variant: str,
         ) -> None:
-    bootcfg_d = cfg.get('grub', {})
+    translate_old_grub_schema(cfg)
 
-    # copy legacy top level name
-    if 'grub_install_devices' in cfg and 'install_devices' not in bootcfg_d:
-        bootcfg_d['install_devices'] = cfg['grub_install_devices']
-        cfg['grub'] = bootcfg_d
+    boot_cfg = cfg['boot']
+    bootloaders = boot_cfg['bootloaders']
 
     # For now we have a hard-coded mechanism to determine whether grub should
     # be installed or not. Even if the grub info is present in the config, we
     # check the machine to decide whether or not to install it.
-    if uses_grub(machine):
+    if 'grub' in bootloaders and uses_grub(machine):
         with events.ReportEventStack(
                 name=stack_prefix + '/install-grub',
                 reporting_enabled=True, level="INFO",

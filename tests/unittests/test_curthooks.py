@@ -850,11 +850,13 @@ class TestSetupGrub(CiTestCase):
                              osfamily=self.distro_family, variant=self.variant)
         self.m_install_grub.assert_called_with(
             ['/dev/vdb'], self.target, uefi=False,
-            bootcfg=config.BootCfg(install_devices=['/dev/vdb']))
+            bootcfg=config.BootCfg(bootloaders=['grub'],
+                                   install_devices=['/dev/vdb']))
 
     def test_uses_install_devices_in_bootcfg(self):
         cfg = {
-            'grub': {
+            'boot': {
+                'bootloaders': ['grub'],
                 'install_devices': ['/dev/vdb'],
             },
         }
@@ -863,11 +865,25 @@ class TestSetupGrub(CiTestCase):
             osfamily=self.distro_family, variant=self.variant)
         self.m_install_grub.assert_called_with(
             ['/dev/vdb'], self.target, uefi=False,
-            bootcfg=config.fromdict(config.BootCfg, cfg.get('grub')))
+            bootcfg=config.fromdict(config.BootCfg, cfg.get('boot')))
+
+    def test_uses_old_schema_install_devices_in_grubcfg(self):
+        cfg = {
+            'grub': {
+                'install_devices': ['/dev/vdb'],
+            },
+        }
+        curthooks.setup_boot(
+            cfg, self.target, machine='amd64', stack_prefix='stack_prefix',
+            osfamily=self.distro_family, variant=self.variant)
+        self.m_install_grub.assert_called_with(
+            ['/dev/vdb'], self.target, uefi=False,
+            bootcfg=config.fromdict(config.BootCfg, cfg.get('boot')))
 
     def test_calls_install_grub(self):
         cfg = {
-            'grub': {
+            'boot': {
+                'bootloaders': ['grub'],
                 'install_devices': ['/dev/vdb'],
             },
         }
@@ -876,11 +892,12 @@ class TestSetupGrub(CiTestCase):
             osfamily=self.distro_family, variant=self.variant)
         self.m_install_grub.assert_called_with(
             ['/dev/vdb'], self.target, uefi=False,
-            bootcfg=config.fromdict(config.BootCfg, cfg.get('grub')))
+            bootcfg=config.fromdict(config.BootCfg, cfg.get('boot')))
 
     def test_skips_install_grub(self):
         cfg = {
-            'grub': {
+            'boot': {
+                'bootloaders': ['grub'],
                 'install_devices': ['/dev/vdb'],
             },
         }
@@ -894,6 +911,9 @@ class TestSetupGrub(CiTestCase):
     def test_uses_grub_install_on_storage_config(self, m_exists, m_multipath):
         m_multipath.is_mpath_member.return_value = False
         cfg = {
+            'boot': {
+                'bootloaders': ['grub'],
+            },
             'storage': {
                 'version': 1,
                 'config': [
@@ -911,7 +931,8 @@ class TestSetupGrub(CiTestCase):
                              variant=self.variant)
         self.m_install_grub.assert_called_with(
             ['/dev/vdb'], self.target, uefi=False,
-            bootcfg=config.BootCfg(install_devices=['/dev/vdb']))
+            bootcfg=config.BootCfg(bootloaders=['grub'],
+                                   install_devices=['/dev/vdb']))
 
     @patch('curtin.commands.block_meta.multipath')
     @patch('curtin.block.is_valid_device')
@@ -952,7 +973,8 @@ class TestSetupGrub(CiTestCase):
                     },
                 ]
             },
-            'grub': {
+            'boot': {
+                'bootloaders': ['grub'],
                 'update_nvram': False,
             },
         }
@@ -963,12 +985,14 @@ class TestSetupGrub(CiTestCase):
         self.m_install_grub.assert_called_with(
             ['/dev/vdb1'], self.target, uefi=True,
             bootcfg=config.BootCfg(
+                bootloaders=['grub'],
                 update_nvram=False,
                 install_devices=['/dev/vdb1']))
 
     def test_grub_install_installs_to_none_if_install_devices_None(self):
         cfg = {
-            'grub': {
+            'boot': {
+                'bootloaders': ['grub'],
                 'install_devices': None,
             },
         }
@@ -976,7 +1000,7 @@ class TestSetupGrub(CiTestCase):
                              variant=self.variant)
         self.m_install_grub.assert_called_with(
             ['none'], self.target, uefi=False,
-            bootcfg=config.BootCfg(install_devices=None),
+            bootcfg=config.BootCfg(bootloaders=['grub'], install_devices=None),
         )
 
     @patch.object(util.ChrootableTarget, "__enter__", new=lambda a: a)
@@ -986,7 +1010,8 @@ class TestSetupGrub(CiTestCase):
         self.add_patch('curtin.util.get_efibootmgr', 'mock_efibootmgr')
         self.mock_is_uefi_bootable.return_value = True
         cfg = {
-            'grub': {
+            'boot': {
+                'bootloaders': ['grub'],
                 'install_devices': ['/dev/vdb'],
                 'update_nvram': True,
                 'remove_old_uefi_loaders': False,
@@ -1007,7 +1032,7 @@ class TestSetupGrub(CiTestCase):
                              variant=self.variant)
         self.m_install_grub.assert_called_with(
             ['/dev/vdb'], self.target, uefi=True,
-            bootcfg=config.fromdict(config.BootCfg, cfg.get('grub'))
+            bootcfg=config.fromdict(config.BootCfg, cfg.get('boot'))
         )
 
     @patch.object(util.ChrootableTarget, "__enter__", new=lambda a: a)
@@ -1017,7 +1042,8 @@ class TestSetupGrub(CiTestCase):
         self.add_patch('curtin.util.get_efibootmgr', 'mock_efibootmgr')
         self.mock_is_uefi_bootable.return_value = True
         cfg = {
-            'grub': {
+            'boot': {
+                'bootloaders': ['grub'],
                 'install_devices': ['/dev/vdb'],
                 'update_nvram': True,
                 'remove_old_uefi_loaders': True,
@@ -1059,7 +1085,8 @@ class TestSetupGrub(CiTestCase):
         self.add_patch('curtin.util.get_efibootmgr', 'mock_efibootmgr')
         self.mock_is_uefi_bootable.return_value = True
         cfg = {
-            'grub': {
+            'boot': {
+                'bootloaders': ['grub'],
                 'install_devices': ['/dev/vdb'],
                 'update_nvram': True,
                 'remove_old_uefi_loaders': False,
@@ -1095,7 +1122,8 @@ class TestSetupGrub(CiTestCase):
         self.add_patch('curtin.util.get_efibootmgr', 'mock_efibootmgr')
         self.mock_is_uefi_bootable.return_value = True
         cfg = {
-            'grub': {
+            'boot': {
+                'bootloaders': ['grub'],
                 'install_devices': ['/dev/vdb'],
                 'update_nvram': True,
                 'remove_old_uefi_loaders': False,
@@ -1141,7 +1169,8 @@ class TestSetupGrub(CiTestCase):
                        'mock_remove_old_loaders')
         self.mock_is_uefi_bootable.return_value = True
         cfg = {
-            'grub': {
+            'boot': {
+                'bootloaders': ['grub'],
                 'install_devices': ['/dev/vdb'],
                 'update_nvram': True,
                 'remove_old_uefi_loaders': False,
@@ -1193,7 +1222,8 @@ class TestSetupGrub(CiTestCase):
         self.add_patch('curtin.util.get_efibootmgr', 'mock_efibootmgr')
         self.mock_is_uefi_bootable.return_value = True
         cfg = {
-            'grub': {
+            'boot': {
+                'bootloaders': ['grub'],
                 'install_devices': ['/dev/vdb'],
                 'update_nvram': True,
                 'remove_old_uefi_loaders': True,
@@ -1248,7 +1278,8 @@ class TestSetupGrub(CiTestCase):
         self.add_patch('curtin.util.get_efibootmgr', 'mock_efibootmgr')
         self.mock_is_uefi_bootable.return_value = True
         cfg = {
-            'grub': {
+            'boot': {
+                'bootloaders': ['grub'],
                 'install_devices': ['/dev/vdb'],
                 'update_nvram': True,
                 'remove_old_uefi_loaders': True,
@@ -1336,7 +1367,7 @@ class TestUefiRemoveDuplicateEntries(CiTestCase):
 
     @patch.object(util.ChrootableTarget, "__enter__", new=lambda a: a)
     def test_uefi_remove_duplicate_entries(self):
-        bootcfg = config.BootCfg()
+        bootcfg = config.BootCfg(['grub'])
         curthooks.uefi_remove_duplicate_entries(bootcfg, self.target)
         self.assertEqual([
             call(['efibootmgr', '--bootnum=0001', '--delete-bootnum'],
@@ -1347,7 +1378,7 @@ class TestUefiRemoveDuplicateEntries(CiTestCase):
 
     @patch.object(util.ChrootableTarget, "__enter__", new=lambda a: a)
     def test_uefi_remove_duplicate_entries_no_bootcurrent(self):
-        bootcfg = config.BootCfg()
+        bootcfg = config.BootCfg(['grub'])
         efiout = copy_efi_state(self.efibootmgr_output)
         efiout.current = ''
         self.m_efibootmgr.return_value = efiout
@@ -1361,15 +1392,13 @@ class TestUefiRemoveDuplicateEntries(CiTestCase):
 
     @patch.object(util.ChrootableTarget, "__enter__", new=lambda a: a)
     def test_uefi_remove_duplicate_entries_disabled(self):
-        bootcfg = config.BootCfg(
-            remove_duplicate_entries=False,
-            )
+        bootcfg = config.BootCfg(['grub'], remove_duplicate_entries=False)
         curthooks.uefi_remove_duplicate_entries(bootcfg, self.target)
         self.assertEqual([], self.m_subp.call_args_list)
 
     @patch.object(util.ChrootableTarget, "__enter__", new=lambda a: a)
     def test_uefi_remove_duplicate_entries_skip_bootcurrent(self):
-        bootcfg = config.BootCfg()
+        bootcfg = config.BootCfg(['grub'])
         efiout = copy_efi_state(self.efibootmgr_output)
         efiout.current = '0003'
         self.m_efibootmgr.return_value = efiout
@@ -1383,7 +1412,7 @@ class TestUefiRemoveDuplicateEntries(CiTestCase):
 
     @patch.object(util.ChrootableTarget, "__enter__", new=lambda a: a)
     def test_uefi_remove_duplicate_entries_no_change(self):
-        bootcfg = config.BootCfg()
+        bootcfg = config.BootCfg(['grub'])
         self.m_efibootmgr.return_value = util.EFIBootState(
             order=[],
             timeout='',
