@@ -864,6 +864,30 @@ class TestSetupGrub(CiTestCase):
             ['/dev/vdb'], self.target, uefi=False,
             bootcfg=config.fromdict(config.BootCfg, cfg.get('grub')))
 
+    def test_calls_install_grub(self):
+        cfg = {
+            'grub': {
+                'install_devices': ['/dev/vdb'],
+            },
+        }
+        curthooks.setup_boot(
+            cfg, self.target, 'amd64', '/testing',
+            osfamily=self.distro_family, variant=self.variant)
+        self.m_install_grub.assert_called_with(
+            ['/dev/vdb'], self.target, uefi=False,
+            bootcfg=config.fromdict(config.BootCfg, cfg.get('grub')))
+
+    def test_skips_install_grub(self):
+        cfg = {
+            'grub': {
+                'install_devices': ['/dev/vdb'],
+            },
+        }
+        curthooks.setup_boot(
+            cfg, self.target, 'aarch64', '/testing',
+            osfamily=self.distro_family, variant=self.variant)
+        self.m_install_grub.assert_not_called()
+
     @patch('curtin.commands.block_meta.multipath')
     @patch('curtin.commands.curthooks.os.path.exists')
     def test_uses_grub_install_on_storage_config(self, m_exists, m_multipath):

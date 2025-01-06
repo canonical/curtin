@@ -855,6 +855,25 @@ def setup_grub(
         uefi_remove_duplicate_entries(bootcfg, target)
 
 
+def setup_boot(
+        cfg: dict,
+        target: str,
+        machine: str,
+        stack_prefix: str,
+        osfamily: str,
+        variant: str,
+        ) -> None:
+    # For now we have a hard-coded mechanism to determine whether grub should
+    # be installed or not. Even if the grub info is present in the config, we
+    # check the machine to decide whether or not to install it.
+    if uses_grub(machine):
+        with events.ReportEventStack(
+                name=stack_prefix + '/install-grub',
+                reporting_enabled=True, level="INFO",
+                description="installing grub to target devices"):
+            setup_grub(cfg, target, osfamily=osfamily, variant=variant)
+
+
 def update_initramfs(target=None, all_kernels=False):
     """ Invoke update-initramfs in the target path.
 
@@ -2051,13 +2070,8 @@ def builtin_curthooks(cfg, target, state):
             reporting_enabled=True, level="INFO",
             description="configuring target system bootloader"):
 
-        if uses_grub(machine):
-            with events.ReportEventStack(
-                    name=stack_prefix + '/install-grub',
-                    reporting_enabled=True, level="INFO",
-                    description="installing grub to target devices"):
-                setup_grub(cfg, target, osfamily=osfamily,
-                           variant=distro_info.variant)
+        setup_boot(cfg, target, machine, stack_prefix, osfamily=osfamily,
+                   variant=distro_info.variant)
 
     # Copy information from installation media
     with events.ReportEventStack(
