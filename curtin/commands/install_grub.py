@@ -2,7 +2,6 @@ import os
 import re
 import platform
 import shutil
-import sys
 from typing import List, Optional
 
 from curtin import block
@@ -11,8 +10,6 @@ from curtin import distro
 from curtin import util
 from curtin.log import LOG
 from curtin.paths import target_path
-from curtin.reporter import events
-from . import populate_one_subcmd
 
 CMD_ARGUMENTS = (
     ((('-t', '--target'),
@@ -452,36 +449,5 @@ def install_grub(
     with util.ChrootableTarget(target) as in_chroot:
         for cmd in install_cmds + post_cmds:
             in_chroot.subp(cmd, env=env, capture=True)
-
-
-def install_grub_main(args):
-    state = util.load_command_environment()
-
-    if args.target is not None:
-        target = args.target
-    else:
-        target = state['target']
-
-    if target is None:
-        sys.stderr.write("Unable to find target.  "
-                         "Use --target or set TARGET_MOUNT_POINT\n")
-        sys.exit(2)
-
-    cfg = config.load_command_config(args, state)
-    stack_prefix = state.get('report_stack_prefix', '')
-    uefi = util.is_uefi_bootable()
-
-    util.EFIVarFSBug.apply_workaround_if_affected()
-
-    bootcfg = config.fromdict(config.BootCfg, cfg.get('grub'))
-    with events.ReportEventStack(
-            name=stack_prefix, reporting_enabled=True, level="INFO",
-            description="Installing grub to target devices"):
-        install_grub(args.devices, target, uefi=uefi, bootcfg=bootcfg)
-    sys.exit(0)
-
-
-def POPULATE_SUBCMD(parser):
-    populate_one_subcmd(parser, CMD_ARGUMENTS, install_grub_main)
 
 # vi: ts=4 expandtab syntax=python
