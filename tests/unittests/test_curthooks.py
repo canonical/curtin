@@ -845,8 +845,9 @@ class TestSetupGrub(CiTestCase):
         cfg = {
             'grub_install_devices': ['/dev/vdb']
         }
-        curthooks.setup_grub(cfg, self.target, osfamily=self.distro_family,
-                             variant=self.variant)
+        curthooks.setup_boot(cfg, self.target, machine='amd64',
+                             stack_prefix='stack_prefix',
+                             osfamily=self.distro_family, variant=self.variant)
         self.m_install_grub.assert_called_with(
             ['/dev/vdb'], self.target, uefi=False,
             bootcfg=config.BootCfg(install_devices=['/dev/vdb']))

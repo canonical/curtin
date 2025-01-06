@@ -752,13 +752,7 @@ def setup_grub(
     from curtin.commands.block_meta import (extract_storage_ordered_dict,
                                             get_path_to_storage_volume)
 
-    bootcfg_d = cfg.get('grub', {})
-
-    # copy legacy top level name
-    if 'grub_install_devices' in cfg and 'install_devices' not in bootcfg_d:
-        bootcfg_d['install_devices'] = cfg['grub_install_devices']
-
-    bootcfg = config.fromdict(config.BootCfg, bootcfg_d)
+    bootcfg = config.fromdict(config.BootCfg, cfg.get('grub', {}))
 
     LOG.debug("setup grub on target %s", target)
     # if there is storage config, look for devices tagged with 'grub_device'
@@ -863,6 +857,13 @@ def setup_boot(
         osfamily: str,
         variant: str,
         ) -> None:
+    bootcfg_d = cfg.get('grub', {})
+
+    # copy legacy top level name
+    if 'grub_install_devices' in cfg and 'install_devices' not in bootcfg_d:
+        bootcfg_d['install_devices'] = cfg['grub_install_devices']
+        cfg['grub'] = bootcfg_d
+
     # For now we have a hard-coded mechanism to determine whether grub should
     # be installed or not. Even if the grub info is present in the config, we
     # check the machine to decide whether or not to install it.
