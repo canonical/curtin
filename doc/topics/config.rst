@@ -115,77 +115,6 @@ Specify the filesystem label on the boot partition.
           label: my-boot-partition
 
 
-curthooks
-~~~~~~~~~
-Configure how Curtin determines what :ref:`curthooks` to run during the installation
-process.
-
-**mode**: *<['auto', 'builtin', 'target']>*
-
-The default mode is ``auto``.
-
-In ``auto`` mode, curtin will execute curthooks within the image if present.
-For images without curthooks inside, curtin will execute its built-in hooks.
-
-Currently the built-in curthooks support the following OS families:
-
-- Ubuntu
-- Centos
-
-When specifying ``builtin``, curtin will only run the curthooks present in
-Curtin ignoring any curthooks that may be present in the target operating
-system.
-
-When specifying ``target``, curtin will attempt run the curthooks in the target
-operating system.  If the target does NOT contain any curthooks, then the
-built-in curthooks will be run instead.
-
-Any errors during execution of curthooks (built-in or target) will fail the
-installation.
-
-**Example**::
-
-  # ignore any target curthooks
-  curthooks:
-    mode: builtin
-
-  # Only run target curthooks, fall back to built-in
-  curthooks:
-    mode: target
-
-
-debconf_selections
-~~~~~~~~~~~~~~~~~~
-Curtin will update the target with debconf set-selection values.  Users will
-need to be familiar with the package debconf options.  Users can probe a
-packages' debconf settings by using ``debconf-get-selections``.
-
-**selection_name**: *<debconf-set-selections input>*
-
-``debconf-set-selections`` is in the form::
-
-  <packagename> <packagename/option-name> <type> <value>
-
-**Example**::
-
-  debconf_selections:
-    set1: |
-      cloud-init cloud-init/datasources multiselect MAAS
-      lxd lxd/bridge-name string lxdbr0
-    set2: lxd lxd/setup-bridge boolean true
-
-
-
-disable_overlayroot
-~~~~~~~~~~~~~~~~~~~
-Curtin disables overlayroot in the target by default.
-
-**disable_overlayroot**: *<boolean: default True>*
-
-**Example**::
-
-  disable_overlayroot: False
-
 
 grub
 ~~~~
@@ -310,6 +239,78 @@ This setting is ignored if *update_nvram* is False.
   grub:
      reorder_uefi: true
      reorder_uefi_force_fallback: true
+
+
+curthooks
+~~~~~~~~~
+Configure how Curtin determines what :ref:`curthooks` to run during the installation
+process.
+
+**mode**: *<['auto', 'builtin', 'target']>*
+
+The default mode is ``auto``.
+
+In ``auto`` mode, curtin will execute curthooks within the image if present.
+For images without curthooks inside, curtin will execute its built-in hooks.
+
+Currently the built-in curthooks support the following OS families:
+
+- Ubuntu
+- Centos
+
+When specifying ``builtin``, curtin will only run the curthooks present in
+Curtin ignoring any curthooks that may be present in the target operating
+system.
+
+When specifying ``target``, curtin will attempt run the curthooks in the target
+operating system.  If the target does NOT contain any curthooks, then the
+built-in curthooks will be run instead.
+
+Any errors during execution of curthooks (built-in or target) will fail the
+installation.
+
+**Example**::
+
+  # ignore any target curthooks
+  curthooks:
+    mode: builtin
+
+  # Only run target curthooks, fall back to built-in
+  curthooks:
+    mode: target
+
+
+debconf_selections
+~~~~~~~~~~~~~~~~~~
+Curtin will update the target with debconf set-selection values.  Users will
+need to be familiar with the package debconf options.  Users can probe a
+packages' debconf settings by using ``debconf-get-selections``.
+
+**selection_name**: *<debconf-set-selections input>*
+
+``debconf-set-selections`` is in the form::
+
+  <packagename> <packagename/option-name> <type> <value>
+
+**Example**::
+
+  debconf_selections:
+    set1: |
+      cloud-init cloud-init/datasources multiselect MAAS
+      lxd lxd/bridge-name string lxdbr0
+    set2: lxd lxd/setup-bridge boolean true
+
+
+
+disable_overlayroot
+~~~~~~~~~~~~~~~~~~~
+Curtin disables overlayroot in the target by default.
+
+**disable_overlayroot**: *<boolean: default True>*
+
+**Example**::
+
+  disable_overlayroot: False
 
 
 http_proxy
