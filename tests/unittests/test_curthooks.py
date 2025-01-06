@@ -849,9 +849,9 @@ class TestSetupGrub(CiTestCase):
                              variant=self.variant)
         self.m_install_grub.assert_called_with(
             ['/dev/vdb'], self.target, uefi=False,
-            grubcfg=config.GrubConfig(install_devices=['/dev/vdb']))
+            bootcfg=config.BootCfg(install_devices=['/dev/vdb']))
 
-    def test_uses_install_devices_in_grubcfg(self):
+    def test_uses_install_devices_in_bootcfg(self):
         cfg = {
             'grub': {
                 'install_devices': ['/dev/vdb'],
@@ -862,7 +862,7 @@ class TestSetupGrub(CiTestCase):
             osfamily=self.distro_family, variant=self.variant)
         self.m_install_grub.assert_called_with(
             ['/dev/vdb'], self.target, uefi=False,
-            grubcfg=config.fromdict(config.GrubConfig, cfg.get('grub')))
+            bootcfg=config.fromdict(config.BootCfg, cfg.get('grub')))
 
     @patch('curtin.commands.block_meta.multipath')
     @patch('curtin.commands.curthooks.os.path.exists')
@@ -886,7 +886,7 @@ class TestSetupGrub(CiTestCase):
                              variant=self.variant)
         self.m_install_grub.assert_called_with(
             ['/dev/vdb'], self.target, uefi=False,
-            grubcfg=config.GrubConfig(install_devices=['/dev/vdb']))
+            bootcfg=config.BootCfg(install_devices=['/dev/vdb']))
 
     @patch('curtin.commands.block_meta.multipath')
     @patch('curtin.block.is_valid_device')
@@ -937,7 +937,7 @@ class TestSetupGrub(CiTestCase):
                              variant='centos')
         self.m_install_grub.assert_called_with(
             ['/dev/vdb1'], self.target, uefi=True,
-            grubcfg=config.GrubConfig(
+            bootcfg=config.BootCfg(
                 update_nvram=False,
                 install_devices=['/dev/vdb1']))
 
@@ -951,7 +951,7 @@ class TestSetupGrub(CiTestCase):
                              variant=self.variant)
         self.m_install_grub.assert_called_with(
             ['none'], self.target, uefi=False,
-            grubcfg=config.GrubConfig(install_devices=None),
+            bootcfg=config.BootCfg(install_devices=None),
         )
 
     @patch.object(util.ChrootableTarget, "__enter__", new=lambda a: a)
@@ -982,7 +982,7 @@ class TestSetupGrub(CiTestCase):
                              variant=self.variant)
         self.m_install_grub.assert_called_with(
             ['/dev/vdb'], self.target, uefi=True,
-            grubcfg=config.fromdict(config.GrubConfig, cfg.get('grub'))
+            bootcfg=config.fromdict(config.BootCfg, cfg.get('grub'))
         )
 
     @patch.object(util.ChrootableTarget, "__enter__", new=lambda a: a)
@@ -1311,8 +1311,8 @@ class TestUefiRemoveDuplicateEntries(CiTestCase):
 
     @patch.object(util.ChrootableTarget, "__enter__", new=lambda a: a)
     def test_uefi_remove_duplicate_entries(self):
-        grubcfg = config.GrubConfig()
-        curthooks.uefi_remove_duplicate_entries(grubcfg, self.target)
+        bootcfg = config.BootCfg()
+        curthooks.uefi_remove_duplicate_entries(bootcfg, self.target)
         self.assertEqual([
             call(['efibootmgr', '--bootnum=0001', '--delete-bootnum'],
                  target=self.target),
@@ -1322,11 +1322,11 @@ class TestUefiRemoveDuplicateEntries(CiTestCase):
 
     @patch.object(util.ChrootableTarget, "__enter__", new=lambda a: a)
     def test_uefi_remove_duplicate_entries_no_bootcurrent(self):
-        grubcfg = config.GrubConfig()
+        bootcfg = config.BootCfg()
         efiout = copy_efi_state(self.efibootmgr_output)
         efiout.current = ''
         self.m_efibootmgr.return_value = efiout
-        curthooks.uefi_remove_duplicate_entries(grubcfg, self.target)
+        curthooks.uefi_remove_duplicate_entries(bootcfg, self.target)
         self.assertEqual([
             call(['efibootmgr', '--bootnum=0001', '--delete-bootnum'],
                  target=self.target),
@@ -1336,19 +1336,19 @@ class TestUefiRemoveDuplicateEntries(CiTestCase):
 
     @patch.object(util.ChrootableTarget, "__enter__", new=lambda a: a)
     def test_uefi_remove_duplicate_entries_disabled(self):
-        grubcfg = config.GrubConfig(
+        bootcfg = config.BootCfg(
             remove_duplicate_entries=False,
             )
-        curthooks.uefi_remove_duplicate_entries(grubcfg, self.target)
+        curthooks.uefi_remove_duplicate_entries(bootcfg, self.target)
         self.assertEqual([], self.m_subp.call_args_list)
 
     @patch.object(util.ChrootableTarget, "__enter__", new=lambda a: a)
     def test_uefi_remove_duplicate_entries_skip_bootcurrent(self):
-        grubcfg = config.GrubConfig()
+        bootcfg = config.BootCfg()
         efiout = copy_efi_state(self.efibootmgr_output)
         efiout.current = '0003'
         self.m_efibootmgr.return_value = efiout
-        curthooks.uefi_remove_duplicate_entries(grubcfg, self.target)
+        curthooks.uefi_remove_duplicate_entries(bootcfg, self.target)
         self.assertEqual([
             call(['efibootmgr', '--bootnum=0000', '--delete-bootnum'],
                  target=self.target),
@@ -1358,7 +1358,7 @@ class TestUefiRemoveDuplicateEntries(CiTestCase):
 
     @patch.object(util.ChrootableTarget, "__enter__", new=lambda a: a)
     def test_uefi_remove_duplicate_entries_no_change(self):
-        grubcfg = config.GrubConfig()
+        bootcfg = config.BootCfg()
         self.m_efibootmgr.return_value = util.EFIBootState(
             order=[],
             timeout='',
@@ -1377,7 +1377,7 @@ class TestUefiRemoveDuplicateEntries(CiTestCase):
                     path='HD(1,GPT)/File(\\EFI\\sles\\shimx64.efi)',
                 ),
             })
-        curthooks.uefi_remove_duplicate_entries(grubcfg, self.target)
+        curthooks.uefi_remove_duplicate_entries(bootcfg, self.target)
         self.assertEqual([], self.m_subp.call_args_list)
 
 

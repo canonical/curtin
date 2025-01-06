@@ -439,7 +439,7 @@ def install_kernel(cfg, target):
                          " System may not boot.", package)
 
 
-def uefi_remove_old_loaders(grubcfg: config.GrubConfig, target: str):
+def uefi_remove_old_loaders(bootcfg: config.BootCfg, target: str):
     """Removes the old UEFI loaders from efibootmgr."""
     efi_state = util.get_efibootmgr(target)
 
@@ -457,7 +457,7 @@ def uefi_remove_old_loaders(grubcfg: config.GrubConfig, target: str):
     if not old_efi_entries:
         return
 
-    if grubcfg.remove_old_uefi_loaders:
+    if bootcfg.remove_old_uefi_loaders:
         with util.ChrootableTarget(target) as in_chroot:
             for number, entry in old_efi_entries.items():
                 LOG.debug("removing old UEFI entry: %s", entry.name)
@@ -532,7 +532,7 @@ def _reorder_new_entry(
 
 
 def uefi_reorder_loaders(
-        grubcfg: config.GrubConfig,
+        bootcfg: config.BootCfg,
         target: str,
         efi_orig_state: util.EFIBootState,
         variant: str,
@@ -548,7 +548,7 @@ def uefi_reorder_loaders(
     is installed after the the previous first entry (before we installed grub).
 
     """
-    if not grubcfg.reorder_uefi:
+    if not bootcfg.reorder_uefi:
         LOG.debug("Skipped reordering of UEFI boot methods.")
         LOG.debug("Currently booted UEFI loader might no longer boot.")
         return
@@ -557,7 +557,7 @@ def uefi_reorder_loaders(
     LOG.debug('UEFI efibootmgr output after install:\n%s', efi_state)
     new_boot_order = None
 
-    if efi_state.current and not grubcfg.reorder_uefi_force_fallback:
+    if efi_state.current and not bootcfg.reorder_uefi_force_fallback:
         boot_order = list(efi_state.order)
         if efi_state.current in boot_order:
             boot_order.remove(efi_state.current)
@@ -566,7 +566,7 @@ def uefi_reorder_loaders(
             "Setting currently booted %s as the first UEFI loader.",
             efi_state.current)
     else:
-        if grubcfg.reorder_uefi_force_fallback:
+        if bootcfg.reorder_uefi_force_fallback:
             reason = "config 'reorder_uefi_force_fallback' is True"
         else:
             reason = "missing 'BootCurrent' value"
@@ -592,10 +592,10 @@ def uefi_reorder_loaders(
 
 
 def uefi_remove_duplicate_entries(
-        grubcfg: config.GrubConfig,
+        bootcfg: config.BootCfg,
         target: str,
         ) -> None:
-    if not grubcfg.remove_duplicate_entries:
+    if not bootcfg.remove_duplicate_entries:
         LOG.debug("Skipped removing duplicate UEFI boot entries per config.")
         return
 
@@ -752,13 +752,13 @@ def setup_grub(
     from curtin.commands.block_meta import (extract_storage_ordered_dict,
                                             get_path_to_storage_volume)
 
-    grubcfg_d = cfg.get('grub', {})
+    bootcfg_d = cfg.get('grub', {})
 
     # copy legacy top level name
-    if 'grub_install_devices' in cfg and 'install_devices' not in grubcfg_d:
-        grubcfg_d['install_devices'] = cfg['grub_install_devices']
+    if 'grub_install_devices' in cfg and 'install_devices' not in bootcfg_d:
+        bootcfg_d['install_devices'] = cfg['grub_install_devices']
 
-    grubcfg = config.fromdict(config.GrubConfig, grubcfg_d)
+    bootcfg = config.fromdict(config.BootCfg, bootcfg_d)
 
     LOG.debug("setup grub on target %s", target)
     # if there is storage config, look for devices tagged with 'grub_device'
@@ -784,16 +784,16 @@ def setup_grub(
                     get_path_to_storage_volume(item_id, storage_cfg_odict))
 
         if len(storage_grub_devices) > 0:
-            if grubcfg.install_devices and \
-               grubcfg.install_devices is not grubcfg.install_devices_default:
+            if bootcfg.install_devices and \
+               bootcfg.install_devices is not bootcfg.install_devices_default:
                 LOG.warn("Storage Config grub device config takes precedence "
                          "over grub 'install_devices' value, ignoring: %s",
-                         grubcfg['install_devices'])
-            grubcfg.install_devices = storage_grub_devices
+                         bootcfg['install_devices'])
+            bootcfg.install_devices = storage_grub_devices
 
-    LOG.debug("install_devices: %s", grubcfg.install_devices)
-    if grubcfg.install_devices is not grubcfg.install_devices_default:
-        instdevs = grubcfg.install_devices
+    LOG.debug("install_devices: %s", bootcfg.install_devices)
+    if bootcfg.install_devices is not bootcfg.install_devices_default:
+        instdevs = bootcfg.install_devices
         if instdevs is None:
             LOG.debug("grub installation disabled by config")
     else:
@@ -843,16 +843,16 @@ def setup_grub(
     else:
         instdevs = ["none"]
 
-    update_nvram = grubcfg.update_nvram
+    update_nvram = bootcfg.update_nvram
     if uefi_bootable and update_nvram:
         efi_orig_state = util.get_efibootmgr(target)
-        uefi_remove_old_loaders(grubcfg, target)
+        uefi_remove_old_loaders(bootcfg, target)
 
-    install_grub(instdevs, target, uefi=uefi_bootable, grubcfg=grubcfg)
+    install_grub(instdevs, target, uefi=uefi_bootable, bootcfg=bootcfg)
 
     if uefi_bootable and update_nvram:
-        uefi_reorder_loaders(grubcfg, target, efi_orig_state, variant)
-        uefi_remove_duplicate_entries(grubcfg, target)
+        uefi_reorder_loaders(bootcfg, target, efi_orig_state, variant)
+        uefi_remove_duplicate_entries(bootcfg, target)
 
 
 def update_initramfs(target=None, all_kernels=False):

@@ -204,7 +204,7 @@ class TestGetGrubPackageName(CiTestCase):
                                                osfamily=osfamily)
 
 
-class TestGetGrubConfigFile(CiTestCase):
+class TestGetBootCfgFile(CiTestCase):
 
     @mock.patch('curtin.commands.install_grub.distro.os_release')
     def test_grub_config_redhat(self, mock_os_release):
@@ -435,10 +435,10 @@ class TestReplaceGrubCmdlineLinuxDefault(CiTestCase):
         self.assertEqual(expected, found)
 
 
-class TestWriteGrubConfig(CiTestCase):
+class TestWriteBootCfg(CiTestCase):
 
     def setUp(self):
-        super(TestWriteGrubConfig, self).setUp()
+        super(TestWriteBootCfg, self).setUp()
         self.target = self.tmp_dir()
         self.grubdefault = "/etc/default/grub"
         self.grubconf = "/etc/default/grub.d/50-curtin.cfg"
@@ -457,7 +457,7 @@ class TestWriteGrubConfig(CiTestCase):
                 self.assertEqual(expected, found)
 
     def test_write_grub_config_defaults(self):
-        grubcfg = config.GrubConfig()
+        bootcfg = config.BootCfg()
         new_params = ['foo=bar', 'wark=1']
         expected_default = "\n".join([
              'GRUB_CMDLINE_LINUX_DEFAULT="foo=bar wark=1"', ''])
@@ -469,12 +469,12 @@ class TestWriteGrubConfig(CiTestCase):
              'GRUB_TERMINAL="console"'])
 
         install_grub.write_grub_config(
-            self.target, grubcfg, self.grubconf, new_params)
+            self.target, bootcfg, self.grubconf, new_params)
 
         self._verify_expected(expected_default, expected_curtin)
 
     def test_write_grub_config_no_replace(self):
-        grubcfg = config.GrubConfig(replace_linux_default=False)
+        bootcfg = config.BootCfg(replace_linux_default=False)
         new_params = ['foo=bar', 'wark=1']
         expected_default = "\n".join([])
         expected_curtin = "\n".join([
@@ -485,12 +485,12 @@ class TestWriteGrubConfig(CiTestCase):
              'GRUB_TERMINAL="console"'])
 
         install_grub.write_grub_config(
-            self.target, grubcfg, self.grubconf, new_params)
+            self.target, bootcfg, self.grubconf, new_params)
 
         self._verify_expected(expected_default, expected_curtin)
 
     def test_write_grub_config_disable_probe(self):
-        grubcfg = config.GrubConfig(probe_additional_os=False)
+        bootcfg = config.BootCfg(probe_additional_os=False)
         new_params = ['foo=bar', 'wark=1']
         expected_default = "\n".join([
              'GRUB_CMDLINE_LINUX_DEFAULT="foo=bar wark=1"', ''])
@@ -502,12 +502,12 @@ class TestWriteGrubConfig(CiTestCase):
              'GRUB_TERMINAL="console"'])
 
         install_grub.write_grub_config(
-            self.target, grubcfg, self.grubconf, new_params)
+            self.target, bootcfg, self.grubconf, new_params)
 
         self._verify_expected(expected_default, expected_curtin)
 
     def test_write_grub_config_enable_probe(self):
-        grubcfg = config.GrubConfig(probe_additional_os=True)
+        bootcfg = config.BootCfg(probe_additional_os=True)
         new_params = ['foo=bar', 'wark=1']
         expected_default = "\n".join([
              'GRUB_CMDLINE_LINUX_DEFAULT="foo=bar wark=1"', ''])
@@ -516,22 +516,22 @@ class TestWriteGrubConfig(CiTestCase):
              'GRUB_TERMINAL="console"'])
 
         install_grub.write_grub_config(
-            self.target, grubcfg, self.grubconf, new_params)
+            self.target, bootcfg, self.grubconf, new_params)
 
         self._verify_expected(expected_default, expected_curtin)
 
     def test_write_grub_config_no_grub_settings_file(self):
-        grubcfg = config.GrubConfig(
+        bootcfg = config.BootCfg(
             probe_additional_os=True,
             terminal='unmodified')
         new_params = []
         install_grub.write_grub_config(
-            self.target, grubcfg, self.grubconf, new_params)
+            self.target, bootcfg, self.grubconf, new_params)
         self.assertTrue(os.path.exists(self.target_grubdefault))
         self.assertFalse(os.path.exists(self.target_grubconf))
 
     def test_write_grub_config_specify_terminal(self):
-        grubcfg = config.GrubConfig(
+        bootcfg = config.BootCfg(
             terminal='serial')
         new_params = ['foo=bar', 'wark=1']
         expected_default = "\n".join([
@@ -544,12 +544,12 @@ class TestWriteGrubConfig(CiTestCase):
              'GRUB_TERMINAL="serial"'])
 
         install_grub.write_grub_config(
-            self.target, grubcfg, self.grubconf, new_params)
+            self.target, bootcfg, self.grubconf, new_params)
 
         self._verify_expected(expected_default, expected_curtin)
 
     def test_write_grub_config_terminal_unmodified(self):
-        grubcfg = config.GrubConfig(terminal='unmodified')
+        bootcfg = config.BootCfg(terminal='unmodified')
         new_params = ['foo=bar', 'wark=1']
         expected_default = "\n".join([
              'GRUB_CMDLINE_LINUX_DEFAULT="foo=bar wark=1"', ''])
@@ -559,7 +559,7 @@ class TestWriteGrubConfig(CiTestCase):
              'GRUB_DISABLE_OS_PROBER="true"', ''])
 
         install_grub.write_grub_config(
-            self.target, grubcfg, self.grubconf, new_params)
+            self.target, bootcfg, self.grubconf, new_params)
 
         self._verify_expected(expected_default, expected_curtin)
 
@@ -1638,13 +1638,13 @@ class TestInstallGrub(CiTestCase):
         devices = []
         with self.assertRaises(ValueError):
             install_grub.install_grub(
-                devices, self.target, uefi=False, grubcfg=config.GrubConfig())
+                devices, self.target, uefi=False, bootcfg=config.BootCfg())
 
     def test_grub_install_raise_exception_on_no_target(self):
         devices = ['foobar']
         with self.assertRaises(ValueError):
             install_grub.install_grub(
-                devices, None, uefi=False, grubcfg=config.GrubConfig())
+                devices, None, uefi=False, bootcfg=config.BootCfg())
 
     def test_grub_install_raise_exception_on_s390x(self):
         self.m_distro_get_architecture.return_value = 's390x'
@@ -1652,7 +1652,7 @@ class TestInstallGrub(CiTestCase):
         devices = ['foobar']
         with self.assertRaises(RuntimeError):
             install_grub.install_grub(
-                devices, self.target, uefi=False, grubcfg=config.GrubConfig())
+                devices, self.target, uefi=False, bootcfg=config.BootCfg())
 
     def test_grub_install_raise_exception_on_armv7(self):
         self.m_distro_get_architecture.return_value = 'armhf'
@@ -1660,7 +1660,7 @@ class TestInstallGrub(CiTestCase):
         devices = ['foobar']
         with self.assertRaises(RuntimeError):
             install_grub.install_grub(
-                devices, self.target, uefi=False, grubcfg=config.GrubConfig())
+                devices, self.target, uefi=False, bootcfg=config.BootCfg())
 
     def test_grub_install_raise_exception_on_arm64_no_uefi(self):
         self.m_distro_get_architecture.return_value = 'arm64'
@@ -1668,12 +1668,12 @@ class TestInstallGrub(CiTestCase):
         devices = ['foobar']
         with self.assertRaises(RuntimeError):
             install_grub.install_grub(
-                devices, self.target, uefi=False, grubcfg=config.GrubConfig())
+                devices, self.target, uefi=False, bootcfg=config.BootCfg())
 
     def test_grub_install_ubuntu(self):
         devices = ['/dev/disk-a-part1']
         uefi = False
-        grubcfg = config.GrubConfig()
+        bootcfg = config.BootCfg()
         grub_conf = self.tmp_path('grubconf')
         new_params = []
         self.m_get_grub_package_name.return_value = ('grub-pc', 'i386-pc')
@@ -1684,7 +1684,7 @@ class TestInstallGrub(CiTestCase):
             [['/bin/true']], [['/bin/false']])
 
         install_grub.install_grub(
-            devices, self.target, uefi=uefi, grubcfg=grubcfg)
+            devices, self.target, uefi=uefi, bootcfg=bootcfg)
 
         self.m_distro_get_distroinfo.assert_called_with(target=self.target)
         self.m_distro_get_architecture.assert_called_with(target=self.target)
@@ -1695,7 +1695,7 @@ class TestInstallGrub(CiTestCase):
                                                        self.distroinfo.family)
         self.m_get_carryover_params.assert_called_with(self.distroinfo)
         self.m_prepare_grub_dir.assert_called_with(self.target, grub_conf)
-        self.m_write_grub_config.assert_called_with(self.target, grubcfg,
+        self.m_write_grub_config.assert_called_with(self.target, bootcfg,
                                                     grub_conf, new_params)
         self.m_get_grub_install_command.assert_called_with(
             uefi, self.distroinfo, self.target)
@@ -1712,7 +1712,7 @@ class TestInstallGrub(CiTestCase):
     def test_uefi_grub_install_ubuntu(self):
         devices = ['/dev/disk-a-part1']
         uefi = True
-        grubcfg = config.GrubConfig(update_nvram=True)
+        bootcfg = config.BootCfg(update_nvram=True)
         grub_conf = self.tmp_path('grubconf')
         new_params = []
         grub_name = 'grub-efi-amd64'
@@ -1726,7 +1726,7 @@ class TestInstallGrub(CiTestCase):
             [['/bin/true']], [['/bin/false']])
 
         install_grub.install_grub(
-            devices, self.target, uefi=uefi, grubcfg=grubcfg)
+            devices, self.target, uefi=uefi, bootcfg=bootcfg)
 
         self.m_distro_get_distroinfo.assert_called_with(target=self.target)
         self.m_distro_get_architecture.assert_called_with(target=self.target)
@@ -1737,12 +1737,12 @@ class TestInstallGrub(CiTestCase):
                                                        self.distroinfo.family)
         self.m_get_carryover_params.assert_called_with(self.distroinfo)
         self.m_prepare_grub_dir.assert_called_with(self.target, grub_conf)
-        self.m_write_grub_config.assert_called_with(self.target, grubcfg,
+        self.m_write_grub_config.assert_called_with(self.target, bootcfg,
                                                     grub_conf, new_params)
         self.m_get_grub_install_command.assert_called_with(
             uefi, self.distroinfo, self.target)
         self.m_gen_uefi_install_commands.assert_called_with(
-            grub_name, grub_target, grub_cmd, grubcfg.update_nvram,
+            grub_name, grub_target, grub_cmd, bootcfg.update_nvram,
             self.distroinfo, devices, self.target)
 
         self.m_subp.assert_has_calls([
@@ -1755,7 +1755,7 @@ class TestInstallGrub(CiTestCase):
     def test_uefi_grub_install_ubuntu_multiple_esp(self):
         devices = ['/dev/disk-a-part1']
         uefi = True
-        grubcfg = config.GrubConfig(update_nvram=True)
+        bootcfg = config.BootCfg(update_nvram=True)
         grub_conf = self.tmp_path('grubconf')
         new_params = []
         grub_name = 'grub-efi-amd64'
@@ -1769,7 +1769,7 @@ class TestInstallGrub(CiTestCase):
             [['/bin/true']], [['/bin/false']])
 
         install_grub.install_grub(
-            devices, self.target, uefi=uefi, grubcfg=grubcfg)
+            devices, self.target, uefi=uefi, bootcfg=bootcfg)
 
         self.m_distro_get_distroinfo.assert_called_with(target=self.target)
         self.m_distro_get_architecture.assert_called_with(target=self.target)
@@ -1780,12 +1780,12 @@ class TestInstallGrub(CiTestCase):
                                                        self.distroinfo.family)
         self.m_get_carryover_params.assert_called_with(self.distroinfo)
         self.m_prepare_grub_dir.assert_called_with(self.target, grub_conf)
-        self.m_write_grub_config.assert_called_with(self.target, grubcfg,
+        self.m_write_grub_config.assert_called_with(self.target, bootcfg,
                                                     grub_conf, new_params)
         self.m_get_grub_install_command.assert_called_with(
             uefi, self.distroinfo, self.target)
         self.m_gen_uefi_install_commands.assert_called_with(
-            grub_name, grub_target, grub_cmd, grubcfg.update_nvram,
+            grub_name, grub_target, grub_cmd, bootcfg.update_nvram,
             self.distroinfo, devices, self.target)
 
         self.m_subp.assert_has_calls([

@@ -137,7 +137,7 @@ def _convert_install_devices(value):
 
 
 @attr.s(auto_attribs=True)
-class GrubConfig:
+class BootCfg:
     install_devices_default = object()
     install_devices: typing.Optional[typing.List[str]] = attr.ib(
         converter=_convert_install_devices, default=install_devices_default)
