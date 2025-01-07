@@ -1,4 +1,5 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
+import glob
 import os
 
 try:
@@ -30,5 +31,26 @@ def target_path(target, path=None):
         path = path[1:]
 
     return os.path.join(target, path)
+
+
+def get_kernel_list(target):
+    """yields [kernel filename, initrd path, version] for each kernel in target
+
+    For example:
+       ('vmlinuz-6.8.0-48-generic', '/boot/initrd.img-6.8.0-48-generic',
+        '6.8.0-48-generic')
+    """
+    root_path = target_path(target)
+    boot = target_path(root_path, 'boot')
+
+    for kernel in sorted(glob.glob(boot + '/vmlinu*-*')):
+        kfile = os.path.basename(kernel)
+
+        # handle vmlinux or vmlinuz
+        kprefix = kfile.split('-')[0]
+        vers = kfile.replace(kprefix + '-', '')
+        initrd = kernel.replace(kprefix, 'initrd.img')
+        yield kfile, initrd, vers
+
 
 # vi: ts=4 expandtab syntax=python

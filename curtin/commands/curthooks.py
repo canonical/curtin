@@ -909,7 +909,6 @@ def update_initramfs(target=None, all_kernels=False):
 
     # Ensure target is resolved even if it's None
     target = paths.target_path(target)
-    boot = paths.target_path(target, 'boot')
 
     if util.which('update-initramfs', target=target):
         # We keep the all_kernels flag for callers, the implementation
@@ -939,12 +938,7 @@ def update_initramfs(target=None, all_kernels=False):
         # if the initrd file exists, then we only need to invoke
         # update-initramfs's -u (update) method.  If the file does
         # not exist, then we need to run the -c (create) method.
-        for kernel in sorted(glob.glob(boot + '/vmlinu*-*')):
-            kfile = os.path.basename(kernel)
-            # handle vmlinux or vmlinuz
-            kprefix = kfile.split('-')[0]
-            version = kfile.replace(kprefix + '-', '')
-            initrd = kernel.replace(kprefix, 'initrd.img')
+        for _, initrd, version in paths.get_kernel_list(target):
             # -u == update, -c == create
             mode = '-u' if os.path.exists(initrd) else '-c'
             cmd = ['update-initramfs', mode, '-k', version]
@@ -967,7 +961,7 @@ def update_initramfs(target=None, all_kernels=False):
     else:
         # Curtin only knows update-initramfs (provided by initramfs-tools) and
         # dracut.
-        if not glob.glob(boot + '/vmlinu*-*'):
+        if not list(paths.get_kernel_list(target)):
             LOG.debug("neither update-initramfs or dracut found in target %s"
                       " but there is no initramfs to generate, so ignoring",
                       target)
