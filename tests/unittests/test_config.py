@@ -257,6 +257,9 @@ class TestBootCfg(CiTestCase):
 
     def test_valid(self):
         config.BootCfg(['grub'])
+        config.BootCfg(['extlinux'])
+        config.BootCfg(['grub', 'extlinux'])
+        config.BootCfg(['extlinux', 'grub'])
 
 
 # vi: ts=4 expandtab syntax=python

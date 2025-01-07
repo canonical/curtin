@@ -1435,6 +1435,58 @@ class TestUefiRemoveDuplicateEntries(CiTestCase):
         self.assertEqual([], self.m_subp.call_args_list)
 
 
+class TestSetupExtlinux(CiTestCase):
+
+    with_logs = True
+
+    def setUp(self):
+        super(TestSetupExtlinux, self).setUp()
+        self.target = self.tmp_dir()
+        self.distro_family = distro.DISTROS.debian
+        self.variant = 'ubuntu'
+        self.add_patch('curtin.commands.curthooks.install_extlinux',
+                       'm_install_extlinux')
+
+    def test_calls_install_extlinux(self):
+        cfg = {
+            'boot': {
+                'bootloaders': ['extlinux'],
+                'install_devices': ['/dev/vdb'],
+            },
+        }
+        curthooks.setup_boot(
+            cfg, self.target, 'x86_64', '/testing',
+            osfamily=self.distro_family, variant=self.variant)
+        self.m_install_extlinux.assert_called_with(cfg,  self.target)
+
+    def test_install_extlinux(self):
+        cfg = {
+            'boot': {
+                'bootloaders': ['extlinux'],
+                'install_devices': ['/dev/vdb'],
+            },
+        }
+        for machine in ['i586', 'i686', 'x86_64']:
+            curthooks.setup_boot(
+                cfg, self.target, machine, '/testing',
+                osfamily=self.distro_family, variant=self.variant)
+
+    def test_fails_install_extlinux(self):
+        cfg = {
+            'boot': {
+                'bootloaders': ['extlinux'],
+                'install_devices': ['/dev/vdb'],
+            },
+        }
+        with self.assertRaises(ValueError) as exc:
+            curthooks.setup_boot(
+                cfg, self.target, 'aarch64', '/testing',
+                osfamily=self.distro_family, variant=self.variant)
+        self.assertIn('Invalid arch aarch64: Only x86 platforms support '
+                      'extlinux at present', str(exc.exception))
+        self.assertEqual(0, self.m_install_extlinux.call_count)
+
+
 class TestUbuntuCoreHooks(CiTestCase):
 
     def _make_uc16(self, target):

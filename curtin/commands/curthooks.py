@@ -32,6 +32,7 @@ from curtin.net import deps as ndeps
 from curtin.reporter import events
 from curtin.commands import apply_net, apt_config
 from curtin.commands.install_grub import install_grub
+from curtin.commands.install_extlinux import install_extlinux
 from curtin.url_helper import get_maas_version
 
 from . import populate_one_subcmd
@@ -894,6 +895,17 @@ def setup_boot(
                 reporting_enabled=True, level="INFO",
                 description="installing grub to target devices"):
             setup_grub(cfg, target, osfamily=osfamily, variant=variant)
+
+    if 'extlinux' in bootloaders:
+        with events.ReportEventStack(
+                name=stack_prefix + '/install-extlinux',
+                reporting_enabled=True, level="INFO",
+                description="installing extlinux to target devices"):
+            # So far we only support x86
+            if machine not in ['i586', 'i686', 'x86_64']:
+                raise ValueError('Invalid arch %s: Only x86 platforms support '
+                                 'extlinux at present' % machine)
+            install_extlinux(cfg, target)
 
 
 def update_initramfs(target=None, all_kernels=False):

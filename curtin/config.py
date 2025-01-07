@@ -144,7 +144,7 @@ def _check_bootloaders(inst, attr, vals):
     if len(vals) != len(set(vals)):
         raise ValueError(f'bootloaders list contains duplicates: {vals}')
     for val in vals:
-        if val != 'grub':
+        if val not in ['grub', 'extlinux']:
             raise ValueError(f'Unknown bootloader {val}: {vals}')
 
 

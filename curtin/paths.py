@@ -43,12 +43,14 @@ def kernel_parse(fname):
     return version.parse(m.group(1))
 
 
-def get_kernel_list(target):
+def get_kernel_list(target, full_initrd_path=True):
     """yields [kernel filename, initrd path, version] for each kernel in target
 
     For example:
        ('vmlinuz-6.8.0-48-generic', '/boot/initrd.img-6.8.0-48-generic',
         '6.8.0-48-generic')
+
+    If full_initrd_path is False, then only the basename of initrd is returned
     """
     root_path = target_path(target)
     boot = target_path(root_path, 'boot')
@@ -61,6 +63,8 @@ def get_kernel_list(target):
         kprefix = kfile.split('-')[0]
         vers = kfile.replace(kprefix + '-', '')
         initrd = kernel.replace(kprefix, 'initrd.img')
+        if not full_initrd_path:
+            initrd = os.path.basename(initrd)
         yield kfile, initrd, vers
 
 
