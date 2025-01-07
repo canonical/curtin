@@ -447,7 +447,7 @@ class TestUpdateInitramfs(CiTestCase):
     def test_fails_if_no_tool_to_update_initramfs(self):
         with patch("curtin.commands.curthooks.glob.glob",
                    return_value=["/boot/vmlinuz"]):
-            with self.assertRaises(RuntimeError):
+            with self.assertRaises(ValueError):
                 curthooks.update_initramfs(self.target)
 
         with patch("curtin.commands.curthooks.glob.glob", return_value=[]):
@@ -489,10 +489,10 @@ class TestUpdateInitramfs(CiTestCase):
             call(['update-initramfs', '-c', '-k', kversion3],
                  target=self.target))
         subp_calls += self._subp_calls(
-            call(['update-initramfs', '-c', '-k', self.kversion],
+            call(['update-initramfs', '-c', '-k', kversion2],
                  target=self.target))
         subp_calls += self._subp_calls(
-            call(['update-initramfs', '-c', '-k', kversion2],
+            call(['update-initramfs', '-c', '-k', self.kversion],
                  target=self.target))
         self.mock_subp.assert_has_calls(subp_calls)
         self.assertEqual(24, self.mock_subp.call_count)
@@ -513,10 +513,10 @@ class TestUpdateInitramfs(CiTestCase):
         subp_calls = self._subp_calls(
             call(['dpkg-divert', '--list'], capture=True, target=self.target))
         subp_calls += self._subp_calls(
-            call(['update-initramfs', '-u', '-k', kversion2],
+            call(['update-initramfs', '-c', '-k', self.kversion],
                  target=self.target))
         subp_calls += self._subp_calls(
-            call(['update-initramfs', '-c', '-k', self.kversion],
+            call(['update-initramfs', '-u', '-k', kversion2],
                  target=self.target))
         self.mock_subp.assert_has_calls(subp_calls)
         self.assertEqual(18, self.mock_subp.call_count)

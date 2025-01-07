@@ -1,6 +1,8 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
 import glob
 import os
+from packaging import version
+import re
 
 try:
     string_types = (basestring,)
@@ -33,6 +35,14 @@ def target_path(target, path=None):
     return os.path.join(target, path)
 
 
+def kernel_parse(fname):
+    """Function to extract version to use for sorting"""
+    m = re.search(r".*/vmlinu.-([\d.-]+)-.*", fname)
+    if not m:
+        raise ValueError(f"Cannot extract version from '{fname}'")
+    return version.parse(m.group(1))
+
+
 def get_kernel_list(target):
     """yields [kernel filename, initrd path, version] for each kernel in target
 
@@ -43,7 +53,8 @@ def get_kernel_list(target):
     root_path = target_path(target)
     boot = target_path(root_path, 'boot')
 
-    for kernel in sorted(glob.glob(boot + '/vmlinu*-*')):
+    for kernel in sorted(glob.glob(boot + '/vmlinu*-*'), key=kernel_parse,
+                         reverse=True):
         kfile = os.path.basename(kernel)
 
         # handle vmlinux or vmlinuz
