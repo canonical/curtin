@@ -1244,7 +1244,7 @@ def quick_zero(path, partitions=True, exclusive=True):
     offsets = [0, -zero_size]
     is_block = is_block_device(path)
     if not (is_block or os.path.isfile(path)):
-        raise ValueError("%s: not an existing file or block device", path)
+        raise ValueError("%s: not an existing file or block device" % path)
 
     pt_names = []
     if partitions and is_block:
