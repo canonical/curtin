@@ -16,6 +16,7 @@ DEPS=(
   cloud-image-utils
   cryptsetup
   git
+  libapt-pkg-dev
   make
   net-tools
   python3
