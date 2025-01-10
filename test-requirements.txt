@@ -1,9 +1,9 @@
 coverage
 flake8
 jsonschema
-nose
 parameterized
 pip
 pyflakes
+pytest
 virtualenv
 wheel
