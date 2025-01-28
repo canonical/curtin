@@ -572,7 +572,7 @@ def purge_packages(pkglist, osfamily=None, opts=None, target=None, env=None):
 
     distro_cfg = {
         DISTROS.debian: {'function': run_apt_command,
-                         'subcommands': ('purge', 'autoremove')},
+                         'subcommands': ('autopurge', )},
     }
 
     purge_cmd = distro_cfg.get(osfamily)
