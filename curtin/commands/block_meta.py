@@ -245,7 +245,7 @@ def devsync(devpath):
         else:
             LOG.debug('Waiting on device path: %s', devpath)
             time.sleep(1)
-    raise OSError('Failed to find device at path: %s', devpath)
+    raise OSError('Failed to find device at path: %s' % devpath)
 
 
 def determine_partition_number(partition_id, storage_config):
