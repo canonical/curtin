@@ -226,7 +226,7 @@ The following example configures ``ubuntu.sources`` in deb822 format, supplies a
      URIs: $PRIMARY
      Suites: $RELEASE $RELEASE-updates $RELEASE-security $RELEASE-proposed
      Components: main
-     key: | # full key as block
+     Signed-By: # full key as block
        -----BEGIN PGP PUBLIC KEY BLOCK-----
        Version: GnuPG v1
        mQGiBEFEnz8RBAC7LstGsKD7McXZgd58oN68KquARLBl6rjA2vdhwl77KkPPOr3O
