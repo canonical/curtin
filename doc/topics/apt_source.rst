@@ -229,6 +229,7 @@ The following example configures ``ubuntu.sources`` in deb822 format, supplies a
      Signed-By: # full key as block
        -----BEGIN PGP PUBLIC KEY BLOCK-----
        Version: GnuPG v1
+       .
        mQGiBEFEnz8RBAC7LstGsKD7McXZgd58oN68KquARLBl6rjA2vdhwl77KkPPOr3O
        RwIbDAAKCRBAl26vQ30FtdxYAJsFjU+xbex7gevyGQ2/mhqidES4MwCggqQyo+w1
        Twx6DKLF+3rF5nf1F3Q=
@@ -246,13 +247,14 @@ The template above will result in the following ``ubuntu.sources`` file:
  Signed-By: | # full key as block
    -----BEGIN PGP PUBLIC KEY BLOCK-----
    Version: GnuPG v1
+   .
    mQGiBEFEnz8RBAC7LstGsKD7McXZgd58oN68KquARLBl6rjA2vdhwl77KkPPOr3O
    RwIbDAAKCRBAl26vQ30FtdxYAJsFjU+xbex7gevyGQ2/mhqidES4MwCggqQyo+w1
    Twx6DKLF+3rF5nf1F3Q=
    =PBAe
    -----END PGP PUBLIC KEY BLOCK-----
 
-The file `examples/apt-source.yaml <https://github.com/canonical/curtin/blob/master/examples/apt-source.yaml>`_ holds more examples on how to use templates.
+The file `examples/apt-source.yaml <https://github.com/canonical/curtin/blob/master/examples/apt-source.yaml>`_ holds more examples on how to use templates. Note that blank lines in the key block should be encoded with leading spaces and "." (see `sources.list(5) <https://manpages.ubuntu.com/manpages/latest/en/man5/sources.list.5.html>`).
 
 Timing
 ~~~~~~
