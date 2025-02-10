@@ -470,6 +470,36 @@ class ProbertParser(object):
         return multipath.is_mpath_partition(
             blockdev.get('DEVNAME', ''), blockdev)
 
+    @staticmethod
+    def looks_like_ldm_disk(blockdev) -> bool:
+        """ Tell if the disk looks like a Windows dynamic disk or LDM (aka.
+            Logical Disk Manager).
+
+            Here we consider that a disk is a dynamic disk if it contains a DOS
+            partition table with all partitions having type 0x42.
+
+            The Linux kernel and possibly libldm (currently in universe) do
+            extra checks to determine if a disk is a dynamic disk.
+
+            Here we only scratch the surface (thus the verb "looks_like" rather
+            than "is") so it is better to only use this function if we already
+            suspect the disk could be using LDM.
+        """
+        try:
+            ptable = blockdev["partitiontable"]
+            # Currently, the Linux kernel only supports dynamic disks on dos
+            # partition tables.
+            if ptable["label"] != "dos":
+                return False
+            parts = ptable["partitions"]
+            if not parts:
+                return False
+            # Type 0x42 used to be "SFS" but it is ancient and Windows dynamic
+            # disks use it too.
+            return all([part.get("type") == "42" for part in parts])
+        except KeyError:
+            return False
+
     def blockdev_to_id(self, blockdev):
         """ Examine a blockdev dictionary and return a tuple of curtin
             storage type and name that can be used as a value for
@@ -759,6 +789,12 @@ class BlockdevParser(ProbertParser):
                 else:
                     entry['ptable'] = schemas._ptable_unsupported
 
+            if self.looks_like_ldm_disk(blockdev_data):
+                LOG.debug('%s: reassigning ptable property to %s because it'
+                          ' looks like a dynamic disk',
+                          entry['path'], schemas._ptable_unsupported)
+                entry['ptable'] = schemas._ptable_unsupported
+
             match = re.fullmatch(r'/dev/(?P<ctrler>nvme\d+)n\d', devname)
             if match is not None:
                 entry['nvme_controller'] = f'nvme-controller-{match["ctrler"]}'
@@ -797,8 +833,23 @@ class BlockdevParser(ProbertParser):
                         break
 
                 if part is None:
-                    raise RuntimeError(
-                        "Couldn't find partition entry in table")
+                    # Could not find the partition in the partition table.
+
+                    # It is expected for LDM (or Windows dynamic disks).
+                    # The Linux kernel can discover partitions from the "LDM
+                    # database" which is stored in the last 1MiB of the disk.
+                    if self.looks_like_ldm_disk(parent_blockdev):
+                        LOG.warning("%s was not found in %s's ptable, but that"
+                                    ' is expected for a dynamic disk',
+                                    devname, parent_blockdev['DEVNAME'])
+                        part = {
+                            'start': attrs['start'],
+                            'size': attrs['size'],
+                            'visible-in-ptable': False,
+                        }
+                    else:
+                        raise RuntimeError(
+                            "Couldn't find partition entry in table")
             else:
                 part = attrs
 
@@ -813,7 +864,7 @@ class BlockdevParser(ProbertParser):
                 entry['offset'] = offset_val
 
             entry['size'] = int(part['size'])
-            if ptable:
+            if ptable and part.get("visible-in-ptable", True):
                 entry['size'] *= logical_sector_size
 
             if blockdev_data.get('ID_PART_TABLE_TYPE') == 'gpt':
@@ -833,7 +884,7 @@ class BlockdevParser(ProbertParser):
                 ptype_flag = blockdev_data.get('ID_PART_ENTRY_FLAGS')
                 if ptype_flag in [MBR_BOOT_FLAG]:
                     flag_name = 'boot'
-                else:
+                elif part.get("visible-in-ptable", True):
                     # logical partitions are not tagged in data, however
                     # the partition number > 4 (ie, not primary nor extended)
                     if entry['number'] > 4:
