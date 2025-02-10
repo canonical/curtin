@@ -175,6 +175,73 @@ class TestProbertParser(CiTestCase):
         self.assertEqual(
             "unsupported", baseparser.detect_partition_scheme(blockdev))
 
+    def test_looks_like_ldm_disk__one_part_and_matching(self):
+        blockdev = {
+            "DEVNAME": "/dev/sda",
+            "DEVTYPE": "disk",
+            "partitiontable": {
+                "label": "dos",
+                "partitions": [
+                    {"node": "/dev/sda1", "type": "42"},
+                ]
+            }
+        }
+        self.assertTrue(baseparser.looks_like_ldm_disk(blockdev))
+
+    def test_looks_like_ldm_disk__3_parts_all_matching(self):
+        blockdev = {
+            "DEVNAME": "/dev/sda",
+            "DEVTYPE": "disk",
+            "partitiontable": {
+                "label": "dos",
+                "partitions": [
+                    {"node": "/dev/sda1", "type": "42"},
+                    {"node": "/dev/sda2", "type": "42"},
+                    {"node": "/dev/sda3", "type": "42"},
+                ]
+            }
+        }
+        self.assertTrue(baseparser.looks_like_ldm_disk(blockdev))
+
+    def test_looks_like_ldm_disk__some_matching_part(self):
+        blockdev = {
+            "DEVNAME": "/dev/sda",
+            "DEVTYPE": "disk",
+            "partitiontable": {
+                "label": "dos",
+                "partitions": [
+                    {"node": "/dev/sda1", "type": "0"},
+                    {"node": "/dev/sda2", "type": "42"},
+                ]
+            }
+        }
+        # According to the kernel, a single partition having type 42 could
+        # still reveal the presence of a dynamic disk. However, the kernel does
+        # more tests that we are not doing. In bug reports, I've only seen
+        # scenarios where all partitions have type 42 or none have.
+        # For now, we don't consider the disk to be dynamic if not all
+        # partitions have type 42. But this could change in the future.
+        self.assertFalse(baseparser.looks_like_ldm_disk(blockdev))
+
+    def test_looks_like_ldm_disk__no_parts(self):
+        blockdev = {
+            "DEVNAME": "/dev/sda",
+            "DEVTYPE": "disk",
+            "partitiontable": {
+                "label": "dos",
+                "partitions": [
+                ]
+            }
+        }
+        self.assertFalse(baseparser.looks_like_ldm_disk(blockdev))
+
+    def test_looks_like_ldm_disk__no_ptable(self):
+        blockdev = {
+            "DEVNAME": "/dev/sda",
+            "DEVTYPE": "disk",
+        }
+        self.assertFalse(baseparser.looks_like_ldm_disk(blockdev))
+
 
 def _get_data(datafile):
     data = util.load_file('tests/data/%s' % datafile)
@@ -562,6 +629,42 @@ class TestBlockdevParser(CiTestCase):
             blockdev['ID_PART_TABLE_TYPE'] = invalid
             self.assertDictEqual(expected_dict,
                                  self.bdevp.asdict(blockdev))
+
+    def test_blockdev_asdict_ldm_disk(self):
+        '''Ensure that parsing this blockdev returns "unsupported" as the
+           ptable. '''
+        self.probe_data = _get_data('probert_storage_ldm.json')
+        self.bdevp = BlockdevParser(self.probe_data)
+        blockdev = self.bdevp.blockdev_data['/dev/sda']
+        expected_dict = {
+            'id': 'disk-sda',
+            'type': 'disk',
+            'wwn': '0x5000039fdcf04730',
+            'serial': 'TOSHIBA_HDWD110_999E6AZFS',
+            'ptable': 'unsupported',
+            'path': '/dev/sda',
+        }
+        self.assertDictEqual(expected_dict, self.bdevp.asdict(blockdev))
+
+    def test_blockdev_asdict_ldm_partition_not_in_ptable(self):
+        '''Ensure that parsing this blockdev returns usable data even though
+           sda5 does not exist in sda's ptable. Previously, this code would
+           raise:
+             RuntimeError: "Couldn't find partition entry in table"
+        '''
+        self.probe_data = _get_data('probert_storage_ldm.json')
+        self.bdevp = BlockdevParser(self.probe_data)
+        blockdev = self.bdevp.blockdev_data['/dev/sda5']
+        expected_dict = {
+            'id': 'partition-sda5',
+            'type': 'partition',
+            'device': 'disk-sda',
+            'path': '/dev/sda5',
+            'number': 5,
+            'offset': 904945664 * 512,
+            'size': 536869863424,
+        }
+        self.assertDictEqual(expected_dict, self.bdevp.asdict(blockdev))
 
     def test_blockdev_multipath_disk(self):
         self.probe_data = _get_data('probert_storage_multipath.json')
