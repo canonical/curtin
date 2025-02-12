@@ -1104,6 +1104,7 @@ class TestExtractStorageConfig(CiTestCase):
         self.assertEqual({'id': 'raid-md1', 'type': 'raid', 'metadata': '1.2',
                           'raidlevel': 'raid1', 'name': 'md1',
                           'path': '/dev/md1',
+                          'ptable': 'gpt',
                           'devices': ['partition-vdb1', 'partition-vdc1'],
                           'spare_devices': []}, raids[0])
         self.assertEqual({
