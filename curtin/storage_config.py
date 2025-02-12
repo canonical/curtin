@@ -4,6 +4,7 @@ import copy
 import operator
 import os
 import re
+from typing import Optional
 import yaml
 
 from curtin.log import LOG
@@ -470,6 +471,22 @@ class ProbertParser(object):
         return multipath.is_mpath_partition(
             blockdev.get('DEVNAME', ''), blockdev)
 
+    @staticmethod
+    def detect_partition_scheme(blockdev) -> Optional[str]:
+        ''' Return either:
+             * None if the blockdev is not partitioned
+             * A type of partition table (as a string) if it is supported
+             * "unsupported" if it is not supported.
+        '''
+        if 'ID_PART_TABLE_TYPE' not in blockdev:
+            return None
+
+        ptype = blockdev['ID_PART_TABLE_TYPE']
+        if ptype not in schemas._ptables:
+            return schemas._ptable_unsupported
+
+        return ptype
+
     def blockdev_to_id(self, blockdev):
         """ Examine a blockdev dictionary and return a tuple of curtin
             storage type and name that can be used as a value for
@@ -752,12 +769,9 @@ class BlockdevParser(ProbertParser):
                     if dasd_size != "0":
                         entry['ptable'] = 'vtoc'
 
-            if 'ID_PART_TABLE_TYPE' in blockdev_data:
-                ptype = blockdev_data['ID_PART_TABLE_TYPE']
-                if ptype in schemas._ptables:
-                    entry['ptable'] = ptype
-                else:
-                    entry['ptable'] = schemas._ptable_unsupported
+            ptable = self.detect_partition_scheme(blockdev_data)
+            if ptable is not None:
+                entry['ptable'] = ptable
 
             match = re.fullmatch(r'/dev/(?P<ctrler>nvme\d+)n\d', devname)
             if match is not None:

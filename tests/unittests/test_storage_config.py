@@ -143,6 +143,38 @@ class TestProbertParser(CiTestCase):
 
         self.assertIsNotNone(bdparser(probe_data))
 
+    def test_detect_partition_scheme__unpartitioned(self):
+        blockdev = {
+            "DEVNAME": "/dev/sda",
+            "DEVTYPE": "disk",
+        }
+        self.assertIsNone(baseparser.detect_partition_scheme(blockdev))
+
+    def test_detect_partition_scheme__gpt(self):
+        blockdev = {
+            "DEVNAME": "/dev/sda",
+            "DEVTYPE": "disk",
+            "ID_PART_TABLE_TYPE": "gpt",
+        }
+        self.assertEqual("gpt", baseparser.detect_partition_scheme(blockdev))
+
+    def test_detect_partition_scheme__dos(self):
+        blockdev = {
+            "DEVNAME": "/dev/sda",
+            "DEVTYPE": "disk",
+            "ID_PART_TABLE_TYPE": "dos",
+        }
+        self.assertEqual("dos", baseparser.detect_partition_scheme(blockdev))
+
+    def test_detect_partition_scheme__something_else(self):
+        blockdev = {
+            "DEVNAME": "/dev/sda",
+            "DEVTYPE": "disk",
+            "ID_PART_TABLE_TYPE": "foobar",
+        }
+        self.assertEqual(
+            "unsupported", baseparser.detect_partition_scheme(blockdev))
+
 
 def _get_data(datafile):
     data = util.load_file('tests/data/%s' % datafile)
