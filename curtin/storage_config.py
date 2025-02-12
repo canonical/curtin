@@ -1151,6 +1151,10 @@ class RaidParser(ProbertParser):
             'raidlevel': raid_data.get('raidlevel'),
             }
 
+        ptable = self.detect_partition_scheme(raid_data)
+        if ptable is not None:
+            action['ptable'] = ptable
+
         if 'MD_METADATA' in raid_data:
             action['metadata'] = raid_data["MD_METADATA"]
 
