@@ -663,6 +663,7 @@ class TestBlockdevParser(CiTestCase):
             'size': 10734272512,
             'type': 'partition',
             'partition_type': '0fc63daf-8483-4772-8e79-3d69d8477de4',
+            'uuid': '760493ac-7945-44c5-a6bd-58fcd6632ea7',
             }
         self.assertDictEqual(expected_dict, self.bdevp.asdict(blockdev))
 
@@ -713,6 +714,27 @@ class TestBlockdevParser(CiTestCase):
         blockdev = self.bdevp.blockdev_data['/dev/sda1']
         actual = self.bdevp.asdict(blockdev)
         self.assertEqual(5000 << 20, actual['size'])
+
+    def test_blockdev_partition_from_imsm(self):
+        """
+        partition uuid should exist in absence of ID_PART_TABLE_TYPE in
+        partition
+        """
+        self.probe_data = _get_data('probert_storage_imsm_with_parts.json')
+        self.bdevp = BlockdevParser(self.probe_data)
+        blockdev = self.bdevp.blockdev_data['/dev/md126p2']
+        expected_dict = {
+            'device': 'raid-md126',
+            'flag': 'msftres',
+            'id': 'raid-md126p2',
+            'number': 2,
+            'offset': 1128267776,
+            'partition_type': 'e3c9e316-0b5c-4db8-817d-f92df00215ae',
+            'path': '/dev/md126p2',
+            'size': 12884901888,
+            'type': 'partition',
+            'uuid': 'a32ba6c7-9650-4a1d-bb71-2772395f2737'}
+        self.assertDictEqual(expected_dict, self.bdevp.asdict(blockdev))
 
 
 class TestFilesystemParser(CiTestCase):
@@ -1164,7 +1186,8 @@ class TestExtractStorageConfig(CiTestCase):
             'number': 1,
             'partition_type': '0fc63daf-8483-4772-8e79-3d69d8477de4',
             'device': 'raid-md1',
-            'offset': 1048576},
+            'offset': 1048576,
+            'uuid': '5b3f90c0-2432-45c1-98e2-6e9e6649430e'},
             raid_partitions[0])
 
     @skipUnlessJsonSchema()

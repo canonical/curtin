@@ -867,7 +867,11 @@ class BlockdevParser(ProbertParser):
             if ptable and part.get("visible-in-ptable", True):
                 entry['size'] *= logical_sector_size
 
-            if blockdev_data.get('ID_PART_TABLE_TYPE') == 'gpt':
+            # in libblkid, for a partition, PART_ENTRY_UUID is set together
+            # with PART_ENTRY_SCHEME, check ID_PART_ENTRY_SCHEME for partition
+            # type instead of ID_PART_TABLE_TYPE as it might not be set for a
+            # partition e.g. in RAID disks
+            if blockdev_data.get('ID_PART_ENTRY_SCHEME') == 'gpt':
                 part_uuid = blockdev_data.get('ID_PART_ENTRY_UUID')
                 if part_uuid is not None:
                     entry['uuid'] = part_uuid
