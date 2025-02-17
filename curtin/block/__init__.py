@@ -7,6 +7,7 @@ import os
 import stat
 import sys
 import tempfile
+from typing import Optional
 
 from curtin import util
 from curtin.block import lvm
@@ -566,60 +567,6 @@ def blkid(devs=None, cache=True):
     return data
 
 
-def _legacy_detect_multipath(target_mountpoint=None):
-    """
-    Detect if the operating system has been installed to a multipath device.
-    """
-    # The obvious way to detect multipath is to use multipath utility which is
-    # provided by the multipath-tools package. Unfortunately, multipath-tools
-    # package is not available in all ephemeral images hence we can't use it.
-    # Another reasonable way to detect multipath is to look for two (or more)
-    # devices with the same World Wide Name (WWN) which can be fetched using
-    # scsi_id utility. This way doesn't work as well because WWNs are not
-    # unique in some cases which leads to false positives which may prevent
-    # system from booting (see LP: #1463046 for details).
-    # Taking into account all the issues mentioned above, curent implementation
-    # detects multipath by looking for a filesystem with the same UUID
-    # as the target device. It relies on the fact that all alternative routes
-    # to the same disk observe identical partition information including UUID.
-    # There are some issues with this approach as well though. We won't detect
-    # multipath disk if it doesn't any filesystems.  Good news is that
-    # target disk will always have a filesystem because curtin creates them
-    # while installing the system.
-    rescan_block_devices()
-    binfo = blkid(cache=False)
-    LOG.debug("legacy_detect_multipath found blkid info: %s", binfo)
-    # get_devices_for_mp may return multiple devices by design. It is not yet
-    # implemented but it should return multiple devices when installer creates
-    # separate disk partitions for / and /boot. We need to do UUID-based
-    # multipath detection against each of target devices.
-    target_devs = get_devices_for_mp(target_mountpoint)
-    LOG.debug("target_devs: %s" % target_devs)
-    for devpath, data in binfo.items():
-        # We need to figure out UUID of the target device first
-        if devpath not in target_devs:
-            continue
-        # This entry contains information about one of target devices
-        target_uuid = data.get('UUID')
-        # UUID-based multipath detection won't work if target partition
-        # doesn't have UUID assigned
-        if not target_uuid:
-            LOG.warn("Target partition %s doesn't have UUID assigned",
-                     devpath)
-            continue
-        LOG.debug("%s: %s" % (devpath, data.get('UUID', "")))
-        # Iterating over available devices to see if any other device
-        # has the same UUID as the target device. If such device exists
-        # we probably installed the system to the multipath device.
-        for other_devpath, other_data in binfo.items():
-            if ((other_data.get('UUID') == target_uuid) and
-                    (other_devpath != devpath)):
-                return True
-    # No other devices have the same UUID as the target devices.
-    # We probably installed the system to the non-multipath device.
-    return False
-
-
 def _device_is_multipathed(devpath):
     devpath = os.path.realpath(devpath)
     info = udevadm_info(devpath)
@@ -668,7 +615,7 @@ def md_get_devices_list(devpath):
     return _md_get_members_list(devpath, state_is_not_spare)
 
 
-def detect_multipath(target_mountpoint=None):
+def detect_multipath(target_mountpoint=None) -> Optional[str]:
     if multipath.multipath_supported():
         for device in (os.path.realpath(dev)
                        for (dev, _mp, _vfs, _opts, _freq, _passno)
@@ -682,7 +629,7 @@ def detect_multipath(target_mountpoint=None):
             if _device_is_multipathed(device):
                 return device
 
-    return _legacy_detect_multipath(target_mountpoint)
+    return None
 
 
 def get_scsi_wwid(device, replace_whitespace=False):
