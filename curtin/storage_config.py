@@ -1,5 +1,6 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
 from collections import namedtuple, OrderedDict
+import contextlib
 import copy
 import operator
 import os
@@ -817,6 +818,24 @@ class BlockdevParser(ProbertParser):
         if entry['type'] == 'partition':
             if devname:
                 entry['path'] = devname
+            with contextlib.suppress(KeyError):
+                # For the name of the partition, there are two properties we
+                # can consider using:
+                # * PARTNAME: At least for GPT, if the partition name is not
+                # ASCII, the value will get mangled by the kernel, see LP:
+                # #2017862.  In some scenarios, it will even make probert choke
+                # and omit the PARTNAME property entirely.
+                # * ID_PART_ENTRY_NAME: This one is added by libblkid and
+                # should not be omitted by probert. However, it is encoded
+                # using blkid_encode_string, which turns spaces and other
+                # characters into \x{...} sequences. We would have to reverse
+                # what that function does... mayyybe with something like:
+                # >  n = blockdev_data['ID_PART_ENTRY_NAME']
+                # >  n.encode('raw-unicode-escape').decode('unicode-escape')
+                # For now, let's use PARTNAME because it's easier - but it
+                # will look ugly if the name is made out of international
+                # characters.
+                entry['partition_name'] = blockdev_data['PARTNAME']
             attrs = blockdev_data['attrs']
             if self.is_mpath_partition(blockdev_data):
                 entry['number'] = int(blockdev_data['DM_PART'])

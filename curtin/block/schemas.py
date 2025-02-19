@@ -329,6 +329,7 @@ PARTITION = {
                                {'pattern': r'^0x[0-9a-fA-F]{1,2}$'},
                                {'$ref': '#/definitions/uuid'},
                                ]},
+        'partition_name': {'$ref': '#/definitions/name'},
         'grub_device': {
             'type': ['boolean', 'integer'],
             'minimum': 0,

@@ -468,6 +468,26 @@ class TestBlockdevParser(CiTestCase):
         self.assertDictEqual(expected_dict,
                              self.bdevp.asdict(blockdev))
 
+    def test_blockdev_asdict_partition_with_name(self):
+        """ BlockdevParser creates dictionary of DEVTYPE=partition. """
+
+        blockdev = self.bdevp.blockdev_data['/dev/nvme0n1p2']
+        expected_dict = {
+            'id': 'partition-nvme0n1p2',
+            'type': 'partition',
+            'device': 'disk-nvme0n1',
+            'path': '/dev/nvme0n1p2',
+            'number': 2,
+            'offset': 234375168 * 512,
+            'size': 419430400 * 512,
+            'flag': 'linux',
+            'partition_name': 'Linux filesystem',
+            'partition_type': '0fc63daf-8483-4772-8e79-3d69d8477de4',
+            'uuid': '789835f9-0ca5-451a-af2d-d642934d83a6',
+        }
+        self.assertDictEqual(expected_dict,
+                             self.bdevp.asdict(blockdev))
+
     # XXX: Parameterize me
     def test_blockdev_asdict_not_disk_or_partition(self):
         """ BlockdevParser ignores DEVTYPE not in 'disk, partition'. """
