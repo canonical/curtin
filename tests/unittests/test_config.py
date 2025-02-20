@@ -226,4 +226,40 @@ class TestDeserializer(CiTestCase):
             deserializer.deserialize(UnionClass, {"val": None}))
 
 
+class TestBootCfg(CiTestCase):
+    def test_empty(self):
+        with self.assertRaises(TypeError) as exc:
+            config.BootCfg()
+        self.assertIn("missing 1 required positional argument: 'bootloaders'",
+                      str(exc.exception))
+
+    def test_not_list(self):
+        with self.assertRaises(ValueError) as exc:
+            config.BootCfg('invalid')
+        self.assertIn("bootloaders must be a list: invalid",
+                      str(exc.exception))
+
+    def test_empty_list(self):
+        with self.assertRaises(ValueError) as exc:
+            config.BootCfg([])
+        self.assertIn("Empty bootloaders list:", str(exc.exception))
+
+    def test_duplicate(self):
+        with self.assertRaises(ValueError) as exc:
+            config.BootCfg(['grub', 'grub'])
+        self.assertIn("bootloaders list contains duplicates: ['grub', 'grub']",
+                      str(exc.exception))
+
+    def test_invalid(self):
+        with self.assertRaises(ValueError) as exc:
+            config.BootCfg(['fred'])
+        self.assertIn("Unknown bootloader fred: ['fred']", str(exc.exception))
+
+    def test_valid(self):
+        config.BootCfg(['grub'])
+        config.BootCfg(['extlinux'])
+        config.BootCfg(['grub', 'extlinux'])
+        config.BootCfg(['extlinux', 'grub'])
+
+
 # vi: ts=4 expandtab syntax=python

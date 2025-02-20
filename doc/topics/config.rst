@@ -10,10 +10,14 @@ Configuration options
 ---------------------
 Curtin's top level config keys are as follows:
 
+.. contents::
+    :depth: 1
+    :local:
 
 - apt_mirrors (``apt_mirrors``)
 - apt_proxy (``apt_proxy``)
 - block-meta (``block``)
+- boot (``boot``)
 - curthooks (``curthooks``)
 - debconf_selections (``debconf_selections``)
 - disable_overlayroot (``disable_overlayroot``)
@@ -112,6 +116,197 @@ Specify the filesystem label on the boot partition.
           label: my-boot-partition
 
 
+boot
+~~~~
+
+Configures which bootloader(s) Curtin installs and some associated options.
+This is a list, which can contain up to two options: `grub` and `extlinux`.
+
+Two bootloaders are available:
+
+- `GRUB <https://www.gnu.org/software/grub/>`_ (GRand Unified Bootloader)
+  installs itself on one or more block devices and takes care of booting.
+  Typically grub is built as an EFI application. Curtin controls aspects of
+  grub's configuration-file (/boot/grub/grub.cfg) which tells grub which OS
+  options to present to the user.
+
+- `extlinux <https://wiki.syslinux.org/wiki/index.php?title=EXTLINUX>`_
+  is really just a file format, similar to a grub configuration-file but much
+  less flexible. It specifies which OS options to present to the user.
+
+One or both can be installed.
+
+The following properties are used for both bootloaders:
+
+**bootloaders**: *<list of bootloaders>*
+
+Selects the bootloaders to use. Valid options are "grub" and "extlinux".
+
+**replace_linux_default**: *<boolean: default True>*
+
+Controls whether grub-install will update the Linux Default target
+value during installation.
+
+**terminal**: *<['unmodified', 'console', ...]>*
+
+For grub, this configures the target-system grub-option GRUB_TERMINAL
+``terminal`` value which is written to
+/etc/default/grub.d/50-curtin-settings.cfg.  Curtin does not attempt to validate
+this string, grub2 has many values that it accepts and the list is platform
+dependent.
+
+For extlinux, this puts the console string in an APPEND line for each OS.
+
+If ``terminal`` is not provided, Curtin will set the value to 'console'.  If the
+``terminal`` value is 'unmodified' then Curtin will not set any value at all and
+will use Grub defaults.
+
+extlinux
+""""""""
+
+Curtin can add an ``extlinux.conf`` file to a filesystem. This contains a list
+of possible kernels, etc. similar to grub. This is somewhat more flexible on
+ARM/RISC-V since it can use `FIT <https://fitspec.osfw.foundation/>`_ and deal
+with devicetree, verified boot, etc. automatically. It also avoids specifying
+which bootloader must be used, since extlinux is supported by U-Boot, for
+example.
+
+grub
+""""
+
+Curtin can configure grub as the target machine's grub boot loader.  Users
+can control a few options to tailor how the system will boot after
+installation.
+
+**install_devices**: *<list of block device names to install grub>*
+
+Specify a list of devices onto which grub will attempt to install.
+
+**update_nvram**: *<boolean: default True>*
+
+Certain platforms, like ``uefi`` and ``prep`` systems utilize
+NVRAM to hold boot configuration settings which control the order in
+which devices are booted.  Curtin by default will enable NVRAM updates
+to boot configuration settings.  Users may disable NVRAM updates by setting
+the ``update_nvram`` value to ``False``.
+
+**probe_additional_os**: *<boolean: default False>*
+
+This setting controls grub's os-prober functionality and Curtin will
+disable this feature by default to prevent grub from searching for other
+operating systems and adding them to the grub menu.
+
+When False, curtin writes "GRUB_DISABLE_OS_PROBER=true" to target system in
+/etc/default/grub.d/50-curtin-settings.cfg.  If True, curtin won't modify the
+grub configuration value in the target system.
+
+**reorder_uefi**: *<boolean: default True>*
+
+Curtin is typically used with MAAS where the systems are configured to boot
+from the network leaving MAAS in control.  On UEFI systems, after installing
+a bootloader the systems BootOrder may be updated to boot from the new entry.
+This breaks MAAS control over the system as all subsequent reboots of the node
+will no longer boot over the network.  Therefore, if ``reorder_uefi`` is True
+curtin will modify the UEFI BootOrder settings to place the currently booted
+entry (BootCurrent) to the first option after installing the new target OS into
+the UEFI boot menu.  The result is that the system will boot from the same
+device that it booted to run curtin; for MAAS this will be a network device.
+
+On some UEFI systems the BootCurrent entry may not be present.  This can
+cause a system to not boot to the same device that it was previously booting.
+If BootCurrent is not present, curtin will update the BootOrder such that
+all Network related entries are placed before the newly installed boot entry and
+all other entries are placed at the end.  This enables the system to network
+boot first and on failure will boot the most recently installed entry.
+
+This setting is ignored if *update_nvram* is False.
+
+**reorder_uefi_force_fallback**: *<boolean: default False>*
+
+The fallback reodering mechanism is only active if BootCurrent is not present
+in the efibootmgr output.  The fallback reordering method may be enabled
+even if BootCurrent is present if *reorder_uefi_force_fallback* is True.
+
+This setting is ignored if *update_nvram* or *reorder_uefi* are False.
+
+**remove_duplicate_entries**: <*boolean: default True>*
+
+When curtin updates UEFI NVRAM it will remove duplicate entries that are
+present in the UEFI menu.  If you do not wish for curtin to remove duplicate
+entries setting *remove_duplicate_entries* to False.
+
+This setting is ignored if *update_nvram* is False.
+
+**Example**::
+
+  boot:
+     bootloaders:
+        - grub
+     install_devices:
+       - /dev/sda1
+     replace_linux_default: False
+     update_nvram: True
+     terminal: serial
+     remove_duplicate_entries: True
+
+**Default terminal value, GRUB_TERMINAL=console**::
+
+  boot:
+     bootloaders:
+        - grub
+     install_devices:
+       - /dev/sda1
+
+**Don't set GRUB_TERMINAL in target**::
+
+  boot:
+     bootloaders:
+        - grub
+     install_devices:
+       - /dev/sda1
+     terminal: unmodified
+
+**Allow grub to probe for additional OSes**::
+
+  boot:
+     bootloaders:
+        - grub
+     install_devices:
+        - /dev/sda1
+     probe_additional_os: True
+
+**Avoid writting any settings to etc/default/grub.d/50-curtin-settings.cfg**::
+
+  boot:
+     bootloaders:
+        - grub
+     install_devices:
+        - /dev/sda1
+     probe_additional_os: True
+     terminal: unmodified
+
+**Enable Fallback UEFI Reordering**::
+
+  boot:
+     bootloaders:
+        - grub
+     reorder_uefi: true
+     reorder_uefi_force_fallback: true
+
+extlinux
+""""""""
+
+There are no options specific to extlinux.
+
+**Example**::
+
+  boot:
+     bootloaders:
+        - grub
+        - extlinux
+     install_devices:
+        - /dev/sda1
+
 curthooks
 ~~~~~~~~~
 Configure how Curtin determines what :ref:`curthooks` to run during the installation
@@ -183,131 +378,11 @@ Curtin disables overlayroot in the target by default.
 
   disable_overlayroot: False
 
-
 grub
 ~~~~
-Curtin configures grub as the target machine's boot loader.  Users
-can control a few options to tailor how the system will boot after
-installation.
 
-**install_devices**: *<list of block device names to install grub>*
-
-Specify a list of devices onto which grub will attempt to install.
-
-**replace_linux_default**: *<boolean: default True>*
-
-Controls whether grub-install will update the Linux Default target
-value during installation.
-
-**update_nvram**: *<boolean: default True>*
-
-Certain platforms, like ``uefi`` and ``prep`` systems utilize
-NVRAM to hold boot configuration settings which control the order in
-which devices are booted.  Curtin by default will enable NVRAM updates
-to boot configuration settings.  Users may disable NVRAM updates by setting
-the ``update_nvram`` value to ``False``.
-
-**probe_additional_os**: *<boolean: default False>*
-
-This setting controls grub's os-prober functionality and Curtin will
-disable this feature by default to prevent grub from searching for other
-operating systems and adding them to the grub menu.
-
-When False, curtin writes "GRUB_DISABLE_OS_PROBER=true" to target system in
-/etc/default/grub.d/50-curtin-settings.cfg.  If True, curtin won't modify the
-grub configuration value in the target system.
-
-**terminal**: *<['unmodified', 'console', ...]>*
-
-Configure target system grub option GRUB_TERMINAL ``terminal`` value
-which is written to /etc/default/grub.d/50-curtin-settings.cfg.  Curtin
-does not attempt to validate this string, grub2 has many values that
-it accepts and the list is platform dependent.  If ``terminal`` is
-not provided, Curtin will set the value to 'console'.  If the ``terminal``
-value is 'unmodified' then Curtin will not set any value at all and will
-use Grub defaults.
-
-**reorder_uefi**: *<boolean: default True>*
-
-Curtin is typically used with MAAS where the systems are configured to boot
-from the network leaving MAAS in control.  On UEFI systems, after installing
-a bootloader the systems BootOrder may be updated to boot from the new entry.
-This breaks MAAS control over the system as all subsequent reboots of the node
-will no longer boot over the network.  Therefore, if ``reorder_uefi`` is True
-curtin will modify the UEFI BootOrder settings to place the currently booted
-entry (BootCurrent) to the first option after installing the new target OS into
-the UEFI boot menu.  The result is that the system will boot from the same
-device that it booted to run curtin; for MAAS this will be a network device.
-
-On some UEFI systems the BootCurrent entry may not be present.  This can
-cause a system to not boot to the same device that it was previously booting.
-If BootCurrent is not present, curtin will update the BootOrder such that
-all Network related entries are placed before the newly installed boot entry and
-all other entries are placed at the end.  This enables the system to network
-boot first and on failure will boot the most recently installed entry.
-
-This setting is ignored if *update_nvram* is False.
-
-**reorder_uefi_force_fallback**: *<boolean: default False>*
-
-The fallback reodering mechanism is only active if BootCurrent is not present
-in the efibootmgr output.  The fallback reordering method may be enabled
-even if BootCurrent is present if *reorder_uefi_force_fallback* is True.
-
-This setting is ignored if *update_nvram* or *reorder_uefi* are False.
-
-**remove_duplicate_entries**: <*boolean: default True>*
-
-When curtin updates UEFI NVRAM it will remove duplicate entries that are
-present in the UEFI menu.  If you do not wish for curtin to remove duplicate
-entries setting *remove_duplicate_entries* to False.
-
-This setting is ignored if *update_nvram* is False.
-
-**Example**::
-
-  grub:
-     install_devices:
-       - /dev/sda1
-     replace_linux_default: False
-     update_nvram: True
-     terminal: serial
-     remove_duplicate_entries: True
-
-**Default terminal value, GRUB_TERMINAL=console**::
-
-  grub:
-     install_devices:
-       - /dev/sda1
-
-**Don't set GRUB_TERMINAL in target**::
-
-  grub:
-     install_devices:
-       - /dev/sda1
-     terminal: unmodified
-
-**Allow grub to probe for additional OSes**::
-
-  grub:
-    install_devices:
-      - /dev/sda1
-     probe_additional_os: True
-
-**Avoid writting any settings to etc/default/grub.d/50-curtin-settings.cfg**::
-
-  grub:
-    install_devices:
-      - /dev/sda1
-     probe_additional_os: True
-     terminal: unmodified
-
-**Enable Fallback UEFI Reordering**::
-
-  grub:
-     reorder_uefi: true
-     reorder_uefi_force_fallback: true
-
+This is an alias for **boot** with *bootloader* set to "grub". It is provided
+to maintain backwards compatibility
 
 http_proxy
 ~~~~~~~~~~

@@ -2,7 +2,6 @@ import os
 import re
 import platform
 import shutil
-import sys
 from typing import List, Optional
 
 from curtin import block
@@ -11,8 +10,6 @@ from curtin import distro
 from curtin import util
 from curtin.log import LOG
 from curtin.paths import target_path
-from curtin.reporter import events
-from . import populate_one_subcmd
 
 CMD_ARGUMENTS = (
     ((('-t', '--target'),
@@ -209,15 +206,15 @@ def replace_grub_cmdline_linux_default(target, new_args):
 
 def write_grub_config(
         target: str,
-        grubcfg: config.GrubConfig,
+        bootcfg: config.BootCfg,
         grub_conf: str,
         new_params: str,
         ) -> None:
-    replace_default = grubcfg.replace_linux_default
+    replace_default = bootcfg.replace_linux_default
     if replace_default:
         replace_grub_cmdline_linux_default(target, new_params)
 
-    probe_os = grubcfg.probe_additional_os
+    probe_os = bootcfg.probe_additional_os
     if not probe_os:
         probe_content = [
             ('# Curtin disable grub os prober that might find other '
@@ -228,7 +225,7 @@ def write_grub_config(
                         "\n".join(probe_content), omode='a+')
 
     # if terminal is present in config, but unset, then don't
-    grub_terminal = grubcfg.terminal
+    grub_terminal = bootcfg.terminal
     if not grub_terminal.lower() == "unmodified":
         terminal_content = [
             '# Curtin configured GRUB_TERMINAL value',
@@ -402,7 +399,7 @@ def install_grub(
         devices: List[str],
         target: str,
         *,
-        grubcfg: config.GrubConfig,
+        bootcfg: config.BootCfg,
         uefi: Optional[bool] = None,
         ):
     """Install grub to devices inside target chroot.
@@ -411,7 +408,7 @@ def install_grub(
     :param: target: A string specifying the path to the chroot mountpoint.
     :param: uefi: A boolean set to True if system is UEFI bootable otherwise
                   False.
-    :param: grubcfg: An config dict with grub config options.
+    :param: bootcfg: An config dict with grub config options.
     """
 
     if not devices:
@@ -421,8 +418,8 @@ def install_grub(
         raise ValueError("Invalid parameter 'target': %s" % target)
 
     LOG.debug("installing grub to target=%s devices=%s [replace_defaults=%s]",
-              target, devices, grubcfg.replace_linux_default)
-    update_nvram = grubcfg.update_nvram
+              target, devices, bootcfg.replace_linux_default)
+    update_nvram = bootcfg.update_nvram
     distroinfo = distro.get_distroinfo(target=target)
     target_arch = distro.get_architecture(target=target)
     rhel_ver = (distro.rpm_get_dist_id(target)
@@ -435,7 +432,7 @@ def install_grub(
     grub_conf = get_grub_config_file(target, distroinfo.family)
     new_params = get_carryover_params(distroinfo)
     prepare_grub_dir(target, grub_conf)
-    write_grub_config(target, grubcfg, grub_conf, new_params)
+    write_grub_config(target, bootcfg, grub_conf, new_params)
     grub_cmd = get_grub_install_command(uefi, distroinfo, target)
     if uefi:
         install_cmds, post_cmds = gen_uefi_install_commands(
@@ -452,36 +449,5 @@ def install_grub(
     with util.ChrootableTarget(target) as in_chroot:
         for cmd in install_cmds + post_cmds:
             in_chroot.subp(cmd, env=env, capture=True)
-
-
-def install_grub_main(args):
-    state = util.load_command_environment()
-
-    if args.target is not None:
-        target = args.target
-    else:
-        target = state['target']
-
-    if target is None:
-        sys.stderr.write("Unable to find target.  "
-                         "Use --target or set TARGET_MOUNT_POINT\n")
-        sys.exit(2)
-
-    cfg = config.load_command_config(args, state)
-    stack_prefix = state.get('report_stack_prefix', '')
-    uefi = util.is_uefi_bootable()
-
-    util.EFIVarFSBug.apply_workaround_if_affected()
-
-    grubcfg = config.fromdict(config.GrubConfig, cfg.get('grub'))
-    with events.ReportEventStack(
-            name=stack_prefix, reporting_enabled=True, level="INFO",
-            description="Installing grub to target devices"):
-        install_grub(args.devices, target, uefi=uefi, grubcfg=grubcfg)
-    sys.exit(0)
-
-
-def POPULATE_SUBCMD(parser):
-    populate_one_subcmd(parser, CMD_ARGUMENTS, install_grub_main)
 
 # vi: ts=4 expandtab syntax=python

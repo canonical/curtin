@@ -136,8 +136,21 @@ def _convert_install_devices(value):
     return value
 
 
+def _check_bootloaders(inst, attr, vals):
+    if not isinstance(vals, list):
+        raise ValueError(f'bootloaders must be a list: {vals}')
+    if not vals:
+        raise ValueError(f'Empty bootloaders list: {vals}')
+    if len(vals) != len(set(vals)):
+        raise ValueError(f'bootloaders list contains duplicates: {vals}')
+    for val in vals:
+        if val not in ['grub', 'extlinux']:
+            raise ValueError(f'Unknown bootloader {val}: {vals}')
+
+
 @attr.s(auto_attribs=True)
-class GrubConfig:
+class BootCfg:
+    bootloaders: typing.List[str] = attr.ib(validator=_check_bootloaders)
     install_devices_default = object()
     install_devices: typing.Optional[typing.List[str]] = attr.ib(
         converter=_convert_install_devices, default=install_devices_default)
