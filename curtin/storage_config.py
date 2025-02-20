@@ -859,8 +859,11 @@ class BlockdevParser(ProbertParser):
                         part = {
                             'start': attrs['start'],
                             'size': attrs['size'],
-                            'visible-in-ptable': False,
                         }
+                        # Let's unset ptable so that we don't try to retrieve
+                        # properties from the partition table later in the
+                        # function.
+                        ptable = None
                     else:
                         raise RuntimeError(
                             "Couldn't find partition entry in table")
@@ -878,7 +881,7 @@ class BlockdevParser(ProbertParser):
                 entry['offset'] = offset_val
 
             entry['size'] = int(part['size'])
-            if ptable and part.get("visible-in-ptable", True):
+            if ptable:
                 entry['size'] *= logical_sector_size
 
             # in libblkid, for a partition, PART_ENTRY_UUID is set together
@@ -902,7 +905,7 @@ class BlockdevParser(ProbertParser):
                 ptype_flag = blockdev_data.get('ID_PART_ENTRY_FLAGS')
                 if ptype_flag in [MBR_BOOT_FLAG]:
                     flag_name = 'boot'
-                elif part.get("visible-in-ptable", True):
+                else:
                     # logical partitions are not tagged in data, however
                     # the partition number > 4 (ie, not primary nor extended)
                     if entry['number'] > 4:
