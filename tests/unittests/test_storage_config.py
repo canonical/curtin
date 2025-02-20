@@ -1,6 +1,8 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
 import copy
 import json
+from unittest import mock
+
 from .helpers import CiTestCase, skipUnlessJsonSchema
 from curtin import storage_config
 from curtin.storage_config import ProbertParser as baseparser
@@ -209,6 +211,49 @@ class TestProbertParser(CiTestCase):
             "DEVTYPE": "disk",
         }
         self.assertFalse(baseparser.looks_like_ldm_disk(blockdev))
+
+    def test_detect_partition_scheme__unpartitioned(self):
+        blockdev = {
+            "DEVNAME": "/dev/sda",
+            "DEVTYPE": "disk",
+        }
+        self.assertIsNone(baseparser.detect_partition_scheme(blockdev))
+
+    def test_detect_partition_scheme__gpt(self):
+        blockdev = {
+            "DEVNAME": "/dev/sda",
+            "DEVTYPE": "disk",
+            "ID_PART_TABLE_TYPE": "gpt",
+        }
+        self.assertEqual("gpt", baseparser.detect_partition_scheme(blockdev))
+
+    def test_detect_partition_scheme__dos(self):
+        blockdev = {
+            "DEVNAME": "/dev/sda",
+            "DEVTYPE": "disk",
+            "ID_PART_TABLE_TYPE": "dos",
+        }
+        self.assertEqual("dos", baseparser.detect_partition_scheme(blockdev))
+
+    def test_detect_partition_scheme__something_else(self):
+        blockdev = {
+            "DEVNAME": "/dev/sda",
+            "DEVTYPE": "disk",
+            "ID_PART_TABLE_TYPE": "foobar",
+        }
+        self.assertEqual(
+            "unsupported", baseparser.detect_partition_scheme(blockdev))
+
+    def test_detect_partition_scheme__ldm(self):
+        blockdev = {
+            "DEVNAME": "/dev/sda",
+            "DEVTYPE": "disk",
+            "ID_PART_TABLE_TYPE": "dos",
+        }
+        with mock.patch.object(baseparser, "looks_like_ldm_disk",
+                               return_value=True):
+            self.assertEqual(
+                "unsupported", baseparser.detect_partition_scheme(blockdev))
 
 
 def _get_data(datafile):
@@ -1175,6 +1220,7 @@ class TestExtractStorageConfig(CiTestCase):
         self.assertEqual({'id': 'raid-md1', 'type': 'raid', 'metadata': '1.2',
                           'raidlevel': 'raid1', 'name': 'md1',
                           'path': '/dev/md1',
+                          'ptable': 'gpt',
                           'devices': ['partition-vdb1', 'partition-vdc1'],
                           'spare_devices': []}, raids[0])
         self.assertEqual({
