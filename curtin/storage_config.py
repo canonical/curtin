@@ -404,6 +404,14 @@ def extract_storage_ordered_dict(config):
     return OrderedDict((d["id"], d) for d in scfg)
 
 
+def decode_libblkid_string(encoded: str) -> str:
+    r""" Decode a string encoded using blkid_encode_string() - where unsafe
+       characters are replaced by \x{...} sequences.
+       Note that this is a different encoding than what is used when running
+       the command "$ blkid". The latter is based on M- and ^ sequences. """
+    return encoded.encode('raw-unicode-escape').decode('unicode-escape')
+
+
 class ProbertParser(object):
     """ Base class for parsing probert storage configuration.
 
@@ -828,14 +836,10 @@ class BlockdevParser(ProbertParser):
                 # * ID_PART_ENTRY_NAME: This one is added by libblkid and
                 # should not be omitted by probert. However, it is encoded
                 # using blkid_encode_string, which turns spaces and other
-                # characters into \x{...} sequences. We would have to reverse
-                # what that function does... mayyybe with something like:
-                # >  n = blockdev_data['ID_PART_ENTRY_NAME']
-                # >  n.encode('raw-unicode-escape').decode('unicode-escape')
-                # For now, let's use PARTNAME because it's easier - but it
-                # will look ugly if the name is made out of international
-                # characters.
-                entry['partition_name'] = blockdev_data['PARTNAME']
+                # characters into \x{...} sequences.
+                entry['partition_name'] = decode_libblkid_string(
+                    blockdev_data['ID_PART_ENTRY_NAME']
+                )
             attrs = blockdev_data['attrs']
             if self.is_mpath_partition(blockdev_data):
                 entry['number'] = int(blockdev_data['DM_PART'])

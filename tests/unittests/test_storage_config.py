@@ -3,12 +3,15 @@ import copy
 import json
 from unittest import mock
 
+from parameterized import parameterized
+
 from .helpers import CiTestCase, skipUnlessJsonSchema
 from curtin import storage_config
 from curtin.storage_config import ProbertParser as baseparser
 from curtin.storage_config import (BcacheParser, BlockdevParser, DasdParser,
                                    DmcryptParser, FilesystemParser, LvmParser,
                                    RaidParser, MountParser, ZfsParser)
+from curtin.storage_config import decode_libblkid_string
 from curtin.storage_config import ptable_part_type_to_flag, select_configs
 from curtin.storage_config import LOG as SCLogger
 from curtin import util
@@ -105,6 +108,34 @@ class TestStorageConfigSchema(CiTestCase):
         config = {'config': [format], 'version': 1}
         with self.assertRaises(ValueError):
             storage_config.validate_config(config)
+
+
+class TestDecodeLibblkidString(CiTestCase):
+    def test_easy(self):
+        self.assertEqual("Hello", decode_libblkid_string("Hello"))
+
+    def test_ascii_with_symbols(self):
+        self.assertEqual("Hello, World!",
+                         decode_libblkid_string(r"Hello\x2c\x20World\x21"))
+
+    @parameterized.expand((
+        ('¡Mi partición!', '¡Mi\\x20partición\\x21'),
+        ('Мой раздел!', 'Мой\\x20раздел\\x21'),
+        ('我的分区！', '我的分区！'),
+        ('私のパーティション！', '私のパーティション！'),
+        ('내 파티션!', '내\\x20파티션\\x21'),
+        ('قسمتي!', 'قسمتي\\x21'),
+        ('Mój partycja!', 'Mój\\x20partycja\\x21'),
+        ('मेरी पार्टीशन!', 'मेरी\\x20पार्टीशन\\x21'),
+        ('جزءي!', 'جزءي\\x21'),
+        ('Таман!', 'Таман\\x21'),
+        ('我的磁盘分区！', '我的磁盘分区！'),
+        ('मेरी विभाजन!', 'मेरी\\x20विभाजन\\x21'),
+        ('我的磁碟分區!', '我的磁碟分區\\x21'),
+    ))
+    def test_multibyte_utf8(self, name: str, encoded_name: str):
+        # Multibyte characters are typically not escaped
+        self.assertEqual(name, decode_libblkid_string(encoded_name))
 
 
 class TestProbertParser(CiTestCase):
@@ -487,6 +518,34 @@ class TestBlockdevParser(CiTestCase):
         }
         self.assertDictEqual(expected_dict,
                              self.bdevp.asdict(blockdev))
+
+    def test_blockdev_asdict_partition_with_non_ascii_names(self):
+        """ BlockdevParser creates dictionary of DEVTYPE=partition. """
+        self.probe_data = _get_data(
+           'probert_storage_non_ascii_partnames.json')
+        self.bdevp = BlockdevParser(self.probe_data)
+
+        blockdev = self.bdevp.blockdev_data['/dev/vda3']
+
+        expected_names = {
+            # Disk vda
+            '/dev/vda1': 'Partition Système EFI',
+            '/dev/vda2': 'Partition Réservée Microsoft',
+            '/dev/vda3': 'Partition de Données',
+            '/dev/vda4': None,
+            # Disk vdb
+            '/dev/vdb1': 'EFI 시스템 파티션',
+            '/dev/vdb2': '우분투 24.04',
+            '/dev/vdb3': '리눅스 스왑 파티션',
+        }
+
+        for devpath, expected_name in expected_names.items():
+            blockdev = self.bdevp.blockdev_data[devpath]
+            pdict = self.bdevp.asdict(blockdev)
+            if expected_name is not None:
+                self.assertEqual(expected_name, pdict['partition_name'])
+            else:
+                self.assertNotIn('partition_name', pdict)
 
     # XXX: Parameterize me
     def test_blockdev_asdict_not_disk_or_partition(self):
