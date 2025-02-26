@@ -107,7 +107,7 @@ def resize_ext(path, size):
 
 
 def resize_ntfs(path, size):
-    util.subp(['ntfsresize', '-f', '-s', str(size), path],
+    util.subp(['ntfsresize', '--no-progress-bar', '-f', '-s', str(size), path],
               data=b'y\n',
               capture=True)
 
