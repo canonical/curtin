@@ -316,7 +316,7 @@ def get_partition_sfdisk_info(devpath, sfdisk_info=None):
              if os.path.realpath(part['node']) == os.path.realpath(devpath)]
     if len(entry) != 1:
         raise RuntimeError('Device %s not present in sfdisk dump:\n%s' %
-                           devpath, util.json_dumps(sfdisk_info))
+                           (devpath, util.json_dumps(sfdisk_info)))
     return entry.pop()
 
 
