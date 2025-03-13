@@ -759,6 +759,14 @@ class TestSetupZipl(CiTestCase):
     def setUp(self):
         super(TestSetupZipl, self).setUp()
         self.target = self.tmp_dir()
+        self.distro_family = distro.DISTROS.debian
+        self.variant = 'ubuntu'
+        self.add_patch('curtin.commands.curthooks.install_extlinux',
+                       'm_install_extlinux')
+        self.add_patch('curtin.commands.curthooks.setup_grub',
+                       'm_setup_grub')
+        self.add_patch('curtin.commands.curthooks.run_zipl',
+                       'm_run_zipl')
 
     @patch('curtin.block.get_devices_for_mp')
     @patch('platform.machine')
@@ -785,6 +793,20 @@ class TestSetupZipl(CiTestCase):
             content)
         # validate the root= parameter was properly set in the cmdline
         self.assertIn('root={}'.format(root_dev), content)
+
+    def test_s390x_ignore_grub_receive_zipl(self):
+        cfg = {
+            'boot': {
+                'bootloaders': ['grub'],
+                'install_devices': ['/dev/vdb'],
+            },
+        }
+        curthooks.setup_boot(
+            cfg, self.target, 's390x', '/testing',
+            osfamily=self.distro_family, variant=self.variant)
+        self.m_install_extlinux.assert_not_called()
+        self.m_setup_grub.assert_not_called()
+        self.m_run_zipl.assert_called_with(cfg, self.target)
 
 
 def make_efi_state() -> util.EFIBootState:
@@ -1446,6 +1468,10 @@ class TestSetupExtlinux(CiTestCase):
         self.variant = 'ubuntu'
         self.add_patch('curtin.commands.curthooks.install_extlinux',
                        'm_install_extlinux')
+        self.add_patch('curtin.commands.curthooks.setup_grub',
+                       'm_setup_grub')
+        self.add_patch('curtin.commands.curthooks.run_zipl',
+                       'm_run_zipl')
 
     def test_install_extlinux(self):
         cfg = {
@@ -1459,6 +1485,8 @@ class TestSetupExtlinux(CiTestCase):
                 cfg, self.target, machine, '/testing',
                 osfamily=self.distro_family, variant=self.variant)
         self.m_install_extlinux.assert_called_with(cfg, self.target)
+        self.m_setup_grub.assert_not_called()
+        self.m_run_zipl.assert_not_called()
 
     def test_fails_install_extlinux(self):
         cfg = {
@@ -1473,7 +1501,9 @@ class TestSetupExtlinux(CiTestCase):
                 osfamily=self.distro_family, variant=self.variant)
         self.assertIn('Invalid arch aarch64: Only x86 platforms support '
                       'extlinux at present', str(exc.exception))
-        self.assertEqual(0, self.m_install_extlinux.call_count)
+        self.m_install_extlinux.assert_not_called()
+        self.m_setup_grub.assert_not_called()
+        self.m_run_zipl.assert_not_called()
 
 
 class TestUbuntuCoreHooks(CiTestCase):

@@ -907,6 +907,13 @@ def setup_boot(
                                  'extlinux at present' % machine)
             install_extlinux(cfg, target)
 
+    if machine == 's390x':
+        with events.ReportEventStack(
+                name=stack_prefix + '/install-zipl',
+                reporting_enabled=True, level="INFO",
+                description="installing zipl to target devices"):
+            run_zipl(cfg, target)
+
 
 def update_initramfs(target=None, all_kernels=False):
     """ Invoke update-initramfs in the target path.
@@ -1974,7 +1981,6 @@ def builtin_curthooks(cfg, target, state):
             setup_zipl(cfg, target)
             setup_kernel_img_conf(target)
             install_kernel(cfg, target)
-            run_zipl(cfg, target)
             restore_dist_interfaces(cfg, target)
             chzdev_persist_active_online(cfg, target)
 
