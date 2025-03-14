@@ -1447,18 +1447,6 @@ class TestSetupExtlinux(CiTestCase):
         self.add_patch('curtin.commands.curthooks.install_extlinux',
                        'm_install_extlinux')
 
-    def test_calls_install_extlinux(self):
-        cfg = {
-            'boot': {
-                'bootloaders': ['extlinux'],
-                'install_devices': ['/dev/vdb'],
-            },
-        }
-        curthooks.setup_boot(
-            cfg, self.target, 'x86_64', '/testing',
-            osfamily=self.distro_family, variant=self.variant)
-        self.m_install_extlinux.assert_called_with(cfg,  self.target)
-
     def test_install_extlinux(self):
         cfg = {
             'boot': {
@@ -1470,6 +1458,7 @@ class TestSetupExtlinux(CiTestCase):
             curthooks.setup_boot(
                 cfg, self.target, machine, '/testing',
                 osfamily=self.distro_family, variant=self.variant)
+        self.m_install_extlinux.assert_called_with(cfg, self.target)
 
     def test_fails_install_extlinux(self):
         cfg = {
