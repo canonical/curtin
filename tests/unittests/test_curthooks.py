@@ -2744,4 +2744,29 @@ class TestDoAptConfig(CiTestCase):
             curthooks.do_apt_config({"debconf_selections": "foo"}, target="/")
         m_handle_apt.assert_called_once()
 
+
+class TestDpkgReconfigure(CiTestCase):
+    def setUp(self):
+        super(TestDpkgReconfigure, self).setUp()
+        self.target = self.tmp_dir()
+        self.add_patch('curtin.util.subp', 'm_subp')
+        self.add_patch(
+            'curtin.commands.curthooks.distro.dpkg_query_list_kernels',
+            'm_list_kernels'
+        )
+
+    def test_two_kernels(self):
+        kernel_a = self.random_string()
+        kernel_b = self.random_string()
+        self.m_list_kernels.return_value = [kernel_a, kernel_b]
+        curthooks.reconfigure_kernel(self.target)
+        self.m_subp.assert_any_call(
+            ['dpkg-reconfigure', '--frontend=noninteractive', kernel_a],
+            target=self.target,
+        )
+        self.m_subp.assert_any_call(
+            ['dpkg-reconfigure', '--frontend=noninteractive', kernel_b],
+            target=self.target,
+        )
+
 # vi: ts=4 expandtab syntax=python

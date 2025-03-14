@@ -1693,6 +1693,16 @@ def configure_kernel_crash_dumps(cfg, target: pathlib.Path) -> None:
         kernel_crash_dumps.manual_disable(target)
 
 
+def reconfigure_kernel(target: pathlib.Path) -> None:
+    with util.ChrootableTarget(target) as in_chroot:
+        # re-run kernel postinstall hooks
+        for kernel in distro.dpkg_query_list_kernels(target):
+            in_chroot.subp(
+                ['dpkg-reconfigure', '--frontend=noninteractive', kernel],
+                target=target
+            )
+
+
 def handle_cloudconfig(cfg, base_dir=None):
     """write cloud-init configuration files into base_dir.
 
@@ -2100,6 +2110,13 @@ def builtin_curthooks(cfg, target, state):
             update_initramfs(target, all_kernels=True)
         elif osfamily == DISTROS.redhat:
             redhat_update_initramfs(target, cfg)
+
+    with events.ReportEventStack(
+            name=stack_prefix + '/kernel-postinstall',
+            reporting_enabled=True, level="INFO",
+            description="running kernel postinstall hooks"):
+        if osfamily == DISTROS.debian:
+            reconfigure_kernel(target)
 
     with events.ReportEventStack(
             name=stack_prefix + '/configuring-bootloader',
