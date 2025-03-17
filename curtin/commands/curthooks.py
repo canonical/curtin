@@ -1354,11 +1354,7 @@ def detect_and_handle_multipath(cfg, target, osfamily=DISTROS.debian):
     else:
         LOG.warn("Not sure how this will boot")
 
-    if osfamily == DISTROS.debian:
-        # Initrams needs to be updated to include /etc/multipath.cfg
-        # and /etc/multipath/bindings files.
-        update_initramfs(target, all_kernels=True)
-    elif osfamily in [DISTROS.redhat, DISTROS.suse]:
+    if osfamily in [DISTROS.redhat, DISTROS.suse]:
         # Write out initramfs/dracut config for multipath
         dracut_conf_multipath = os.path.sep.join(
             [target, '/etc/dracut.conf.d/10-curtin-multipath.conf'])
@@ -1369,7 +1365,7 @@ def detect_and_handle_multipath(cfg, target, osfamily=DISTROS.debian):
             'install_items+="/etc/multipath.conf /etc/multipath/bindings"',
             ''])
         util.write_file(dracut_conf_multipath, content=msg)
-    else:
+    elif osfamily != DISTROS.debian:
         raise ValueError(
                 'Unknown initramfs mapping for distro: %s' % osfamily)
 
@@ -2116,17 +2112,6 @@ def builtin_curthooks(cfg: dict, target: str, state: dict):
             distro.install_packages(['s390-tools-zkey'], target=target,
                                     osfamily=osfamily)
             copy_zkey_repository(zkey_repository, target)
-
-        # If a crypttab file was created by block_meta than it needs to be
-        # copied onto the target system, and update_initramfs() needs to be
-        # run, so that the cryptsetup hooks are properly configured on the
-        # installed system and it will be able to open encrypted volumes
-        # at boot.
-        crypttab_location = os.path.join(os.path.split(state['fstab'])[0],
-                                         "crypttab")
-        if os.path.exists(crypttab_location):
-            copy_crypttab(crypttab_location, target)
-            update_initramfs(target)
 
     # If udev dname rules were created, copy them to target
     udev_rules_d = os.path.join(state['scratch'], "rules.d")
