@@ -2107,16 +2107,12 @@ def builtin_curthooks(cfg, target, state):
         if osfamily == DISTROS.debian:
             # re-enable update_initramfs
             enable_update_initramfs(cfg, target, machine)
-            update_initramfs(target, all_kernels=True)
+            # The kernel postinstall hooks can now finally create the
+            # initrd, among other things to prepare for boot into the
+            # target system (e.g. running zipl on s390x)
+            reconfigure_kernel(target)
         elif osfamily == DISTROS.redhat:
             redhat_update_initramfs(target, cfg)
-
-    with events.ReportEventStack(
-            name=stack_prefix + '/kernel-postinstall',
-            reporting_enabled=True, level="INFO",
-            description="running kernel postinstall hooks"):
-        if osfamily == DISTROS.debian:
-            reconfigure_kernel(target)
 
     with events.ReportEventStack(
             name=stack_prefix + '/configuring-bootloader',
