@@ -2101,9 +2101,9 @@ def builtin_curthooks(cfg, target, state):
         configure_kernel_crash_dumps(cfg, pathlib.Path(target))
 
     with events.ReportEventStack(
-            name=stack_prefix + '/updating-initramfs-configuration',
+            name=stack_prefix + '/final-kernel-configuration',
             reporting_enabled=True, level="INFO",
-            description="updating initramfs configuration"):
+            description="final kernel configuration"):
         if osfamily == DISTROS.debian:
             # re-enable update_initramfs
             enable_update_initramfs(cfg, target, machine)
