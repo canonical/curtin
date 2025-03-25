@@ -13,6 +13,7 @@ Build-Depends: debhelper (>= 7),
                python3-jsonschema,
                python3-nose,
                python3-oauthlib,
+               python3-packaging,
                python3-parameterized,
                python3-setuptools,
                python3-yaml
