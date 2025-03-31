@@ -1076,6 +1076,7 @@ def POPULATE_SUBCMD(parser):
 
 CONFIG_CLEANERS = {
     'cloud-init': clean_cloud_init,
+    'cloud-init-base': clean_cloud_init,
 }
 
 # vi: ts=4 expandtab syntax=python
