@@ -202,7 +202,6 @@ def save_iscsi_config(iscsi_disk):
 
 
 def ensure_disk_connected(rfc4173, write_config=True):
-    global _ISCSI_DISKS
     iscsi_disk = _ISCSI_DISKS.get(rfc4173)
     if not iscsi_disk:
         iscsi_disk = IscsiDisk(rfc4173)
@@ -226,7 +225,6 @@ def ensure_disk_connected(rfc4173, write_config=True):
 
 
 def connected_disks():
-    global _ISCSI_DISKS
     return _ISCSI_DISKS
 
 
