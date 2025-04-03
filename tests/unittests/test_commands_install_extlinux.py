@@ -30,48 +30,48 @@ timeout 50
 EXPECT_L0 = '''
 label l0
 \tmenu label Linux 6.8.0-48-generic
-\tlinux /vmlinuz-6.8.0-48-generic
-\tinitrd /initrd.img-6.8.0-48-generic
+\tlinux {fw_boot_dir}/vmlinuz-6.8.0-48-generic
+\tinitrd {fw_boot_dir}/initrd.img-6.8.0-48-generic
 \tappend ro quiet
 '''
 
 EXPECT_L0R = '''
 label l0r
 \tmenu label Linux 6.8.0-48-generic (rescue target)
-\tlinux /vmlinuz-6.8.0-48-generic
-\tinitrd /initrd.img-6.8.0-48-generic
+\tlinux {fw_boot_dir}/vmlinuz-6.8.0-48-generic
+\tinitrd {fw_boot_dir}/initrd.img-6.8.0-48-generic
 \tappend ro single
 '''
 
 EXPECT_L1 = '''
 label l1
 \tmenu label Linux 6.8.0-40-generic
-\tlinux /vmlinuz-6.8.0-40-generic
-\tinitrd /initrd.img-6.8.0-40-generic
+\tlinux {fw_boot_dir}/vmlinuz-6.8.0-40-generic
+\tinitrd {fw_boot_dir}/initrd.img-6.8.0-40-generic
 \tappend ro quiet
 '''
 
 EXPECT_L1R = '''
 label l1r
 \tmenu label Linux 6.8.0-40-generic (rescue target)
-\tlinux /vmlinuz-6.8.0-40-generic
-\tinitrd /initrd.img-6.8.0-40-generic
+\tlinux {fw_boot_dir}/vmlinuz-6.8.0-40-generic
+\tinitrd {fw_boot_dir}/initrd.img-6.8.0-40-generic
 \tappend ro single
 '''
 
 EXPECT_L2 = '''
 label l2
 \tmenu label Linux 5.15.0-127-generic
-\tlinux /vmlinuz-5.15.0-127-generic
-\tinitrd /initrd.img-5.15.0-127-generic
+\tlinux {fw_boot_dir}/vmlinuz-5.15.0-127-generic
+\tinitrd {fw_boot_dir}/initrd.img-5.15.0-127-generic
 \tappend ro quiet
 '''
 
 EXPECT_L2R = '''
 label l2r
 \tmenu label Linux 5.15.0-127-generic (rescue target)
-\tlinux /vmlinuz-5.15.0-127-generic
-\tinitrd /initrd.img-5.15.0-127-generic
+\tlinux {fw_boot_dir}/vmlinuz-5.15.0-127-generic
+\tinitrd {fw_boot_dir}/initrd.img-5.15.0-127-generic
 \tappend ro single
 '''
 
@@ -121,39 +121,69 @@ class TestInstallExtlinux(CiTestCase):
     def test_empty(self):
         """An empty configuration with no kernels should just have a header"""
         out = install_extlinux.build_content(config.BootCfg(USE_EXTLINUX),
-                                             f'{self.target}/empty-dir')
+                                             f'{self.target}/empty-dir',
+                                             '')
         self.assertEqual(out, EXPECT_HDR)
 
     def test_normal(self):
         """Normal configuration, with both 'default' and 'rescue' options"""
         out = install_extlinux.build_content(config.BootCfg(USE_EXTLINUX),
-                                             self.target)
-        self.assertEqual(EXPECT_HDR + EXPECT_BODY, out)
+                                             self.target, '/boot')
+        self.assertEqual(EXPECT_HDR + EXPECT_BODY.format(fw_boot_dir='/boot'),
+                         out)
 
     def test_no_rescue(self):
         """Configuration with only the 'default' options"""
         cfg = config.BootCfg(USE_EXTLINUX, alternatives=['default'])
-        out = install_extlinux.build_content(cfg, self.target)
+        out = install_extlinux.build_content(cfg, self.target, '/boot')
         self.assertEqual(
             EXPECT_HDR +
-            '\n' + EXPECT_L0 + '\n' + EXPECT_L1 + '\n' + EXPECT_L2, out)
+            ('\n' + EXPECT_L0 + '\n' + EXPECT_L1 + '\n' + EXPECT_L2).format(
+                fw_boot_dir='/boot'),
+            out)
 
     def test_no_default(self):
         """Configuration with only the 'rescue' options"""
         cfg = config.BootCfg(USE_EXTLINUX, alternatives=['rescue'])
-        out = install_extlinux.build_content(cfg, self.target)
+        out = install_extlinux.build_content(cfg, self.target, '/boot')
         self.assertEqual(
             EXPECT_HDR +
-            '\n' + EXPECT_L0R + '\n' + EXPECT_L1R + '\n' + EXPECT_L2R, out)
+            ('\n' + EXPECT_L0R + '\n' + EXPECT_L1R + '\n' + EXPECT_L2R).format(
+                fw_boot_dir='/boot'),
+            out)
 
-    def test_install(self):
-        """Make sure the file is written to the disk"""
-        install_extlinux.install_extlinux(config.BootCfg(USE_EXTLINUX),
-                                          self.target)
+    def test_separate_boot_partition(self):
+        """Check handling of a separate /boot partition"""
+        cfg = config.BootCfg(USE_EXTLINUX)
+        out = install_extlinux.build_content(cfg, self.target, '')
+        self.assertEqual(EXPECT_HDR + EXPECT_BODY.format(fw_boot_dir=''), out)
+
+    def check_extlinux(self) -> str:
+        """Common checks for extlinux
+
+        Return: Contents of extlinux.conf
+        """
         extlinux_path = self.target + '/boot/extlinux'
         self.assertTrue(os.path.exists(extlinux_path))
         extlinux_file = extlinux_path + '/extlinux.conf'
         self.assertTrue(os.path.exists(extlinux_file))
+        with open(extlinux_file, encoding='utf-8') as inf:
+            return inf.read()
+
+    def test_install(self):
+        """Make sure the file is written to the disk"""
+        install_extlinux.install_extlinux(config.BootCfg(USE_EXTLINUX),
+                                          self.target, '/boot')
+        out = self.check_extlinux()
+        self.assertEqual(EXPECT_HDR + EXPECT_BODY.format(fw_boot_dir='/boot'),
+                         out)
+
+    def test_install_separate_boot_partition(self):
+        """Check installation with a separate /boot partition"""
+        cfg = config.BootCfg(USE_EXTLINUX)
+        install_extlinux.install_extlinux(cfg, self.target, '')
+        out = self.check_extlinux()
+        self.assertEqual(EXPECT_HDR + EXPECT_BODY.format(fw_boot_dir=''), out)
 
 
 # vi: ts=4 expandtab syntax=python

@@ -12,7 +12,7 @@ from curtin.log import LOG
 EXTLINUX_DIR = '/boot/extlinux'
 
 
-def build_content(bootcfg: config.BootCfg, target: str):
+def build_content(bootcfg: config.BootCfg, target: str, fw_boot_dir: str):
     """Build the content of the extlinux.conf file
 
     For now this only supports x86, since it does not handle the 'fdt' option.
@@ -24,13 +24,17 @@ def build_content(bootcfg: config.BootCfg, target: str):
 
     :param: bootcfg: A boot-config dict
     :param: target: A string specifying the path to the chroot mountpoint.
+    :param: fw_boot_dir: Firmware's view of the /boot directory; when there is
+        a separate /boot partition, firmware will access that as the root
+        directory of the filesystem, so '' should be passed here. When the boot
+        directory is just a subdirectory of '/', then '/boot' should be passed
     """
     def get_entry(label, params, menu_label_append=''):
         return f'''\
 label {label}
 \tmenu label {menu_label} {version}{menu_label_append}
-\tlinux /{kernel_path}
-\tinitrd /{initrd_path}
+\tlinux {fw_boot_dir}/{kernel_path}
+\tinitrd {fw_boot_dir}/{initrd_path}
 \tappend {params}'''
 
     buf = io.StringIO()
@@ -73,13 +77,15 @@ timeout 50''', file=buf)
 def install_extlinux(
         bootcfg: config.BootCfg,
         target: str,
+        fw_boot_dir: str
         ):
     """Install extlinux to the target chroot.
 
     :param: bootcfg: A boot-config dict.
     :param: target: A string specifying the path to the chroot mountpoint.
+    :param: fw_boot_dir: Firmware's view of the /boot directory
     """
-    content = build_content(bootcfg, target)
+    content = build_content(bootcfg, target, fw_boot_dir)
     extlinux_path = paths.target_path(target, '/boot/extlinux')
     os.makedirs(extlinux_path, exist_ok=True)
     with open(extlinux_path + '/extlinux.conf', 'w', encoding='utf-8') as outf:
