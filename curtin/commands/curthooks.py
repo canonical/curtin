@@ -408,8 +408,8 @@ def install_kernel(cfg, target):
         try:
             map_suffix = mapping[codename][version]
         except KeyError:
-            LOG.warn("Couldn't detect kernel package to install for %s."
-                     % kernel)
+            LOG.warning("Couldn't detect kernel package to install for %s."
+                        % kernel)
             if kernel_cfg.fallback_package is not None:
                 install(kernel_cfg.fallback_package)
             return
