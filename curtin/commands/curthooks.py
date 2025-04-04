@@ -876,7 +876,15 @@ def setup_extlinux(
     :param: target: A string specifying the path to the chroot mountpoint.
     """
     bootcfg = config.fromdict(config.BootCfg, cfg.get('boot', {}))
-    install_extlinux(bootcfg, target, '/boot')
+
+    # If there is a separate boot partition, set fw_boot_dir to empty
+    storage_cfg = cfg.get('storage', {}).get('config', {})
+    fw_boot_dir = '/boot'
+    for item in storage_cfg:
+        if item['type'] == 'mount' and item['path'] == '/boot':
+            fw_boot_dir = ''
+
+    install_extlinux(bootcfg, target, fw_boot_dir)
 
 
 def setup_boot(

@@ -8,7 +8,7 @@ from .helpers import CiTestCase
 
 from curtin import config
 from curtin import paths
-from curtin.commands import install_extlinux
+from curtin.commands import curthooks, install_extlinux
 
 
 USE_EXTLINUX = ['extlinux']
@@ -184,6 +184,32 @@ class TestInstallExtlinux(CiTestCase):
         install_extlinux.install_extlinux(cfg, self.target, '')
         out = self.check_extlinux()
         self.assertEqual(EXPECT_HDR + EXPECT_BODY.format(fw_boot_dir=''), out)
+
+    def test_separate_boot_partition_cfg(self):
+        """setup_extlinux() should see a separate mount and set fw_boot_dir"""
+        cfg = {
+            'boot': {'bootloaders': USE_EXTLINUX},
+            'storage': {
+                'version': 1,
+                'config': [{
+                    'type': 'mount',
+                    'path': '/',
+                }, {
+                    'type': 'mount',
+                    'path': '/boot',
+                }]
+            }
+        }
+        curthooks.setup_extlinux(cfg, self.target)
+        out = self.check_extlinux()
+        self.assertEqual(EXPECT_HDR + EXPECT_BODY.format(fw_boot_dir=''), out)
+
+        # If there is no separate /boot mount, the fw_boot_dir should be set
+        cfg['storage']['config'][1]['path'] = '/var'
+        curthooks.setup_extlinux(cfg, self.target)
+        out = self.check_extlinux()
+        self.assertEqual(EXPECT_HDR + EXPECT_BODY.format(fw_boot_dir='/boot'),
+                         out)
 
 
 # vi: ts=4 expandtab syntax=python
