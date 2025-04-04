@@ -11,6 +11,10 @@ from curtin import config
 from .helpers import CiTestCase
 
 
+# Selects the extlinux bootloader
+EXTLINUX = ['extlinux']
+
+
 class TestMerge(CiTestCase):
     def test_merge_cfg_string(self):
         d1 = {'str1': 'str_one'}
@@ -226,7 +230,7 @@ class TestDeserializer(CiTestCase):
             deserializer.deserialize(UnionClass, {"val": None}))
 
 
-class TestBootCfg(CiTestCase):
+class TestBootCfgBootloaders(CiTestCase):
     def test_empty(self):
         with self.assertRaises(TypeError) as exc:
             config.BootCfg()
@@ -260,6 +264,41 @@ class TestBootCfg(CiTestCase):
         config.BootCfg(['extlinux'])
         config.BootCfg(['grub', 'extlinux'])
         config.BootCfg(['extlinux', 'grub'])
+
+
+class TestBootCfgAlternatives(CiTestCase):
+    def test_defaults(self):
+        cfg = config.BootCfg(['extlinux'])
+        self.assertEqual(['default', 'rescue'], cfg.alternatives)
+
+    def test_not_list(self):
+        with self.assertRaises(ValueError) as exc:
+            config.BootCfg(['extlinux'], alternatives='invalid')
+        self.assertIn("alternatives must be a list: invalid",
+                      str(exc.exception))
+
+    def test_empty_list(self):
+        with self.assertRaises(ValueError) as exc:
+            config.BootCfg(['extlinux'], alternatives=[])
+        self.assertIn("Empty alternatives list:", str(exc.exception))
+
+    def test_duplicate(self):
+        with self.assertRaises(ValueError) as exc:
+            config.BootCfg(['extlinux'], alternatives=['default', 'default'])
+        self.assertIn(
+            "alternatives list contains duplicates: ['default', 'default']",
+            str(exc.exception))
+
+    def test_invalid(self):
+        with self.assertRaises(ValueError) as exc:
+            config.BootCfg(['extlinux'], alternatives=['fred'])
+        self.assertIn("Unknown alternative fred: ['fred']", str(exc.exception))
+
+    def test_valid(self):
+        config.BootCfg(EXTLINUX, alternatives=['default'])
+        config.BootCfg(EXTLINUX, alternatives=['rescue'])
+        config.BootCfg(EXTLINUX, alternatives=['default', 'rescue'])
+        config.BootCfg(EXTLINUX, alternatives=['rescue', 'default'])
 
 
 # vi: ts=4 expandtab syntax=python

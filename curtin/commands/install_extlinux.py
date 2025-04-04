@@ -21,6 +21,8 @@ def build_content(bootcfg: config.BootCfg, target: str):
     associated with fdt and fdtdir options.
 
     We assume that the boot directory is available as /boot in the target.
+
+    :param: bootcfg: A boot-config dict
     """
     def get_entry(label, params, menu_label_append=''):
         return f'''\
@@ -32,7 +34,6 @@ label {label}
 
     buf = io.StringIO()
     params = 'ro quiet'
-    alternatives = ['default', 'recovery']
     menu_label = 'Linux'
 
     # For the recovery option, remove 'quiet' and add 'single'
@@ -56,10 +57,11 @@ timeout 50''', file=buf)
         LOG.debug('P: Writing config for %s...', kernel_path)
         initrd_path = os.path.basename(full_initrd_path)
         print(file=buf)
-        print(file=buf)
-        print(get_entry(f'l{seq}', params), file=buf)
+        if 'default' in bootcfg.alternatives:
+            print(file=buf)
+            print(get_entry(f'l{seq}', params), file=buf)
 
-        if 'recovery' in alternatives:
+        if 'rescue' in bootcfg.alternatives:
             print(file=buf)
             print(get_entry(f'l{seq}r', rec_params, ' (rescue target)'),
                   file=buf)
@@ -73,7 +75,7 @@ def install_extlinux(
         ):
     """Install extlinux to the target chroot.
 
-    :param: bootcfg: An config dict with grub config options.
+    :param: bootcfg: A boot-config dict.
     :param: target: A string specifying the path to the chroot mountpoint.
     """
     content = build_content(bootcfg, target)

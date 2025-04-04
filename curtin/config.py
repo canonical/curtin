@@ -148,6 +148,18 @@ def _check_bootloaders(inst, attr, vals):
             raise ValueError(f'Unknown bootloader {val}: {vals}')
 
 
+def _check_alternatives(inst, attr, vals):
+    if not isinstance(vals, list):
+        raise ValueError(f'alternatives must be a list: {vals}')
+    if not vals:
+        raise ValueError(f'Empty alternatives list: {vals}')
+    if len(vals) != len(set(vals)):
+        raise ValueError(f'alternatives list contains duplicates: {vals}')
+    for val in vals:
+        if val not in ['default', 'rescue']:
+            raise ValueError(f'Unknown alternative {val}: {vals}')
+
+
 @attr.s(auto_attribs=True)
 class BootCfg:
     bootloaders: typing.List[str] = attr.ib(validator=_check_bootloaders)
@@ -165,6 +177,8 @@ class BootCfg:
         default=True, converter=value_as_boolean)
     terminal: str = "console"
     update_nvram: bool = attr.ib(default=True, converter=value_as_boolean)
+    alternatives: typing.Optional[typing.List[str]] = attr.ib(
+        validator=_check_alternatives, default=['default', 'rescue'])
 
 
 @attr.s(auto_attribs=True)

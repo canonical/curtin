@@ -296,7 +296,13 @@ This setting is ignored if *update_nvram* is False.
 extlinux
 """"""""
 
-There are no options specific to extlinux.
+**alternatives**: *<List of alternatives to add for each OS>*
+
+Specifies a list of alternative boot options to add for each OS. Valid values
+are:
+
+  *default*: Run with default command-line flags (ro quiet)
+  *rescue*: Run with rescue command-line flags (ro single)
 
 **Example**::
 

@@ -27,46 +27,57 @@ prompt 0
 timeout 50
 '''
 
-EXPECT_BODY = '''
-
+EXPECT_L0 = '''
 label l0
 \tmenu label Linux 6.8.0-48-generic
 \tlinux /vmlinuz-6.8.0-48-generic
 \tinitrd /initrd.img-6.8.0-48-generic
 \tappend ro quiet
+'''
 
+EXPECT_L0R = '''
 label l0r
 \tmenu label Linux 6.8.0-48-generic (rescue target)
 \tlinux /vmlinuz-6.8.0-48-generic
 \tinitrd /initrd.img-6.8.0-48-generic
 \tappend ro single
+'''
 
-
+EXPECT_L1 = '''
 label l1
 \tmenu label Linux 6.8.0-40-generic
 \tlinux /vmlinuz-6.8.0-40-generic
 \tinitrd /initrd.img-6.8.0-40-generic
 \tappend ro quiet
+'''
 
+EXPECT_L1R = '''
 label l1r
 \tmenu label Linux 6.8.0-40-generic (rescue target)
 \tlinux /vmlinuz-6.8.0-40-generic
 \tinitrd /initrd.img-6.8.0-40-generic
 \tappend ro single
+'''
 
-
+EXPECT_L2 = '''
 label l2
 \tmenu label Linux 5.15.0-127-generic
 \tlinux /vmlinuz-5.15.0-127-generic
 \tinitrd /initrd.img-5.15.0-127-generic
 \tappend ro quiet
+'''
 
+EXPECT_L2R = '''
 label l2r
 \tmenu label Linux 5.15.0-127-generic (rescue target)
 \tlinux /vmlinuz-5.15.0-127-generic
 \tinitrd /initrd.img-5.15.0-127-generic
 \tappend ro single
 '''
+
+EXPECT_BODY = ('\n' + EXPECT_L0 + EXPECT_L0R +
+               '\n' + EXPECT_L1 + EXPECT_L1R +
+               '\n' + EXPECT_L2 + EXPECT_L2R)
 
 
 class TestInstallExtlinux(CiTestCase):
@@ -87,6 +98,7 @@ class TestInstallExtlinux(CiTestCase):
         self.maxDiff = None
 
     def test_get_kernel_list(self):
+        """Check that the list of kernels is correct"""
         iter = paths.get_kernel_list(self.target, full_initrd_path=False)
         self.assertEqual(
             ('vmlinuz-6.8.0-48-generic', 'initrd.img-6.8.0-48-generic',
@@ -107,21 +119,35 @@ class TestInstallExtlinux(CiTestCase):
             pass
 
     def test_empty(self):
+        """An empty configuration with no kernels should just have a header"""
         out = install_extlinux.build_content(config.BootCfg(USE_EXTLINUX),
                                              f'{self.target}/empty-dir')
         self.assertEqual(out, EXPECT_HDR)
 
     def test_normal(self):
+        """Normal configuration, with both 'default' and 'rescue' options"""
         out = install_extlinux.build_content(config.BootCfg(USE_EXTLINUX),
                                              self.target)
         self.assertEqual(EXPECT_HDR + EXPECT_BODY, out)
 
-    def test_no_recovery(self):
-        out = install_extlinux.build_content(config.BootCfg(USE_EXTLINUX),
-                                             self.target)
-        self.assertEqual(EXPECT_HDR + EXPECT_BODY, out)
+    def test_no_rescue(self):
+        """Configuration with only the 'default' options"""
+        cfg = config.BootCfg(USE_EXTLINUX, alternatives=['default'])
+        out = install_extlinux.build_content(cfg, self.target)
+        self.assertEqual(
+            EXPECT_HDR +
+            '\n' + EXPECT_L0 + '\n' + EXPECT_L1 + '\n' + EXPECT_L2, out)
+
+    def test_no_default(self):
+        """Configuration with only the 'rescue' options"""
+        cfg = config.BootCfg(USE_EXTLINUX, alternatives=['rescue'])
+        out = install_extlinux.build_content(cfg, self.target)
+        self.assertEqual(
+            EXPECT_HDR +
+            '\n' + EXPECT_L0R + '\n' + EXPECT_L1R + '\n' + EXPECT_L2R, out)
 
     def test_install(self):
+        """Make sure the file is written to the disk"""
         install_extlinux.install_extlinux(config.BootCfg(USE_EXTLINUX),
                                           self.target)
         extlinux_path = self.target + '/boot/extlinux'
