@@ -12,6 +12,7 @@ from curtin.commands import curthooks, install_extlinux
 
 
 USE_EXTLINUX = ['extlinux']
+ROOT_DEV = '/dev/sda1'
 
 EXPECT_HDR = '''\
 ## /boot/extlinux/extlinux.conf
@@ -32,7 +33,7 @@ label l0
 \tmenu label Linux 6.8.0-48-generic
 \tlinux {fw_boot_dir}/vmlinuz-6.8.0-48-generic
 \tinitrd {fw_boot_dir}/initrd.img-6.8.0-48-generic
-\tappend ro quiet
+\tappend {ROOT_DEV} ro quiet
 '''
 
 EXPECT_L0R = '''
@@ -40,7 +41,7 @@ label l0r
 \tmenu label Linux 6.8.0-48-generic (rescue target)
 \tlinux {fw_boot_dir}/vmlinuz-6.8.0-48-generic
 \tinitrd {fw_boot_dir}/initrd.img-6.8.0-48-generic
-\tappend ro single
+\tappend {ROOT_DEV} ro single
 '''
 
 EXPECT_L1 = '''
@@ -48,7 +49,7 @@ label l1
 \tmenu label Linux 6.8.0-40-generic
 \tlinux {fw_boot_dir}/vmlinuz-6.8.0-40-generic
 \tinitrd {fw_boot_dir}/initrd.img-6.8.0-40-generic
-\tappend ro quiet
+\tappend {ROOT_DEV} ro quiet
 '''
 
 EXPECT_L1R = '''
@@ -56,7 +57,7 @@ label l1r
 \tmenu label Linux 6.8.0-40-generic (rescue target)
 \tlinux {fw_boot_dir}/vmlinuz-6.8.0-40-generic
 \tinitrd {fw_boot_dir}/initrd.img-6.8.0-40-generic
-\tappend ro single
+\tappend {ROOT_DEV} ro single
 '''
 
 EXPECT_L2 = '''
@@ -64,7 +65,7 @@ label l2
 \tmenu label Linux 5.15.0-127-generic
 \tlinux {fw_boot_dir}/vmlinuz-5.15.0-127-generic
 \tinitrd {fw_boot_dir}/initrd.img-5.15.0-127-generic
-\tappend ro quiet
+\tappend {ROOT_DEV} ro quiet
 '''
 
 EXPECT_L2R = '''
@@ -72,12 +73,44 @@ label l2r
 \tmenu label Linux 5.15.0-127-generic (rescue target)
 \tlinux {fw_boot_dir}/vmlinuz-5.15.0-127-generic
 \tinitrd {fw_boot_dir}/initrd.img-5.15.0-127-generic
-\tappend ro single
+\tappend {ROOT_DEV} ro single
 '''
 
 EXPECT_BODY = ('\n' + EXPECT_L0 + EXPECT_L0R +
                '\n' + EXPECT_L1 + EXPECT_L1R +
                '\n' + EXPECT_L2 + EXPECT_L2R)
+
+STORAGE = {
+    'version': 1,
+    'config': [
+        {
+            'id': 'vdb',
+            'type': 'disk',
+            'name': 'vdb',
+            'path': '/dev/vdb',
+            'ptable': 'gpt',
+        },
+        {
+            'id': 'vdb-part1',
+            'type': 'partition',
+            'device': 'vdb',
+            'number': 1,
+        },
+        {
+            'id': 'vdb-part1_format',
+            'type': 'format',
+            'volume': 'vdb-part1',
+            'fstype': 'ext4',
+        },
+        {
+            'id': 'vdb-part1_mount',
+            'type': 'mount',
+            'path': '/',
+            'device': 'vdb-part1_format',
+            'spec': ROOT_DEV,
+        },
+    ]
+}
 
 
 class TestInstallExtlinux(CiTestCase):
@@ -122,41 +155,46 @@ class TestInstallExtlinux(CiTestCase):
         """An empty configuration with no kernels should just have a header"""
         out = install_extlinux.build_content(config.BootCfg(USE_EXTLINUX),
                                              f'{self.target}/empty-dir',
-                                             '')
+                                             '', ROOT_DEV)
         self.assertEqual(out, EXPECT_HDR)
 
     def test_normal(self):
         """Normal configuration, with both 'default' and 'rescue' options"""
         out = install_extlinux.build_content(config.BootCfg(USE_EXTLINUX),
-                                             self.target, '/boot')
-        self.assertEqual(EXPECT_HDR + EXPECT_BODY.format(fw_boot_dir='/boot'),
-                         out)
+                                             self.target, '/boot', ROOT_DEV)
+        self.assertEqual(
+            EXPECT_HDR + EXPECT_BODY.format(fw_boot_dir='/boot',
+                                            ROOT_DEV=ROOT_DEV),
+            out)
 
     def test_no_rescue(self):
         """Configuration with only the 'default' options"""
         cfg = config.BootCfg(USE_EXTLINUX, alternatives=['default'])
-        out = install_extlinux.build_content(cfg, self.target, '/boot')
+        out = install_extlinux.build_content(cfg, self.target, '/boot',
+                                             ROOT_DEV)
         self.assertEqual(
             EXPECT_HDR +
             ('\n' + EXPECT_L0 + '\n' + EXPECT_L1 + '\n' + EXPECT_L2).format(
-                fw_boot_dir='/boot'),
+                fw_boot_dir='/boot', ROOT_DEV=ROOT_DEV),
             out)
 
     def test_no_default(self):
         """Configuration with only the 'rescue' options"""
         cfg = config.BootCfg(USE_EXTLINUX, alternatives=['rescue'])
-        out = install_extlinux.build_content(cfg, self.target, '/boot')
+        out = install_extlinux.build_content(cfg, self.target, '/boot',
+                                             ROOT_DEV)
         self.assertEqual(
             EXPECT_HDR +
             ('\n' + EXPECT_L0R + '\n' + EXPECT_L1R + '\n' + EXPECT_L2R).format(
-                fw_boot_dir='/boot'),
+                fw_boot_dir='/boot', ROOT_DEV=ROOT_DEV),
             out)
 
     def test_separate_boot_partition(self):
         """Check handling of a separate /boot partition"""
         cfg = config.BootCfg(USE_EXTLINUX)
-        out = install_extlinux.build_content(cfg, self.target, '')
-        self.assertEqual(EXPECT_HDR + EXPECT_BODY.format(fw_boot_dir=''), out)
+        out = install_extlinux.build_content(cfg, self.target, '', ROOT_DEV)
+        self.assertEqual(EXPECT_HDR + EXPECT_BODY.format(
+            fw_boot_dir='', ROOT_DEV=ROOT_DEV), out)
 
     def check_extlinux(self) -> str:
         """Common checks for extlinux
@@ -173,17 +211,29 @@ class TestInstallExtlinux(CiTestCase):
     def test_install(self):
         """Make sure the file is written to the disk"""
         install_extlinux.install_extlinux(config.BootCfg(USE_EXTLINUX),
-                                          self.target, '/boot')
+                                          self.target, '/boot', ROOT_DEV)
         out = self.check_extlinux()
-        self.assertEqual(EXPECT_HDR + EXPECT_BODY.format(fw_boot_dir='/boot'),
-                         out)
+        self.assertEqual(EXPECT_HDR + EXPECT_BODY.format(
+            fw_boot_dir='/boot', ROOT_DEV=ROOT_DEV), out)
 
     def test_install_separate_boot_partition(self):
         """Check installation with a separate /boot partition"""
         cfg = config.BootCfg(USE_EXTLINUX)
-        install_extlinux.install_extlinux(cfg, self.target, '')
+        install_extlinux.install_extlinux(cfg, self.target, '', ROOT_DEV)
         out = self.check_extlinux()
-        self.assertEqual(EXPECT_HDR + EXPECT_BODY.format(fw_boot_dir=''), out)
+        self.assertEqual(EXPECT_HDR + EXPECT_BODY.format
+                         (fw_boot_dir='', ROOT_DEV=ROOT_DEV), out)
+
+    def test_install_no_alternatives(self):
+        """The default in BootCfg is not used when reading a yaml file"""
+        cfg = {
+            'boot': {'bootloaders': USE_EXTLINUX},
+            'storage': STORAGE,
+        }
+        curthooks.setup_extlinux(cfg, self.target)
+        out = self.check_extlinux()
+        self.assertEqual(EXPECT_HDR + EXPECT_BODY.format(
+            fw_boot_dir='/boot', ROOT_DEV=ROOT_DEV), out)
 
     def test_separate_boot_partition_cfg(self):
         """setup_extlinux() should see a separate mount and set fw_boot_dir"""
@@ -191,25 +241,73 @@ class TestInstallExtlinux(CiTestCase):
             'boot': {'bootloaders': USE_EXTLINUX},
             'storage': {
                 'version': 1,
-                'config': [{
-                    'type': 'mount',
-                    'path': '/',
-                }, {
-                    'type': 'mount',
-                    'path': '/boot',
-                }]
+                'config': [
+                    {
+                        'id': 'vdb',
+                        'type': 'disk',
+                        'name': 'vdb',
+                        'path': '/dev/vdb',
+                        'ptable': 'gpt',
+                    },
+                    {
+                        'id': 'vdb-part1',
+                        'type': 'partition',
+                        'device': 'vdb',
+                        'number': 1,
+                    },
+                    {
+                        'id': 'vdb-part2',
+                        'type': 'partition',
+                        'device': 'vdb',
+                        'flag': 'boot',
+                        'number': 2,
+                    },
+                    {
+                        'id': 'vdb-part1_format',
+                        'type': 'format',
+                        'volume': 'vdb-part1',
+                        'fstype': 'ext4',
+                    },
+                    {
+                        'id': 'vdb-part2_format',
+                        'type': 'format',
+                        'volume': 'vdb-part2',
+                        'fstype': 'ext4',
+                    },
+                    {
+                        'id': 'vdb-part1_mount',
+                        'type': 'mount',
+                        'path': '/',
+                        'device': 'vdb-part1_format',
+                        'spec': ROOT_DEV,
+                    },
+                    {
+                        'id': 'vdb-part2_mount',
+                        'type': 'mount',
+                        'path': '/boot',
+                        'device': 'vdb-part2_format',
+                    }
+                ]
             }
         }
         curthooks.setup_extlinux(cfg, self.target)
         out = self.check_extlinux()
-        self.assertEqual(EXPECT_HDR + EXPECT_BODY.format(fw_boot_dir=''), out)
+        self.assertEqual(EXPECT_HDR + EXPECT_BODY.format(
+            fw_boot_dir='', ROOT_DEV=ROOT_DEV), out)
 
-        # If there is no separate /boot mount, the fw_boot_dir should be set
-        cfg['storage']['config'][1]['path'] = '/var'
+    def test_single_partition_cfg(self):
+        """setup_extlinux() should see a single mount and set fw_boot_dir"""
+        cfg = {
+            'boot': {
+                'bootloaders': USE_EXTLINUX,
+                'alternatives': ['default', 'rescue'],
+            },
+            'storage': STORAGE,
+        }
         curthooks.setup_extlinux(cfg, self.target)
         out = self.check_extlinux()
-        self.assertEqual(EXPECT_HDR + EXPECT_BODY.format(fw_boot_dir='/boot'),
-                         out)
+        self.assertEqual(EXPECT_HDR + EXPECT_BODY.format(
+            fw_boot_dir='/boot', ROOT_DEV=ROOT_DEV), out)
 
 
 # vi: ts=4 expandtab syntax=python

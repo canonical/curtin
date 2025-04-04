@@ -22,6 +22,7 @@ from curtin import futil
 from curtin.log import LOG
 from curtin import nvme_tcp
 from curtin import paths
+from curtin.storage_config import extract_storage_ordered_dict, select_configs
 from curtin import swap
 from curtin import util
 from curtin import version as curtin_version
@@ -30,7 +31,7 @@ from curtin.block import deps as bdeps
 from curtin.distro import DISTROS
 from curtin.net import deps as ndeps
 from curtin.reporter import events
-from curtin.commands import apply_net, apt_config
+from curtin.commands import apply_net, apt_config, block_meta
 from curtin.commands.install_grub import install_grub
 from curtin.commands.install_extlinux import install_extlinux
 from curtin.url_helper import get_maas_version
@@ -744,8 +745,7 @@ def setup_grub(
 
     # FIXME: these methods need moving to curtin.block
     # and using them from there rather than commands.block_meta
-    from curtin.commands.block_meta import (extract_storage_ordered_dict,
-                                            get_path_to_storage_volume)
+    from curtin.commands.block_meta import get_path_to_storage_volume
 
     bootcfg = config.fromdict(config.BootCfg, cfg.get('boot', {}))
 
@@ -878,13 +878,22 @@ def setup_extlinux(
     bootcfg = config.fromdict(config.BootCfg, cfg.get('boot', {}))
 
     # If there is a separate boot partition, set fw_boot_dir to empty
-    storage_cfg = cfg.get('storage', {}).get('config', {})
     fw_boot_dir = '/boot'
-    for item in storage_cfg:
-        if item['type'] == 'mount' and item['path'] == '/boot':
+    root = None
+    storage_cfg_dict = extract_storage_ordered_dict(cfg)
+    for item in select_configs(storage_cfg_dict, type='mount'):
+        if item['path'] == '/boot':
             fw_boot_dir = ''
+        elif item['path'] == '/':
+            root = item
 
-    install_extlinux(bootcfg, target, fw_boot_dir)
+    if not root:
+        raise ValueError("Storage configuration has no root directory")
+
+    fdata = block_meta.mount_data(root, storage_cfg_dict)
+    spec = block_meta.resolve_fdata_spec(fdata)
+
+    install_extlinux(bootcfg, target, fw_boot_dir, spec)
 
 
 def setup_boot(
@@ -1957,7 +1966,14 @@ def uses_grub(machine):
     return True
 
 
-def builtin_curthooks(cfg, target, state):
+def builtin_curthooks(cfg: dict, target: str, state: dict):
+    """Run the built-in curthooks
+
+    :param: cfg: Config dict
+    :param: target: Target directory for the new installation
+    :param: state: State information obtained from environment variables. See
+        load_command_environment()
+    """
     LOG.info('Running curtin builtin curthooks')
     stack_prefix = state.get('report_stack_prefix', '')
     state_etcd = os.path.split(state['fstab'])[0]

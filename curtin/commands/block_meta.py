@@ -1366,6 +1366,19 @@ def proc_filesystems_passno(fstype):
     return "1"
 
 
+def resolve_fdata_spec(fdata: FstabData) -> str:
+    """Get the spec to use for an fdata item (like a line in /etc/fstab)
+
+    :param: Data to look at
+    Return: The correct spec to use, e.g. /dev/sda1'
+    """
+    if fdata.spec is None:
+        if not fdata.device:
+            raise ValueError("FstabData missing both spec and device.")
+        return get_volume_spec(fdata.device)
+    return fdata.spec
+
+
 def fstab_line_for_data(fdata):
     """Return a string representing fdata in /etc/fstab format.
 
@@ -1378,12 +1391,7 @@ def fstab_line_for_data(fdata):
         else:
             raise ValueError("empty path in %s." % str(fdata))
 
-    if fdata.spec is None:
-        if not fdata.device:
-            raise ValueError("FstabData missing both spec and device.")
-        spec = get_volume_spec(fdata.device)
-    else:
-        spec = fdata.spec
+    spec = resolve_fdata_spec(fdata)
 
     if fdata.options in (None, "", "defaults"):
         if fdata.fstype == "swap":

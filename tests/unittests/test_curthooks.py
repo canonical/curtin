@@ -1479,6 +1479,37 @@ class TestSetupExtlinux(CiTestCase):
                 'bootloaders': ['extlinux'],
                 'install_devices': ['/dev/vdb'],
             },
+            'storage': {
+                'version': 1,
+                'config': [
+                    {
+                        'id': 'vdb',
+                        'type': 'disk',
+                        'name': 'vdb',
+                        'path': '/dev/vdb',
+                        'ptable': 'gpt',
+                    },
+                    {
+                        'id': 'vdb-part1',
+                        'type': 'partition',
+                        'device': 'vdb',
+                        'number': 1,
+                    },
+                    {
+                        'id': 'vdb-part1_format',
+                        'type': 'format',
+                        'volume': 'vdb-part1',
+                        'fstype': 'ext4',
+                    },
+                    {
+                        'id': 'vdb-part1_mount',
+                        'type': 'mount',
+                        'path': '/',
+                        'device': 'vdb-part1_format',
+                        'spec': '/dev/vdb1',
+                    },
+                ]
+            }
         }
         for machine in ['i586', 'i686', 'x86_64']:
             curthooks.setup_boot(
@@ -1486,7 +1517,7 @@ class TestSetupExtlinux(CiTestCase):
                 osfamily=self.distro_family, variant=self.variant)
         bootcfg = config.fromdict(config.BootCfg, cfg['boot'])
         self.m_install_extlinux.assert_called_with(
-            bootcfg, self.target, '/boot')
+            bootcfg, self.target, '/boot', '/dev/vdb1')
         self.m_setup_grub.assert_not_called()
         self.m_run_zipl.assert_not_called()
 
