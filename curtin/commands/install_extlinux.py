@@ -23,6 +23,7 @@ def build_content(bootcfg: config.BootCfg, target: str):
     We assume that the boot directory is available as /boot in the target.
 
     :param: bootcfg: A boot-config dict
+    :param: target: A string specifying the path to the chroot mountpoint.
     """
     def get_entry(label, params, menu_label_append=''):
         return f'''\

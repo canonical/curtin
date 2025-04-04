@@ -1484,7 +1484,8 @@ class TestSetupExtlinux(CiTestCase):
             curthooks.setup_boot(
                 cfg, self.target, machine, '/testing',
                 osfamily=self.distro_family, variant=self.variant)
-        self.m_install_extlinux.assert_called_with(cfg, self.target)
+        bootcfg = config.fromdict(config.BootCfg, cfg['boot'])
+        self.m_install_extlinux.assert_called_with(bootcfg, self.target)
         self.m_setup_grub.assert_not_called()
         self.m_run_zipl.assert_not_called()
 

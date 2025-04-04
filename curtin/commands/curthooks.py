@@ -867,6 +867,18 @@ def translate_old_grub_schema(cfg):
     cfg['boot'] = grub_cfg
 
 
+def setup_extlinux(
+        cfg: dict,
+        target: str):
+    """Set up an extlinux.conf file
+
+    :param: cfg: A config dict containing config.BootCfg in cfg['boot'].
+    :param: target: A string specifying the path to the chroot mountpoint.
+    """
+    bootcfg = config.fromdict(config.BootCfg, cfg.get('boot', {}))
+    install_extlinux(bootcfg, target)
+
+
 def setup_boot(
         cfg: dict,
         target: str,
@@ -899,7 +911,7 @@ def setup_boot(
             if machine not in ['i586', 'i686', 'x86_64']:
                 raise ValueError('Invalid arch %s: Only x86 platforms support '
                                  'extlinux at present' % machine)
-            install_extlinux(cfg, target)
+            setup_extlinux(cfg, target)
 
     if machine == 's390x':
         with events.ReportEventStack(
