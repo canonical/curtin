@@ -7,6 +7,7 @@ import os
 
 from curtin import config
 from curtin import paths
+from curtin import util
 from curtin.log import LOG
 
 EXTLINUX_DIR = '/boot/extlinux'
@@ -89,8 +90,10 @@ def install_extlinux(
     :param: fw_boot_dir: Firmware's view of the /boot directory
     :param: root_spec: Root device to pass to kernel
     """
+    LOG.debug("P: Writing extlinux, fw_boot_dir '%s' root_spec '%s'...",
+              fw_boot_dir, root_spec)
     content = build_content(bootcfg, target, fw_boot_dir, root_spec)
     extlinux_path = paths.target_path(target, '/boot/extlinux')
-    os.makedirs(extlinux_path, exist_ok=True)
+    util.ensure_dir(extlinux_path)
     with open(extlinux_path + '/extlinux.conf', 'w', encoding='utf-8') as outf:
         outf.write(content)
