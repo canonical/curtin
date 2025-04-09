@@ -359,13 +359,7 @@ def setup_kernel_img_conf(target):
 
 def install_kernel(cfg, target):
     def install(pkg):
-        env = os.environ.copy()
-        # recent flash_kernel has checks to prevent it running in cases like
-        # containers or chroots, but we actually want that as curtin
-        # is mostly or always doing chroot installs.  LP: #1992990
-        env["FK_FORCE"] = "yes"
-        env["FK_FORCE_CONTAINER"] = "yes"
-        distro.install_packages([pkg], target=target, env=env)
+        distro.install_packages([pkg], target=target, env=flash_kernel_env())
 
     kernel_cfg_d = cfg.get('kernel', {})
     if kernel_cfg_d is None:
@@ -1693,13 +1687,25 @@ def configure_kernel_crash_dumps(cfg, target: pathlib.Path) -> None:
         kernel_crash_dumps.manual_disable(target)
 
 
+def flash_kernel_env():
+    env = os.environ.copy()
+    # recent flash_kernel has checks to prevent it running in cases
+    # like containers or chroots, but we actually want that as curtin
+    # is mostly or always doing chroot installs.  LP: #1992990 LP: #2106682
+    env["FK_FORCE"] = "yes"
+    env["FK_FORCE_CONTAINER"] = "yes"
+
+    return env
+
+
 def reconfigure_kernel(target: pathlib.Path) -> None:
     with util.ChrootableTarget(target) as in_chroot:
         # re-run kernel postinstall hooks
         for kernel in distro.dpkg_query_list_kernels(target):
             in_chroot.subp(
                 ['dpkg-reconfigure', '--frontend=noninteractive', kernel],
-                target=target
+                target=target,
+                env=flash_kernel_env(),
             )
 
 

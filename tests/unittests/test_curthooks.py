@@ -2759,14 +2759,18 @@ class TestDpkgReconfigure(CiTestCase):
         kernel_a = self.random_string()
         kernel_b = self.random_string()
         self.m_list_kernels.return_value = [kernel_a, kernel_b]
-        curthooks.reconfigure_kernel(self.target)
+        with patch.dict(os.environ, clear=True):
+            curthooks.reconfigure_kernel(self.target)
+        fk_env = {'FK_FORCE': 'yes', 'FK_FORCE_CONTAINER': 'yes'}
         self.m_subp.assert_any_call(
             ['dpkg-reconfigure', '--frontend=noninteractive', kernel_a],
             target=self.target,
+            env=fk_env,
         )
         self.m_subp.assert_any_call(
             ['dpkg-reconfigure', '--frontend=noninteractive', kernel_b],
             target=self.target,
+            env=fk_env,
         )
 
 # vi: ts=4 expandtab syntax=python
