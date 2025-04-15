@@ -86,7 +86,9 @@ class ZPoolEncryption:
 
         # Create the dataset for the keystore.  This is a bit special as it
         # won't be ZFS despite being on the zpool.
-        keystore_size = util.human2bytes("20M")
+        # We previously hardcoded the size to 20M but raised it to 36M for
+        # plucky, see LP: #2107381.
+        keystore_size = util.human2bytes("36M")
         zfs_create(
             self.poolname, "keystore", {"encryption": "off"}, keystore_size,
         )
