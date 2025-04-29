@@ -24,17 +24,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install dependencies
-        run: >
-          apt-get update
-          && apt-get install --no-install-recommends --yes
-          python3
-          python3-pycodestyle
-          python3-pyflakes
-          tox
+        run: tools/vmtest-system-setup
       - name: Run linter tests
         run: |
-          tox -e tip-pycodestyle
-          tox -e tip-pyflakes
+          tox -e py3-pyflakes,py3-flake8
 
   unit:
     runs-on: ubuntu-latest
