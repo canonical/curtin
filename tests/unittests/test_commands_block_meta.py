@@ -54,6 +54,70 @@ class TestToUTF8HexNotation(CiTestCase):
                 '\\xeb\\xa6\\xac\\xeb\\x88\\x85\\xec\\x8a\\xa4')
 
 
+class TestGetV2GetPathToDisk(CiTestCase):
+    @patch('curtin.commands.block_meta.udev_all_block_device_properties')
+    def test_single_match(self, m_udev_all):
+        properties = [
+            {'DEVTYPE': 'disk',
+             'DEVNAME': '/dev/vda',
+             'DEVPATH': '/devices/pci0000:00/0000:00:04.0/virtio2/block/vda',
+             'DEVLINKS': '/dev/disk/by-path/virtio-pci-0000:00:00.0'
+                         ' /dev/disk/by-diskseq/9'
+                         ' /dev/disk/by-path/pci-0000:00:04.0',
+             'SUBSYSTEM': 'block',
+             'MAJOR': '253',
+             'MINOR': '0'}
+        ]
+        m_udev_all.return_value = properties
+
+        self.assertEqual('/dev/vda',
+                         block_meta.v2_get_path_to_disk({'path': '/dev/vda'}))
+
+    @patch('curtin.commands.block_meta.udev_all_block_device_properties')
+    def test_path_no_match(self, m_udev_all):
+        properties = [
+            {'DEVTYPE': 'disk',
+             'DEVNAME': '/dev/vda',
+             'DEVPATH': '/devices/pci0000:00/0000:00:04.0/virtio2/block/vda',
+             'DEVLINKS': '/dev/disk/by-path/virtio-pci-0000:00:00.0'
+                         ' /dev/disk/by-diskseq/9'
+                         ' /dev/disk/by-path/pci-0000:00:04.0',
+             'SUBSYSTEM': 'block',
+             'MAJOR': '253',
+             'MINOR': '0'}
+        ]
+        m_udev_all.return_value = properties
+
+        with self.assertRaises(KeyError):
+            block_meta.v2_get_path_to_disk({'path': '/dev/vdb'})
+
+    @patch('curtin.commands.block_meta.udev_all_block_device_properties')
+    def test_path_item_with_no_devname(self, m_udev_all):
+        # In LP: #2095211, the presence of a nvme0c0n1 (which has no DEVNAME)
+        # causes an issue.
+        devpath = '''\
+/devices/pci0000:00/0000:00:05.1/0000:09:00.0/nvme/nvme0/nvme0c0n1\
+'''
+        properties = [
+            {'DEVTYPE': 'disk',
+             'DEVPATH': devpath,
+             'SUBSYSTEM': 'block'},
+            {'DEVTYPE': 'disk',
+             'DEVNAME': '/dev/vda',
+             'DEVPATH': '/devices/pci0000:00/0000:00:04.0/virtio2/block/vda',
+             'DEVLINKS': '/dev/disk/by-path/virtio-pci-0000:00:00.0'
+                         ' /dev/disk/by-diskseq/9'
+                         ' /dev/disk/by-path/pci-0000:00:04.0',
+             'SUBSYSTEM': 'block',
+             'MAJOR': '253',
+             'MINOR': '0'},
+        ]
+        m_udev_all.return_value = properties
+
+        self.assertEqual('/dev/vda',
+                         block_meta.v2_get_path_to_disk({'path': '/dev/vda'}))
+
+
 class TestGetPathToStorageVolume(CiTestCase):
 
     def setUp(self):
