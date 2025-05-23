@@ -496,6 +496,11 @@ def v2_get_path_to_disk(vol):
     for dev in udev_all_block_device_properties():
         if 'DM_PART' in dev or 'PARTN' in dev:
             continue
+        if 'DEVNAME' not in dev:
+            # Some block devices, typically nvme*c*n* devices (e.g., nvme0c0n1)
+            # have no DEVNAME. Skip them to avoid raising a KeyError
+            # (LP: #2095211).
+            continue
         for link in dev.get('DEVLINKS', '').split():
             link2dev[link] = dev
         link2dev[dev['DEVNAME']] = dev
