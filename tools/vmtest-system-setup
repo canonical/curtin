@@ -46,6 +46,7 @@ DEPS=(
   tgt
   tox
   wget
+  zfsutils-linux
 )
 
 apt_get() {
