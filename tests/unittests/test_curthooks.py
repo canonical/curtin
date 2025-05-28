@@ -1589,10 +1589,10 @@ class TestUbuntuCoreHooks(CiTestCase):
 
         expected_cfg = {
             'file1': {
-                'path': '50-cloudconfig-file1.cfg',
+                'path': '95-cloudconfig-file1.cfg',
                 'content': cloudconfig['file1']['content']},
             'foobar': {
-                'path': '50-cloudconfig-foobar.cfg',
+                'path': '95-cloudconfig-foobar.cfg',
                 'content': cloudconfig['foobar']['content']}
         }
         curthooks.handle_cloudconfig(cloudconfig, base_dir=cc_target)

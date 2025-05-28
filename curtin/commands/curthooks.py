@@ -1689,7 +1689,9 @@ def handle_cloudconfig(cfg, base_dir=None):
     #   generate a path based on item key
     #   if path is already in the item, LOG warning, and use generated path
     for cfgname, cfgvalue in cfg.items():
-        cfgpath = "50-cloudconfig-%s.cfg" % cfgname
+        # cloud-init on debian-like distros includes a config '90_dpkg'.
+        # To ensure our config is applied afterward, we use a prefix > 90.
+        cfgpath = "95-cloudconfig-%s.cfg" % cfgname
         if 'path' in cfgvalue:
             LOG.warning("cloudconfig ignoring 'path' key in config")
         cfgvalue['path'] = cfgpath
@@ -1963,30 +1965,32 @@ def builtin_curthooks(cfg: dict, target: str, state: dict):
             description="setting up swap"):
         add_swap(cfg, target, state.get('fstab'))
 
-    if osfamily == DISTROS.suse:
-        # set cloud-init maas datasource for SuSE images
+    if osfamily in {DISTROS.debian, DISTROS.suse, DISTROS.redhat}:
+        # set cloud-init maas datasource
         if cfg.get('cloudconfig'):
             handle_cloudconfig(
                 cfg['cloudconfig'],
                 base_dir=paths.target_path(target,
                                            'etc/cloud/cloud.cfg.d'))
 
-    if osfamily == DISTROS.redhat:
-        # set cloud-init maas datasource for centos images
-        if cfg.get('cloudconfig'):
-            handle_cloudconfig(
-                cfg['cloudconfig'],
-                base_dir=paths.target_path(target,
-                                           'etc/cloud/cloud.cfg.d'))
+        if osfamily == DISTROS.redhat:
+            # For vmtests to force execute redhat_upgrade_cloud_init, uncomment
+            # the value in examples/tests/centos_defaults.yaml
+            if cfg.get('_ammend_centos_curthooks'):
+                with events.ReportEventStack(
+                        name=stack_prefix + '/upgrading cloud-init',
+                        reporting_enabled=True, level="INFO",
+                        description="Upgrading cloud-init in target"):
+                    redhat_upgrade_cloud_init(cfg.get('network', {}), target)
 
-        # For vmtests to force execute redhat_upgrade_cloud_init, uncomment
-        # the value in examples/tests/centos_defaults.yaml
-        if cfg.get('_ammend_centos_curthooks'):
-            with events.ReportEventStack(
-                    name=stack_prefix + '/upgrading cloud-init',
-                    reporting_enabled=True, level="INFO",
-                    description="Upgrading cloud-init in target"):
-                redhat_upgrade_cloud_init(cfg.get('network', {}), target)
+            # For vmtests to force execute redhat_upgrade_cloud_init, uncomment
+            # the value in examples/tests/centos_defaults.yaml
+            if cfg.get('_ammend_centos_curthooks'):
+                with events.ReportEventStack(
+                        name=stack_prefix + '/upgrading cloud-init',
+                        reporting_enabled=True, level="INFO",
+                        description="Upgrading cloud-init in target"):
+                    redhat_upgrade_cloud_init(cfg.get('network', {}), target)
 
     with events.ReportEventStack(
             name=stack_prefix + '/apply-networking-config',
