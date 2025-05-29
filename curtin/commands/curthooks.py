@@ -1983,15 +1983,6 @@ def builtin_curthooks(cfg: dict, target: str, state: dict):
                         description="Upgrading cloud-init in target"):
                     redhat_upgrade_cloud_init(cfg.get('network', {}), target)
 
-            # For vmtests to force execute redhat_upgrade_cloud_init, uncomment
-            # the value in examples/tests/centos_defaults.yaml
-            if cfg.get('_ammend_centos_curthooks'):
-                with events.ReportEventStack(
-                        name=stack_prefix + '/upgrading cloud-init',
-                        reporting_enabled=True, level="INFO",
-                        description="Upgrading cloud-init in target"):
-                    redhat_upgrade_cloud_init(cfg.get('network', {}), target)
-
     with events.ReportEventStack(
             name=stack_prefix + '/apply-networking-config',
             reporting_enabled=True, level="INFO",
