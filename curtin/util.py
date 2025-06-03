@@ -1430,6 +1430,8 @@ class FlockEx:
         access for partitioning and file system formatting tools.
 
     params: device: block device node to exclusively lock
+
+    Introduced to address LP: #2016860 and similar timing bugs.
     """
     def __init__(self, device, timeout=60):
         self.device = device
