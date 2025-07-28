@@ -31,21 +31,6 @@ ZFS_DEFAULT_PROPERTIES = {
 ZFS_UNSUPPORTED_ARCHES = ['i386']
 ZFS_UNSUPPORTED_RELEASES = ['precise', 'trusty']
 
-# The keystore consists of the LUKS header, which is a size we can configure,
-# and the usable volume size of the keystore.  While the file we store here is
-# rather small we leave a little room. In LP: #2107381 we learned that the
-# cryptsetup detected offset can vary, so choosing a LUKS header size avoids
-# surprises later where luksFormat fails due to insufficient volume size.
-# The mechanism behind that: cryptsetup LUKS2_hdr_get_storage_params() decides
-# on several values, including offset to the actual usable device space.
-# offset may be supplied with the cryptset --offset argument, or it will be
-# chosen in a way based on the BLKIOOPT / BLKALIGNOFF ioctls in cryptsetup
-# device_topology_alignment(), which is a bit overkill for the keystore, so
-# just choose a size and keep it small.
-LUKS_HEADER_SIZE = 16 << 20
-USABLE_VOLUME_SIZE = 4 << 20
-KEYSTORE_VOLUME_SIZE = LUKS_HEADER_SIZE + USABLE_VOLUME_SIZE
-
 
 class ZPoolEncryption:
     def __init__(self, vdevs, poolname, style, keyfile):
@@ -101,9 +86,9 @@ class ZPoolEncryption:
 
         # Create the dataset for the keystore.  This is a bit special as it
         # won't be ZFS despite being on the zpool.
+        keystore_size = util.human2bytes("20M")
         zfs_create(
-            self.poolname, "keystore", {"encryption": "off"},
-            str(KEYSTORE_VOLUME_SIZE),
+            self.poolname, "keystore", {"encryption": "off"}, keystore_size,
         )
         keystore_volume = f"/dev/zvol/{self.poolname}/keystore"
         udevadm_settle(exists=keystore_volume)
@@ -112,16 +97,8 @@ class ZPoolEncryption:
             for vdev in self.vdevs:
                 es.enter_context(util.FlockEx(vdev))
 
-            # cryptsetup format and open this keystore. pick a fixed offset
-            # size, in sectors, to work with the fixed volume size.
-            cmd = [
-                "cryptsetup",
-                "luksFormat",
-                "--offset",
-                str(LUKS_HEADER_SIZE // 512),
-                keystore_volume,
-                self.keyfile
-            ]
+            # cryptsetup format and open this keystore
+            cmd = ["cryptsetup", "luksFormat", keystore_volume, self.keyfile]
 
             # strace has shown that udevd does indeed probe this keystore
             with util.FlockEx(keystore_volume):
