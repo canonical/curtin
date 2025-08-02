@@ -427,7 +427,7 @@ def device_to_poolname(devname):
         return label
 
 
-def get_zpool_from_config(cfg):
+def get_zpool_from_config(cfg, *, only_encrypted=False):
     """Parse a curtin storage config and return a list
        of zpools that were created.
     """
@@ -441,9 +441,15 @@ def get_zpool_from_config(cfg):
     sconfig = cfg['storage']['config']
     for item in sconfig:
         if item['type'] == 'zpool':
+            if only_encrypted and item.get('encryption_style') is None:
+                continue
             zpools.append(item['pool'])
         elif item['type'] == 'format':
             if item['fstype'] == 'zfsroot':
+                if only_encrypted:
+                    # Currently, encryption is not supported in conjunction
+                    # with "zfsroot".
+                    continue
                 # curtin.commands.blockmeta sets pool='rpool' for zfsroot
                 zpools.append('rpool')
 
