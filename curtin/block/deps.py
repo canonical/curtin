@@ -1,7 +1,7 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
 
 from curtin.distro import DISTROS
-from curtin.block import iscsi, nvme
+from curtin.block import iscsi, nvme, zfs
 
 
 def storage_config_required_packages(storage_config, mapping):
@@ -39,6 +39,11 @@ def storage_config_required_packages(storage_config, mapping):
     if nvme.get_nvme_controllers_from_config(storage_config,
                                              exclude_pcie=True):
         needed_packages.extend(mapping['nvme_of_controller'])
+
+    # zpools encrypted using LUKS require cryptsetup
+    if zfs.get_zpool_from_config({"storage": storage_config},
+                                 only_encrypted=True):
+        needed_packages.extend(mapping['dm_crypt'])
 
     # for any format operations, check the fstype and
     # determine if we need any mkfs tools as well.

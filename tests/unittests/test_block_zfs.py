@@ -597,6 +597,22 @@ class TestZfsGetPoolFromConfig(CiTestCase):
         self.assertEqual(sorted(expected_zpools),
                          sorted(zfs.get_zpool_from_config(sconfig)))
 
+    def test_get_zpool_from_config_only_encrypted(self):
+        """ get_zpool_from_config_returns pool names for each zpool in cfg.
+        Here we are only interested in encrypted ones."""
+        zpool_cfg = [
+            {'type': 'zpool', 'pool': 'rpool1'},
+            {'type': 'zpool', 'pool': 'rpool2',
+             'encryption_style': 'luks_keystore', 'keyfile': '/tmp/zpool-key'},
+            {'type': 'zpool', 'pool': 'rpool3', 'encryption_style': None},
+            # zfsroot implies a zpool but unencrypted
+            {'type': 'format', 'fstype': 'zfsroot'},
+        ]
+        sconfig = {'storage': {'config': zpool_cfg}}
+        self.assertEqual(
+                ['rpool2'], zfs.get_zpool_from_config(
+                    sconfig, only_encrypted=True))
+
     def test_get_zpool_from_config_zfsroot(self):
         """ get_zpool_from_config_returns injected pool name for zfsroot."""
         zpool_cfg = [{'type': 'format', 'fstype': 'zfsroot'}]
