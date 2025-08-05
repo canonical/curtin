@@ -855,7 +855,7 @@ def disk_to_bypath_path(kname):
     return mapping.get(dev_path(kname))
 
 
-def get_device_mapper_links(devpath, first=False):
+def get_device_mapper_links(devpath):
     """ Return the best devlink to device at devpath. """
     info = udevadm_info(devpath)
     if 'DEVLINKS' not in info:
@@ -863,9 +863,6 @@ def get_device_mapper_links(devpath, first=False):
     devlinks = [devlink for devlink in sorted(info['DEVLINKS']) if devlink]
     if not devlinks:
         raise ValueError('Unexpected DEVLINKS list contained empty values')
-
-    if first:
-        return devlinks[0]
 
     return devlinks
 
