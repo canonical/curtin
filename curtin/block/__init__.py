@@ -129,10 +129,13 @@ def partition_kname(disk_kname, partition_number):
         # e.g. multipath disk is at dm-2, new partition could be dm-11, but
         # linux will create a -partX symlink against the disk by-id name.
         devpath = '/dev/' + disk_kname
-        disk_link = get_device_mapper_links(devpath, first=True)
-        return path_to_kname(
-                    os.path.realpath('%s-part%s' % (disk_link,
-                                                    partition_number)))
+        for disk_link in get_device_mapper_links(devpath):
+            if disk_link.startswith('/dev/disk/by-id/dm-name-'):
+                return path_to_kname(
+                        os.path.realpath('%s-part%s' % (disk_link,
+                                                        partition_number)))
+        raise OSError('could not find p{} devlink for {}'.format(
+            partition_number, devpath))
 
     # follow the same rules the kernel check_partition() does
     # https://github.com/torvalds/linux/blob/0473719/block/partitions/core.c#L330

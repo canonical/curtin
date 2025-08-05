@@ -9,6 +9,8 @@ import textwrap
 
 from collections import OrderedDict
 
+from parameterized import parameterized
+
 from .helpers import CiTestCase, simple_mocked_open
 from curtin import util
 from curtin import block
@@ -133,15 +135,6 @@ class TestBlock(CiTestCase):
                                                  expected_link)
         self.assertTrue(mock_os_path_exists.called)
         self.assertEqual(device, path)
-
-    @mock.patch('curtin.block.udevadm_info')
-    def test_get_device_mapper_links_returns_first_non_none(self, m_info):
-        """ get_device_mapper_links returns first by sort entry in DEVLINKS."""
-        devlinks = [self.random_string(), self.random_string()]
-        m_info.return_value = {'DEVLINKS': devlinks}
-        devpath = self.random_string()
-        self.assertEqual(sorted(devlinks)[0],
-                         block.get_device_mapper_links(devpath, first=True))
 
     @mock.patch('curtin.block.udevadm_info')
     def test_get_device_mapper_links_raises_valueerror_no_links(self, m_info):
@@ -444,24 +437,12 @@ class TestWipeVolume(CiTestCase):
 class TestBlockKnames(CiTestCase):
     """Tests for some of the kname functions in block"""
 
-    @mock.patch('curtin.block.os.path.realpath')
-    @mock.patch('curtin.block.get_device_mapper_links')
-    def test_determine_partition_kname(self, m_mlink, m_realp):
-        dm0_link = '/dev/disk/by-id/dm-name-XXXX2406'
-        m_mlink.return_value = dm0_link
-
-        # we need to convert the -part path to the real dm value
-        def _my_realp(pp):
-            if pp.startswith(dm0_link):
-                return 'dm-1'
-            return pp
-        m_realp.side_effect = _my_realp
+    def test_determine_partition_kname(self):
         part_knames = [(('sda', 1), 'sda1'),
                        (('vda', 1), 'vda1'),
                        (('nvme0n1', 1), 'nvme0n1p1'),
                        (('mmcblk0', 1), 'mmcblk0p1'),
                        (('cciss!c0d0', 1), 'cciss!c0d0p1'),
-                       (('dm-0', 1),  'dm-1'),
                        (('md0', 1), 'md0p1'),
                        (('mpath1', 2), 'mpath1p2'),
                        (('pmem0', 1), 'pmem0p1'),
@@ -471,6 +452,50 @@ class TestBlockKnames(CiTestCase):
         for ((disk_kname, part_number), part_kname) in part_knames:
             self.assertEqual(part_kname,
                              block.partition_kname(disk_kname, part_number))
+
+    @parameterized.expand([
+        ([
+            # Before 25.10, we didn't have the by-diskseq
+            '/dev/disk/by-id/dm-name-mpatha',
+            '/dev/disk/by-id/dm-uuid-mpath-0QEMU_QEMU_HARDDISK_MPIO0',
+            '/dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_MPIO0',
+            '/dev/disk/by-id/wwn-0xQEMU_QEMU_HARDDISK_MPIO0',
+            '/dev/mapper/mpatha',
+        ], True),
+        ([
+            # But we do have it since 25.10, and it used to cause trouble
+            # See LP: #2119429.
+            '/dev/disk/by-diskseq/27',
+            '/dev/disk/by-id/dm-name-mpatha',
+            '/dev/disk/by-id/dm-uuid-mpath-0QEMU_QEMU_HARDDISK_MPIO0',
+            '/dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_MPIO0',
+            '/dev/disk/by-id/wwn-0xQEMU_QEMU_HARDDISK_MPIO0',
+            '/dev/mapper/mpatha',
+        ], True),
+        ([
+            '/dev/disk/by-diskseq/27',
+            '/dev/disk/by-id/dm-uuid-mpath-0QEMU_QEMU_HARDDISK_MPIO0',
+        ], False),
+    ])
+    def test_determine_partition_kname_dm(self, devlinks, expected_found):
+        # we need to convert the -part path to the real dm value
+        def _my_realp(pp):
+            if pp in ['%s-part1' % link for link in devlinks]:
+                return 'dm-1'
+            return pp
+
+        p_realp = mock.patch('curtin.block.os.path.realpath',
+                             side_effect=_my_realp)
+        p_get_links = mock.patch('curtin.block.get_device_mapper_links',
+                                 return_value=devlinks)
+
+        with p_realp, p_get_links:
+            if expected_found:
+                self.assertEqual('dm-1', block.partition_kname('dm-0', 1))
+            else:
+                with self.assertRaises(
+                        OSError, msg='could not find p1 devlink for dm-0'):
+                    block.partition_kname('dm-0', 1)
 
     @mock.patch('curtin.block.os.path.realpath')
     def test_path_to_kname(self, mock_os_realpath):
