@@ -542,7 +542,11 @@ def ensure_one_kernel(osfamily=None, target=None, before=None):
     # is too late to accurately capture the initial state.
     after = set(list_kernels(osfamily=osfamily, target=target))
     LOG.debug('ensure_one_kernel: kernels after install %s', after)
-    if before == after:
+    if not bool(after - before):
+        # this `after - before` construction is similar to checking that they
+        # are equal, but also handles the case that we haven't installed
+        # anything during the yield AND the before list includes extra info
+        # like a kernel metapackage name.
         LOG.debug(
             'No kernels to remove - kernel to install was already installed'
         )

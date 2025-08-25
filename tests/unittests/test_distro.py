@@ -797,4 +797,61 @@ linux-image-6.8.0-28-generic/ii /a, linux-image
         actual = distro.dpkg_query_list_kernels()
         self.assertEqual(["linux-image-6.8.0-28-generic"], actual)
 
+
+class TestEnsureOneKernel(CiTestCase):
+    def setUp(self):
+        self.add_patch('curtin.distro.list_kernels', 'm_list')
+        self.add_patch('curtin.distro.purge_packages', 'm_purge')
+        self.generic_a = "linux-image-6.8.0-11-generic"
+        self.generic_b = "linux-image-6.8.0-28-generic"
+        self.hwe = "linux-image-generic-hwe-24.04"
+
+    def test_no_preinstall(self):
+        # nothing preinstalled, we install a kernel, nothing to purge
+        self.m_list.side_effect = [[], [self.generic_a]]
+        with distro.ensure_one_kernel():
+            pass
+        self.m_purge.assert_not_called()
+
+    def test_correct_preinstall(self):
+        # correct kernel preinstalled, nothing to purge
+        self.m_list.side_effect = [[self.generic_a], [self.generic_a]]
+        with distro.ensure_one_kernel():
+            pass
+        self.m_purge.assert_not_called()
+
+    def test_change_preinstall(self):
+        # change from kernel a to b
+        self.m_list.side_effect = [
+            [self.generic_a],
+            [self.generic_a, self.generic_b]
+        ]
+        with distro.ensure_one_kernel():
+            pass
+        self.m_purge.assert_called_with([self.generic_a], target=None)
+
+    def test_change_preinstall_with_metapkg(self):
+        # change from kernel a to b
+        self.m_list.side_effect = [
+            [self.generic_a, self.hwe],
+            [self.generic_a, self.generic_b]
+        ]
+        with distro.ensure_one_kernel():
+            pass
+        # assert_called_with would be flaky due to unpredictable order of items
+        # from the set
+        purged = set(self.m_purge.mock_calls[0].args[0])
+        self.assertEqual(set([self.generic_a, self.hwe]), purged)
+
+    def test_fewer(self):
+        # the initial list may include a kernel metapackage, which won't be
+        # listed later
+        self.m_list.side_effect = [
+            [self.generic_a, self.hwe],
+            [self.generic_a]
+        ]
+        with distro.ensure_one_kernel():
+            pass
+        self.m_purge.assert_not_called()
+
 # vi: ts=4 expandtab syntax=python
