@@ -753,6 +753,81 @@ class TestInstallMissingPkgs(CiTestCase):
         self.mock_install_packages.assert_called_with(
                 expected_pkgs, target=target, osfamily=distro.DISTROS.redhat)
 
+    @patch.object(events, 'ReportEventStack')
+    def test_zfs_install_on_unknown_initramfs_tool(self, mock_events):
+        target = "not-a-real-target"
+
+        self.mock_get_installed_packages.return_value = []
+
+        cfg = {
+            'storage': {
+                'version': 1,
+                'config': [{
+                    'id': 'rpool',
+                    'type': 'zpool',
+                    'pool': 'rpool',
+                }]
+            },
+        }
+
+        with self.assertRaises(ValueError) as exc:
+            curthooks.install_missing_packages(
+                cfg, target, osfamily=self.distro_family
+            )
+        self.assertEqual(
+            "need matching zfs root filesystem capabilities package "
+            "for linux-initramfs-tool",
+            str(exc.exception)
+        )
+
+    @patch.object(events, 'ReportEventStack')
+    def test_zfs_install_on_initramfs_tools(self, mock_events):
+        target = "not-a-real-target"
+
+        self.mock_get_installed_packages.return_value = ["initramfs-tools"]
+
+        cfg = {
+            'storage': {
+                'version': 1,
+                'config': [{
+                    'id': 'rpool',
+                    'type': 'zpool',
+                    'pool': 'rpool',
+                }]
+            },
+        }
+
+        curthooks.install_missing_packages(
+            cfg, target, osfamily=self.distro_family
+        )
+        expected_pkgs = ['zfs-initramfs', 'zfsutils-linux']
+        [mock_call] = self.mock_install_packages.mock_calls
+        self.assertEqual(expected_pkgs, sorted(mock_call.args[0]))
+
+    @patch.object(events, 'ReportEventStack')
+    def test_zfs_install_on_dracut(self, mock_events):
+        target = "not-a-real-target"
+
+        self.mock_get_installed_packages.return_value = ["dracut"]
+
+        cfg = {
+            'storage': {
+                'version': 1,
+                'config': [{
+                    'id': 'rpool',
+                    'type': 'zpool',
+                    'pool': 'rpool',
+                }]
+            },
+        }
+
+        curthooks.install_missing_packages(
+            cfg, target, osfamily=self.distro_family
+        )
+        expected_pkgs = ['zfs-dracut', 'zfsutils-linux']
+        [mock_call] = self.mock_install_packages.mock_calls
+        self.assertEqual(expected_pkgs, sorted(mock_call.args[0]))
+
 
 class TestSetupZipl(CiTestCase):
 

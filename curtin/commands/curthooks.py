@@ -15,8 +15,7 @@ from typing import List, Tuple
 from curtin import config
 from curtin import block
 from curtin import distro
-from curtin.block import iscsi
-from curtin.block import lvm
+from curtin.block import iscsi, lvm, zfs
 from curtin import net
 from curtin import futil
 from curtin.log import LOG
@@ -1430,6 +1429,20 @@ def install_missing_packages(cfg, target, osfamily=DISTROS.debian):
         if not util.which(cmd, target=target):
             if pkg not in needed_packages:
                 needed_packages.add(pkg)
+
+    if bool(zfs.get_zpool_from_config(cfg)):
+        if osfamily == DISTROS.debian:
+            # zfs on ubuntu requires an additional package, varying by the
+            # installed implementation of linux-initramfs-tool
+            if "initramfs-tools" in installed_packages:
+                needed_packages.add("zfs-initramfs")
+            elif "dracut" in installed_packages:
+                needed_packages.add("zfs-dracut")
+            else:
+                raise ValueError(
+                    "need matching zfs root filesystem capabilities package "
+                    "for linux-initramfs-tool"
+                )
 
     arch = distro.get_architecture()
 

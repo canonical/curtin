@@ -84,9 +84,9 @@ def detect_required_packages_mapping(osfamily=DISTROS.debian):
             'raid': ['mdadm'],
             'reiserfs': ['reiserfsprogs'],
             'xfs': ['xfsprogs'],
-            'zfsroot': ['zfsutils-linux', 'zfs-initramfs'],
-            'zfs': ['zfsutils-linux', 'zfs-initramfs'],
-            'zpool': ['zfsutils-linux', 'zfs-initramfs'],
+            'zfsroot': ['zfsutils-linux'],
+            'zfs': ['zfsutils-linux'],
+            'zpool': ['zfsutils-linux'],
         },
         DISTROS.redhat: {
             'bcache': [],
