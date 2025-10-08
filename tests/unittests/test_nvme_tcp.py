@@ -459,6 +459,54 @@ network:
                 new_ens3_content['match']['macaddress'], 'aa:bb:cc:dd:ee:ff')
         self.assertTrue(new_ens3_content['critical'])
 
+    def test_dracut_adapt_netplan_config_25_10(self):
+        content = '''\
+# This is the network config written by 'subiquity'
+network:
+  ethernets:
+    enp1s0:
+      dhcp4: true
+      dhcp6: true
+      match:
+        macaddress: 52:54:00:6a:b9:8d
+      set-name: enp1s0
+  version: 2
+'''
+        cfg = {
+            'storage': {
+                'config': [{
+                    'type': 'nvme_controller',
+                    'id': 'nvme-controller-nvme0',
+                    'transport': 'tcp',
+                    'tcp_addr': '10.0.2.144',
+                    'tcp_port': 4420,
+                }],
+            }, 'write_files': {
+                'etc_netplan_installer': {
+                    'path': 'etc/netplan/installer.yaml'}
+            }
+        }
+
+        target = Path(self.tmp_dir())
+        netplan_conf_path = target / 'etc/netplan/installer.yaml'
+        netplan_conf_path.parent.mkdir(parents=True)
+        netplan_conf_path.write_text(content)
+
+        p_route_ifname = patch('curtin.nvme_tcp.get_route_dest_ifname',
+                               return_value='enp1s0')
+        p_hw_addr = patch('curtin.nvme_tcp.get_iface_hw_addr',
+                          return_value='52:54:00:6a:b9:8d')
+        with p_route_ifname, p_hw_addr:
+            nvme_tcp.dracut_adapt_netplan_config(cfg, target=target)
+
+        new_content = yaml.safe_load(netplan_conf_path.read_text())
+        new_enp1s0_content = new_content['network']['ethernets']['enp1s0']
+
+        self.assertEqual(
+                new_enp1s0_content['match']['macaddress'], '52:54:00:6a:b9:8d')
+        self.assertTrue(new_enp1s0_content['critical'])
+        self.assertNotIn('set-name', new_enp1s0_content)
+
     def test_dracut_adapt_netplan_config__no_config(self):
         content = '''\
 # This is the network config written by 'subiquity'

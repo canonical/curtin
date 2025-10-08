@@ -351,7 +351,8 @@ def dracut_adapt_netplan_config(cfg, *, target: pathlib.Path):
     '''Modify the netplan configuration (which has already been written to
     disk at this point) so that:
     * critical network interfaces (those handled by dracut) are not brought
-    down during boot.
+    down during boot. This can happen if they are not marked critical: true
+    (LP: #2084012) or if netplan is instructed to rename them (LP: #2127072).
     * netplan does not panic if such an interface gets renamed by dracut (e.g.,
     to nbft0).
     '''
@@ -394,6 +395,8 @@ def dracut_adapt_netplan_config(cfg, *, target: pathlib.Path):
             continue
         # Ensure the interface is not brought down
         ifconfig['critical'] = True
+        with contextlib.suppress(KeyError):
+            del ifconfig['set-name']
         modified = True
         # Ensure we match the HW address and not the ifname.
         if 'match' not in ifconfig:
