@@ -352,7 +352,8 @@ def dracut_adapt_netplan_config(cfg, *, target: pathlib.Path):
     disk at this point) so that:
     * critical network interfaces (those handled by dracut) are not brought
     down during boot.
-    * netplan does not panic if such an interface gets renamed.
+    * netplan does not panic if such an interface gets renamed by dracut (e.g.,
+    to nbft0).
     '''
     ifnames: Set[str] = set()
     modified = False
