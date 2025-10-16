@@ -265,6 +265,73 @@ def _deploy_connect_nvme_script(cfg, target: pathlib.Path) -> None:
     _deploy_shell_script(connect_nvme_content, connect_nvme_script)
 
 
+def dracut_configure_no_firmware_support(cfg, target: pathlib.Path) -> None:
+    LOG.info('configuring dracut for NVMe over TCP without firmware support')
+
+    _deploy_connect_nvme_script(cfg, target=target)
+
+    module_setup_contents = '''\
+#!/bin/bash
+
+depends() {
+    return 0
+}
+
+install_netconf()
+{
+    # Install the network configuration
+    netplan generate
+
+    shopt -s nullglob
+
+    # Unfortunately, inst_* dracut builtin functions don't support installing a
+    # file in a different directory while preserving the filename.
+    for _f in /etc/systemd/network/*; do
+        mkdir --parents "$initdir"/etc/systemd/network
+        command install -t "$initdir"/etc/systemd/network --mode 644 "$_f"
+    done
+}
+
+install() {
+    inst_binary /usr/sbin/nvme
+    inst_simple /etc/nvme/hostid
+    inst_simple /etc/nvme/hostnqn
+    inst_simple /etc/curtin-nvme-over-tcp/connect-nvme
+
+    inst_hook initqueue/settled 99 "$moddir/connect-nvme.sh"
+
+    (install_netconf)
+}
+
+installkernel() {
+    hostonly='' instmods nvme_tcp
+}
+'''
+
+    connect_hook_contents = '''\
+#!/bin/bash
+
+modprobe nvme-tcp
+
+/usr/lib/systemd/systemd-networkd-wait-online
+
+/etc/curtin-nvme-over-tcp/connect-nvme
+'''
+    dracut_mods_dir = target / 'usr' / 'lib' / 'dracut' / 'modules.d'
+    dracut_curtin_mod = dracut_mods_dir / '35curtin-nvme-tcp'
+    dracut_curtin_mod.mkdir(parents=True, exist_ok=True)
+
+    module_setup = dracut_curtin_mod / 'module-setup.sh'
+    with module_setup.open('w', encoding='utf-8') as fh:
+        print(module_setup_contents, file=fh)
+    module_setup.chmod(0o755)
+
+    connect_hook = dracut_curtin_mod / 'connect-nvme.sh'
+    with connect_hook.open('w', encoding='utf-8') as fh:
+        print(connect_hook_contents, file=fh)
+    connect_hook.chmod(0o755)
+
+
 def initramfs_tools_configure_no_firmware_support(
         cfg, target: pathlib.Path) -> None:
     """Configure initramfs-tools for NVMe/TCP. This is a legacy approach where
