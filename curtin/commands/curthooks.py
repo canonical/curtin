@@ -1681,7 +1681,7 @@ def configure_nvme_over_tcp(cfg, target: pathlib.Path) -> None:
 
         nvme_tcp.dracut_adapt_netplan_config(cfg, target=target)
     elif nvme_tcp.need_network_in_initramfs(cfg):
-        nvme_tcp.initramfs_tools_configure(cfg, target)
+        nvme_tcp.initramfs_tools_configure_no_firmware_support(cfg, target)
     else:
         # Do not bother configuring the initramfs, everything will be done in
         # userspace.

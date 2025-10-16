@@ -267,7 +267,7 @@ network:
         self.assertTrue(cmdline_sh.exists())
         self.assertTrue(setup_sh.exists())
 
-    def test_initramfs_tools_configure(self):
+    def test_initramfs_tools_configure_no_firmware_support(self):
         target = self.tmp_dir()
 
         nvme_cmds = [
@@ -284,7 +284,8 @@ network:
 
         with (patch(get_nvme_cmds_sym, return_value=nvme_cmds),
               patch(get_ip_cmds_sym, return_value=ip_cmds)):
-            nvme_tcp.initramfs_tools_configure({}, target=Path(target))
+            nvme_tcp.initramfs_tools_configure_no_firmware_support(
+                    {}, target=Path(target))
 
         init_premount_dir = 'etc/initramfs-tools/scripts/init-premount'
 

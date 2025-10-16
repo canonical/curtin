@@ -2505,7 +2505,7 @@ class TestCurthooksNVMeOverTCP(CiTestCase):
     @patch('curtin.nvme_tcp.requires_firmware_support',
            Mock(return_value=True))
     @patch('curtin.nvme_tcp.dracut_add_systemd_network_cmdline')
-    @patch('curtin.nvme_tcp.initramfs_tools_configure')
+    @patch('curtin.nvme_tcp.initramfs_tools_configure_no_firmware_support')
     @patch('curtin.nvme_tcp.need_network_in_initramfs', Mock())
     @patch('curtin.nvme_tcp.configure_nvme_stas')
     @patch('curtin.distro.install_packages')
@@ -2526,7 +2526,7 @@ class TestCurthooksNVMeOverTCP(CiTestCase):
     @patch('curtin.nvme_tcp.requires_firmware_support',
            Mock(return_value=False))
     @patch('curtin.nvme_tcp.dracut_add_systemd_network_cmdline')
-    @patch('curtin.nvme_tcp.initramfs_tools_configure')
+    @patch('curtin.nvme_tcp.initramfs_tools_configure_no_firmware_support')
     @patch('curtin.nvme_tcp.need_network_in_initramfs',
            Mock(return_value=True))
     @patch('curtin.nvme_tcp.configure_nvme_stas')
@@ -2547,7 +2547,7 @@ class TestCurthooksNVMeOverTCP(CiTestCase):
     @patch('curtin.nvme_tcp.requires_firmware_support',
            Mock(return_value=False))
     @patch('curtin.nvme_tcp.dracut_add_systemd_network_cmdline')
-    @patch('curtin.nvme_tcp.initramfs_tools_configure')
+    @patch('curtin.nvme_tcp.initramfs_tools_configure_no_firmware_support')
     @patch('curtin.nvme_tcp.need_network_in_initramfs',
            Mock(return_value=False))
     @patch('curtin.nvme_tcp.configure_nvme_stas')

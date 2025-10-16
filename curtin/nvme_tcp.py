@@ -229,7 +229,8 @@ def configure_nvme_stas(cfg, target: pathlib.Path) -> None:
     (stas_dir / 'stafd.conf').symlink_to('stafd-curtin.conf')
 
 
-def initramfs_tools_configure(cfg, target: pathlib.Path) -> None:
+def initramfs_tools_configure_no_firmware_support(
+        cfg, target: pathlib.Path) -> None:
     """Configure initramfs-tools for NVMe/TCP. This is a legacy approach where
     the network is hardcoded and nvme connect-all commands are manually
     crafted. However, this implementation does not require firmware support."""
