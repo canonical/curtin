@@ -229,12 +229,51 @@ def configure_nvme_stas(cfg, target: pathlib.Path) -> None:
     (stas_dir / 'stafd.conf').symlink_to('stafd-curtin.conf')
 
 
+def _deploy_shell_script(content: str, path: pathlib.Path) -> None:
+    full_content = f'''\
+#!/bin/sh
+
+# This file was created by curtin.
+# If you make modifications to it, please remember to regenerate the initramfs
+# using the command `update-initramfs -u`.
+
+{content}
+'''
+    path.write_text(full_content)
+    path.chmod(0o755)
+
+
+def _deploy_network_up_script(cfg, target: pathlib.Path) -> None:
+    curtin_nvme_over_tcp_dir = target / 'etc' / 'curtin-nvme-over-tcp'
+    curtin_nvme_over_tcp_dir.mkdir(parents=True, exist_ok=True)
+    network_up_script = curtin_nvme_over_tcp_dir / 'network-up'
+
+    network_up_content = '\n'.join(
+            [shlex.join(cmd) for cmd in get_ip_commands(cfg)])
+
+    _deploy_shell_script(network_up_content, network_up_script)
+
+
+def _deploy_connect_nvme_script(cfg, target: pathlib.Path) -> None:
+    curtin_nvme_over_tcp_dir = target / 'etc' / 'curtin-nvme-over-tcp'
+    curtin_nvme_over_tcp_dir.mkdir(parents=True, exist_ok=True)
+    connect_nvme_script = curtin_nvme_over_tcp_dir / 'connect-nvme'
+
+    connect_nvme_content = '\n'.join(
+            [shlex.join(cmd) for cmd in get_nvme_commands(cfg)])
+
+    _deploy_shell_script(connect_nvme_content, connect_nvme_script)
+
+
 def initramfs_tools_configure_no_firmware_support(
         cfg, target: pathlib.Path) -> None:
     """Configure initramfs-tools for NVMe/TCP. This is a legacy approach where
     the network is hardcoded and nvme connect-all commands are manually
     crafted. However, this implementation does not require firmware support."""
     LOG.info('configuring initramfs-tools for NVMe over TCP')
+
+    _deploy_network_up_script(cfg, target=target)
+    _deploy_connect_nvme_script(cfg, target=target)
 
     hook_contents = '''\
 #!/bin/sh
@@ -301,30 +340,6 @@ modprobe nvme-tcp
     with bootscript.open('w', encoding='utf-8') as fh:
         print(bootscript_contents, file=fh)
     bootscript.chmod(0o755)
-
-    curtin_nvme_over_tcp_dir = target / 'etc' / 'curtin-nvme-over-tcp'
-    curtin_nvme_over_tcp_dir.mkdir(parents=True, exist_ok=True)
-    network_up_script = curtin_nvme_over_tcp_dir / 'network-up'
-    connect_nvme_script = curtin_nvme_over_tcp_dir / 'connect-nvme'
-
-    script_header = '''\
-#!/bin/sh
-
-# This file was created by curtin.
-# If you make modifications to it, please remember to regenerate the initramfs
-# using the command `update-initramfs -u`.
-'''
-    with open(connect_nvme_script, 'w', encoding='utf-8') as fh:
-        print(script_header, file=fh)
-        for cmd in get_nvme_commands(cfg):
-            print(shlex.join(cmd), file=fh)
-    connect_nvme_script.chmod(0o755)
-
-    with open(network_up_script, 'w', encoding='utf-8') as fh:
-        print(script_header, file=fh)
-        for cmd in get_ip_commands(cfg):
-            print(shlex.join(cmd), file=fh)
-    network_up_script.chmod(0o755)
 
 
 class NetRuntimeError(RuntimeError):
