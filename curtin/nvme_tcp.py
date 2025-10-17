@@ -404,3 +404,26 @@ def dracut_adapt_netplan_config(cfg, *, target: pathlib.Path):
 
     if modified:
         netplan_conf_path.write_text(yaml.dump(config))
+
+
+def prevent_initramfs_tools_reinstallation(target: pathlib.Path) -> None:
+    '''Ensure that initramfs-tools does not get reinstalled over dracut, using
+    APT pinning.'''
+    # intel-microcode on 24.04 (pulled by linux-generic) is known to have
+    # initramfs-tools as a recommends. LP: #2073125
+    preferences_d = target / 'etc/apt/preferences.d'
+    preferences_d.mkdir(parents=True, exist_ok=True)
+    (preferences_d / 'nvmeotcp-poc-initramfs').write_text('''\
+# The NVMe/TCP proof of concept on Ubuntu uses dracut instead of
+# initramfs-tools.
+# That said, dracut is a universe package and is not the supported tool for
+# initramfs management. Installing packages that explicitly depend on
+# initramfs-tools will cause dracut to be removed, making the system unable to
+# boot. Furthermore, installing packages that have initramfs-tools as a
+# recommends can also trigger removal of dracut. Let's make sure
+# initramfs-tools does not get installed. See LP: #2073125.
+
+Package: initramfs-tools
+Pin: version *
+Pin-Priority: -1
+''')
