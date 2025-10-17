@@ -2509,7 +2509,7 @@ class TestCurthooksNVMeOverTCP(CiTestCase):
     @patch('curtin.nvme_tcp.need_network_in_initramfs', Mock())
     @patch('curtin.nvme_tcp.configure_nvme_stas')
     @patch('curtin.distro.install_packages')
-    def test_configure_nvme_over_tcp__dracut(
+    def test_configure_nvme_over_tcp__firmware_support(
             self, m_install_pkgs, m_config_stas, m_initramfs_tools_config,
             m_dracut_add_module):
 
@@ -2527,21 +2527,53 @@ class TestCurthooksNVMeOverTCP(CiTestCase):
            Mock(return_value=False))
     @patch('curtin.nvme_tcp.dracut_add_systemd_network_cmdline')
     @patch('curtin.nvme_tcp.initramfs_tools_configure_no_firmware_support')
+    @patch('curtin.nvme_tcp.dracut_configure_no_firmware_support')
     @patch('curtin.nvme_tcp.need_network_in_initramfs',
            Mock(return_value=True))
     @patch('curtin.nvme_tcp.configure_nvme_stas')
     @patch('curtin.distro.install_packages')
+    @patch('curtin.distro.get_installed_packages',
+           Mock(return_value={'foo', 'initramfs-tools'}))
     def test_configure_nvme_over_tcp__initramfs_tools(
-            self, m_install_pkgs, m_config_stas, m_initramfs_tools_config,
+            self, m_install_pkgs, m_config_stas,
+            m_dracut_config, m_initramfs_tools_config,
             m_dracut_add_module):
 
         curthooks.configure_nvme_over_tcp({}, Path('/tmp'))
 
         m_initramfs_tools_config.assert_called_once_with({}, Path('/tmp'))
+        m_dracut_config.assert_not_called()
 
         m_dracut_add_module.assert_not_called()
         m_config_stas.assert_not_called()
         m_install_pkgs.assert_not_called()
+
+    @patch('curtin.nvme_tcp.get_nvme_stas_controller_directives', Mock())
+    @patch('curtin.nvme_tcp.requires_firmware_support',
+           Mock(return_value=False))
+    @patch('curtin.nvme_tcp.dracut_add_systemd_network_cmdline')
+    @patch('curtin.nvme_tcp.initramfs_tools_configure_no_firmware_support')
+    @patch('curtin.nvme_tcp.dracut_configure_no_firmware_support')
+    @patch('curtin.nvme_tcp.need_network_in_initramfs',
+           Mock(return_value=True))
+    @patch('curtin.nvme_tcp.configure_nvme_stas')
+    @patch('curtin.distro.install_packages')
+    @patch('curtin.distro.get_installed_packages',
+           Mock(return_value={'foo', 'dracut'}))
+    def test_configure_nvme_over_tcp__dracut(
+            self, m_install_pkgs, m_config_stas,
+            m_dracut_config, m_initramfs_tools_config,
+            m_dracut_add_module):
+
+        curthooks.configure_nvme_over_tcp({}, Path('/tmp'))
+
+        m_initramfs_tools_config.assert_not_called()
+        m_dracut_config.assert_called_once_with({}, Path('/tmp'))
+
+        m_dracut_add_module.assert_not_called()
+        m_config_stas.assert_not_called()
+        m_install_pkgs.assert_called_once_with(
+                ['dracut-network'], target='/tmp')
 
     @patch('curtin.nvme_tcp.get_nvme_stas_controller_directives', Mock())
     @patch('curtin.nvme_tcp.requires_firmware_support',

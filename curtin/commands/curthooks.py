@@ -1681,7 +1681,16 @@ def configure_nvme_over_tcp(cfg, target: pathlib.Path) -> None:
 
         nvme_tcp.dracut_adapt_netplan_config(cfg, target=target)
     elif nvme_tcp.need_network_in_initramfs(cfg):
-        nvme_tcp.initramfs_tools_configure_no_firmware_support(cfg, target)
+        installed_packages = distro.get_installed_packages(str(target))
+        if 'initramfs-tools' in installed_packages:
+            nvme_tcp.initramfs_tools_configure_no_firmware_support(cfg, target)
+        elif 'dracut' in installed_packages:
+            distro.install_packages(['dracut-network'], target=str(target))
+            nvme_tcp.dracut_configure_no_firmware_support(cfg, target)
+            nvme_tcp.dracut_adapt_netplan_config(cfg, target=target)
+        else:
+            raise RuntimeError('cannot configure NVMe/TCP:'
+                               ' unknown initramfs generation tool')
     else:
         # Do not bother configuring the initramfs, everything will be done in
         # userspace.
