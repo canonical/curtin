@@ -318,11 +318,13 @@ modprobe nvme-tcp
         print(script_header, file=fh)
         for cmd in get_nvme_commands(cfg):
             print(shlex.join(cmd), file=fh)
+    connect_nvme_script.chmod(0o755)
 
     with open(network_up_script, 'w', encoding='utf-8') as fh:
         print(script_header, file=fh)
         for cmd in get_ip_commands(cfg):
             print(shlex.join(cmd), file=fh)
+    network_up_script.chmod(0o755)
 
 
 class NetRuntimeError(RuntimeError):
