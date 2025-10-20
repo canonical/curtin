@@ -1655,12 +1655,28 @@ def configure_mdadm(cfg, state_etcd, target, osfamily=DISTROS.debian):
 
 
 def configure_nvme_over_tcp(cfg, target: pathlib.Path) -> None:
-    """If any NVMe controller using the TCP transport is present in the storage
-    configuration, create a nvme-stas configuration and configure the initramfs
-    so that the remote drives can be made available at boot.
-    Please note that the NVMe over TCP support in curtin is experimental and in
-    active development. Currently, it only works with trivial network
-    configurations ; supplied by Subiquity."""
+    '''If any NVMe controller using the TCP transport is present in the storage
+    configuration, configure the target system in such a way that makes booting
+    possible. We have three different implementations which come with different
+    requirements and limitations:
+    1. an implementation that leans on firmware support which makes it possible
+    to boot with no local storage at all. This only works with dracut and leans
+    on the nvmf module.
+    2. one that does not require firmware support but can still be used if the
+    kernel and initramfs are located on local storage. This works with dracut
+    and initramfs-tools.
+    3. a user-space implementation (using nvme-stas) that only works if all
+    essential filesystems are located on remote storage.
+
+    Curtin will automatically pick the implementation based on what the storage
+    configuration looks like.
+    * If all the kernel and initramfs are located on remote storage, curtin
+      will pick implementation 1.
+    * If any essential filesystem is on remote storage but the kernel and
+      initramfs are on local storage, curtin will pick implementation 2.
+    * Otherwise, curtin will pick implementation 3.
+    '''
+
     controllers = nvme_tcp.get_nvme_stas_controller_directives(cfg)
 
     if not controllers:

@@ -266,6 +266,10 @@ def _deploy_connect_nvme_script(cfg, target: pathlib.Path) -> None:
 
 
 def dracut_configure_no_firmware_support(cfg, target: pathlib.Path) -> None:
+    '''Configure dracut for NVMe/TCP. This is a legacy approach where
+    nvme connect-all commands are manually crafted. Unlike the initramfs-tools
+    implementation, the network is configured using systemd-network.
+    This implementation does not require firmware support.'''
     LOG.info('configuring dracut for NVMe over TCP without firmware support')
 
     _deploy_connect_nvme_script(cfg, target=target)
@@ -499,14 +503,20 @@ def prevent_initramfs_tools_reinstallation(target: pathlib.Path) -> None:
     preferences_d = target / 'etc/apt/preferences.d'
     preferences_d.mkdir(parents=True, exist_ok=True)
     (preferences_d / 'nvmeotcp-poc-initramfs').write_text('''\
-# The NVMe/TCP proof of concept on Ubuntu uses dracut instead of
-# initramfs-tools.
-# That said, dracut is a universe package and is not the supported tool for
-# initramfs management. Installing packages that explicitly depend on
-# initramfs-tools will cause dracut to be removed, making the system unable to
-# boot. Furthermore, installing packages that have initramfs-tools as a
-# recommends can also trigger removal of dracut. Let's make sure
-# initramfs-tools does not get installed. See LP: #2073125.
+# To support NVMe/TCP on this system, we generate the initramfs using dracut
+# instead of initramfs-tools.
+# However, some packages in the Ubuntu archive explicitly depend on
+# initramfs-tools, and installing them would cause dracut to be removed, making
+# the system unbootable.
+# Additionally, even packages that *recommend* initramfs-tools can trigger
+# dracut's removal.
+# Note:
+#  * initramfs-tools was the only supported initramfs management package in
+#    Ubuntu until 25.10.
+#  * The older the Ubuntu release, the more packages tend
+#    to have hard dependencies or recommends on initramfs-tools.
+# Let's make sure initramfs does not get (re)installed.
+# See LP: #2073125.
 
 Package: initramfs-tools
 Pin: version *
