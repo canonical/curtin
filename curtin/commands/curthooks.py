@@ -1989,6 +1989,78 @@ def uses_grub(machine):
     return True
 
 
+def curthook_zfs_dkms(target: str):
+    # LP: #1742560 prevent zfs-dkms from being installed (Xenial)
+    if distro.lsb_release(target=target)['codename'] == 'xenial':
+        distro.apt_update(target=target)
+        with util.ChrootableTarget(target) as in_chroot:
+            in_chroot.subp(['apt-mark', 'hold', 'zfs-dkms'])
+
+
+def curthook_install_kernel(cfg: dict, target: str) -> None:
+    setup_zipl(cfg, target)
+    setup_kernel_img_conf(target)
+    install_kernel(cfg, target)
+    restore_dist_interfaces(cfg, target)
+    chzdev_persist_active_online(cfg, target)
+
+
+def curthook_cloudinit(cfg: dict, target: str, osfamily,
+                       *, stack_prefix) -> None:
+    # set cloud-init maas datasource
+    if cfg.get('cloudconfig'):
+        handle_cloudconfig(
+            cfg['cloudconfig'],
+            base_dir=paths.target_path(target,
+                                       'etc/cloud/cloud.cfg.d'))
+
+    if osfamily == DISTROS.redhat:
+        # For vmtests to force execute redhat_upgrade_cloud_init, uncomment
+        # the value in examples/tests/centos_defaults.yaml
+        if cfg.get('_ammend_centos_curthooks'):
+            with events.ReportEventStack(
+                    name=stack_prefix + '/upgrading cloud-init',
+                    reporting_enabled=True, level="INFO",
+                    description="Upgrading cloud-init in target"):
+                redhat_upgrade_cloud_init(cfg.get('network', {}), target)
+
+
+def curthook_zpool_cache(target: str) -> None:
+    # check for the zpool cache file and copy to target if present
+    zpool_cache = '/etc/zfs/zpool.cache'
+    if os.path.exists(zpool_cache):
+        copy_zpool_cache(zpool_cache, target)
+
+
+def curthook_zkey(target: str, osfamily, state) -> None:
+    zkey_repository = '/etc/zkey/repository'
+    zkey_used = os.path.join(os.path.split(state['fstab'])[0], "zkey_used")
+    if all(map(os.path.exists, [zkey_repository, zkey_used])):
+        distro.install_packages(['s390-tools-zkey'], target=target,
+                                osfamily=osfamily)
+        copy_zkey_repository(zkey_repository, target)
+
+
+def curthook_crypttab(target: str, state) -> None:
+    # If a crypttab file was created by block_meta than it needs to be
+    # copied onto the target system, and update_initramfs() needs to be
+    # run, so that the cryptsetup hooks are properly configured on the
+    # installed system and it will be able to open encrypted volumes
+    # at boot.
+    crypttab_location = os.path.join(os.path.split(state['fstab'])[0],
+                                     "crypttab")
+    if os.path.exists(crypttab_location):
+        copy_crypttab(crypttab_location, target)
+        update_initramfs(target)
+
+
+def curthook_dname_rules(target: str, state) -> None:
+    # If udev dname rules were created, copy them to target
+    udev_rules_d = os.path.join(state['scratch'], "rules.d")
+    if os.path.isdir(udev_rules_d):
+        copy_dname_rules(udev_rules_d, target)
+
+
 def builtin_curthooks(cfg: dict, target: str, state: dict):
     """Run the built-in curthooks
 
@@ -2017,11 +2089,7 @@ def builtin_curthooks(cfg: dict, target: str, state: dict):
             disable_overlayroot(cfg, target)
             disable_update_initramfs(cfg, target, machine)
 
-        # LP: #1742560 prevent zfs-dkms from being installed (Xenial)
-        if distro.lsb_release(target=target)['codename'] == 'xenial':
-            distro.apt_update(target=target)
-            with util.ChrootableTarget(target) as in_chroot:
-                in_chroot.subp(['apt-mark', 'hold', 'zfs-dkms'])
+        curthook_zfs_dkms(target)
 
     # packages may be needed prior to installing kernel
     with events.ReportEventStack(
@@ -2053,11 +2121,7 @@ def builtin_curthooks(cfg: dict, target: str, state: dict):
                 name=stack_prefix + '/installing-kernel',
                 reporting_enabled=True, level="INFO",
                 description="installing kernel"):
-            setup_zipl(cfg, target)
-            setup_kernel_img_conf(target)
-            install_kernel(cfg, target)
-            restore_dist_interfaces(cfg, target)
-            chzdev_persist_active_online(cfg, target)
+            curthook_install_kernel(cfg, target)
 
     with events.ReportEventStack(
             name=stack_prefix + '/setting-up-swap',
@@ -2066,22 +2130,7 @@ def builtin_curthooks(cfg: dict, target: str, state: dict):
         add_swap(cfg, target, state.get('fstab'))
 
     if osfamily in {DISTROS.debian, DISTROS.suse, DISTROS.redhat}:
-        # set cloud-init maas datasource
-        if cfg.get('cloudconfig'):
-            handle_cloudconfig(
-                cfg['cloudconfig'],
-                base_dir=paths.target_path(target,
-                                           'etc/cloud/cloud.cfg.d'))
-
-        if osfamily == DISTROS.redhat:
-            # For vmtests to force execute redhat_upgrade_cloud_init, uncomment
-            # the value in examples/tests/centos_defaults.yaml
-            if cfg.get('_ammend_centos_curthooks'):
-                with events.ReportEventStack(
-                        name=stack_prefix + '/upgrading cloud-init',
-                        reporting_enabled=True, level="INFO",
-                        description="Upgrading cloud-init in target"):
-                    redhat_upgrade_cloud_init(cfg.get('network', {}), target)
+        curthook_cloudinit(cfg, target, osfamily, stack_prefix=stack_prefix)
 
     with events.ReportEventStack(
             name=stack_prefix + '/apply-networking-config',
@@ -2121,33 +2170,11 @@ def builtin_curthooks(cfg: dict, target: str, state: dict):
         handle_pollinate_user_agent(cfg, target)
 
     if osfamily == DISTROS.debian:
-        # check for the zpool cache file and copy to target if present
-        zpool_cache = '/etc/zfs/zpool.cache'
-        if os.path.exists(zpool_cache):
-            copy_zpool_cache(zpool_cache, target)
+        curthook_zpool_cache(target)
+        curthook_zkey(target, osfamily, state)
+        curthook_crypttab(target, state)
 
-        zkey_repository = '/etc/zkey/repository'
-        zkey_used = os.path.join(os.path.split(state['fstab'])[0], "zkey_used")
-        if all(map(os.path.exists, [zkey_repository, zkey_used])):
-            distro.install_packages(['s390-tools-zkey'], target=target,
-                                    osfamily=osfamily)
-            copy_zkey_repository(zkey_repository, target)
-
-        # If a crypttab file was created by block_meta than it needs to be
-        # copied onto the target system, and update_initramfs() needs to be
-        # run, so that the cryptsetup hooks are properly configured on the
-        # installed system and it will be able to open encrypted volumes
-        # at boot.
-        crypttab_location = os.path.join(os.path.split(state['fstab'])[0],
-                                         "crypttab")
-        if os.path.exists(crypttab_location):
-            copy_crypttab(crypttab_location, target)
-            update_initramfs(target)
-
-    # If udev dname rules were created, copy them to target
-    udev_rules_d = os.path.join(state['scratch'], "rules.d")
-    if os.path.isdir(udev_rules_d):
-        copy_dname_rules(udev_rules_d, target)
+    curthook_dname_rules(target, state)
 
     # Setup kernel crash dumps
     with events.ReportEventStack(

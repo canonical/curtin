@@ -2916,6 +2916,130 @@ class TestDpkgReconfigure(CiTestCase):
         )
 
 
+@patch("curtin.commands.curthooks.setup_zipl")
+@patch("curtin.commands.curthooks.setup_kernel_img_conf")
+@patch("curtin.commands.curthooks.install_kernel")
+@patch("curtin.commands.curthooks.restore_dist_interfaces")
+@patch("curtin.commands.curthooks.chzdev_persist_active_online")
+class TestCurthookInstallKernel(CiTestCase):
+    def test_simple(
+            self, m_chzdev_persist_active_online, m_restore_dist_interfaces,
+            m_install_kernel, m_setup_kernel_img_conf, m_setup_zipl):
+        cfg = {}
+        target = "/tgt"
+
+        curthooks.curthook_install_kernel(cfg, target)
+
+        m_setup_zipl.assert_called_once_with({}, "/tgt")
+        m_setup_kernel_img_conf.assert_called_once_with("/tgt")
+        m_install_kernel.assert_called_once_with(cfg, "/tgt")
+        m_restore_dist_interfaces.assert_called_once_with(cfg, "/tgt")
+        m_chzdev_persist_active_online.assert_called_once_with(cfg, "/tgt")
+
+
+@patch("curtin.commands.curthooks.redhat_upgrade_cloud_init")
+@patch("curtin.commands.curthooks.handle_cloudconfig")
+class TestCurthookCloudinit(CiTestCase):
+    def test_no_cloudconfig(self, m_handle_cloudconfig, m_redhat_upgrade):
+        curthooks.curthook_cloudinit(
+                {}, "/tgt", distro.DISTROS.debian, stack_prefix="")
+        m_handle_cloudconfig.assert_not_called()
+        m_redhat_upgrade.assert_not_called()
+
+    def test_with_cloudconfig(self, m_handle_cloudconfig, m_redhat_upgrade):
+        curthooks.curthook_cloudinit(
+                {"cloudconfig": "<CLOUDCONFIG>"},
+                "/tgt", distro.DISTROS.debian, stack_prefix="")
+        m_handle_cloudconfig.assert_called_once_with(
+                "<CLOUDCONFIG>", base_dir="/tgt/etc/cloud/cloud.cfg.d")
+        m_redhat_upgrade.assert_not_called()
+
+    def test_redhat_no_ammend_centos(
+            self, m_handle_cloudconfig, m_redhat_upgrade):
+        curthooks.curthook_cloudinit(
+                {}, "/tgt", distro.DISTROS.redhat, stack_prefix="")
+        m_handle_cloudconfig.assert_not_called()
+        m_redhat_upgrade.assert_not_called()
+
+    def test_redhat_with_ammend_centos(
+            self, m_handle_cloudconfig, m_redhat_upgrade):
+        curthooks.curthook_cloudinit(
+                {"network": "<NETCONFIG>",
+                 "_ammend_centos_curthooks": True},
+                "/tgt", distro.DISTROS.redhat, stack_prefix="")
+        m_handle_cloudconfig.assert_not_called()
+        m_redhat_upgrade.assert_called_once_with("<NETCONFIG>", "/tgt")
+
+
+@patch("curtin.commands.curthooks.platform.machine",
+       Mock(return_value="amd64"))
+@patch("curtin.commands.curthooks.events.ReportEventStack",
+       Mock(return_value=contextlib.nullcontext()))
+@patch("curtin.commands.curthooks.distro.get_distroinfo")
+class TestBuiltinCurthooks(CiTestCase):
+    def test_ubuntu_noble(self, m_distroinfo):
+        prefix = "curtin.commands.curthooks."
+
+        cfg = {}
+        state = {"fstab": "/etc/fstab"}
+
+        expected = [
+            ("do_apt_config", call(cfg, "/tgt")),
+            ("disable_overlayroot", call(cfg, "/tgt")),
+            ("disable_update_initramfs", call(cfg, "/tgt", "amd64")),
+            ("curthook_zfs_dkms", call("/tgt")),
+            ("install_missing_packages",
+             call(cfg, "/tgt", osfamily=distro.DISTROS.debian)),
+            ("configure_iscsi",
+             call(cfg, "/etc", "/tgt", osfamily=distro.DISTROS.debian)),
+            ("configure_mdadm",
+             call(cfg, "/etc", "/tgt", osfamily=distro.DISTROS.debian)),
+            ("configure_nvme_over_tcp", call(cfg, Path("/tgt"))),
+            ("curthook_install_kernel", call(cfg, "/tgt")),
+            ("add_swap", call(cfg, "/tgt", "/etc/fstab")),
+            ("curthook_cloudinit",
+             call(cfg, "/tgt", distro.DISTROS.debian, stack_prefix="")),
+            ("apply_networking", call("/tgt", state)),
+            ("copy_fstab", call("/etc/fstab", "/tgt")),
+            ("detect_and_handle_multipath",
+             call(cfg, "/tgt", osfamily=distro.DISTROS.debian)),
+            ("system_upgrade",
+             call(cfg, "/tgt", osfamily=distro.DISTROS.debian)),
+            ("redhat_apply_selinux_autorelabel", None),
+            ("handle_pollinate_user_agent", call(cfg, "/tgt")),
+            ("curthook_zpool_cache", call("/tgt")),
+            ("curthook_zkey", call("/tgt", distro.DISTROS.debian, state)),
+            ("curthook_crypttab", call("/tgt", state)),
+            ("curthook_dname_rules", call("/tgt", state)),
+            ("configure_kernel_crash_dumps", call(cfg, Path("/tgt"))),
+            ("enable_update_initramfs", call(cfg, "/tgt", "amd64")),
+            ("reconfigure_kernel", call("/tgt")),
+            ("redhat_update_initramfs", None),
+            ("setup_boot",
+             call(cfg, "/tgt", "amd64", "",
+                  osfamily=distro.DISTROS.debian, variant="ubuntu")),
+            ("copy_cdrom", call("/cdrom", "/tgt")),
+        ]
+        m_distroinfo.return_value = distro.DistroInfo(
+                "ubuntu", distro.DISTROS.debian)
+
+        with contextlib.ExitStack() as stack:
+            cms = []
+            for name, m_call in expected:
+                symbol = f"{prefix}{name}"
+                cms.append((
+                    stack.enter_context(patch(symbol, autospec=True)),
+                    m_call))
+
+            curthooks.builtin_curthooks(cfg, "/tgt", state)
+
+        for m, m_call in cms:
+            if m_call is None:
+                m.assert_not_called()
+            else:
+                self.assertEqual(m.mock_calls, [m_call])
+
+
 @patch("curtin.commands.curthooks.util.run_hook_if_exists",
        return_value=False)
 @patch("curtin.commands.curthooks.distro.is_ubuntu_core",
