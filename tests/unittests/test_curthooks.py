@@ -1,8 +1,10 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
 
+import argparse
+import contextlib
 import os
 from pathlib import Path
-from unittest.mock import call, Mock, patch
+from unittest.mock import ANY, call, Mock, patch
 import textwrap
 from typing import Optional
 
@@ -2912,5 +2914,61 @@ class TestDpkgReconfigure(CiTestCase):
             target=self.target,
             env=fk_env,
         )
+
+
+@patch("curtin.commands.curthooks.util.run_hook_if_exists",
+       return_value=False)
+@patch("curtin.commands.curthooks.distro.is_ubuntu_core",
+       return_value=False)
+@patch("curtin.commands.curthooks.ubuntu_core_curthooks")
+@patch("curtin.commands.curthooks.builtin_curthooks")
+@patch("curtin.commands.curthooks.util.EFIVarFSBug", Mock())
+@patch("curtin.commands.curthooks.events.ReportEventStack",
+       Mock(return_value=contextlib.nullcontext()))
+class TestCurthooks(CiTestCase):
+    def test_ubuntu(
+            self, m_builtin_curthooks, m_uc_curthooks, m_is_uc, m_run_hookk):
+        with self.assertRaises(SystemExit) as m_exit:
+            curthooks.curthooks(
+                    argparse.Namespace(target="/target", config={}))
+        self.assertEqual(0, m_exit.exception.code)
+        m_builtin_curthooks.assert_called_once_with({}, "/target", ANY)
+        m_uc_curthooks.assert_not_called()
+
+    def test_ubuntu_core(
+            self, m_builtin_curthooks, m_uc_curthooks, m_is_uc, m_run_hook):
+        m_is_uc.return_value = True
+        with self.assertRaises(SystemExit) as m_exit:
+            curthooks.curthooks(
+                    argparse.Namespace(target="/target", config={}))
+        self.assertEqual(0, m_exit.exception.code)
+        m_builtin_curthooks.assert_not_called()
+        m_uc_curthooks.assert_called_once_with({}, "/target")
+
+    def test_no_target(
+            self, m_builtin_curthooks, m_uc_curthooks, m_is_uc, m_run_hook):
+        with self.assertRaises(SystemExit) as m_exit:
+            curthooks.curthooks(argparse.Namespace(target=None, config={}))
+        self.assertEqual(2, m_exit.exception.code)
+
+    def test_existing_curtin_hooks(
+            self, m_builtin_curthooks, m_uc_curthooks, m_is_uc, m_run_hook):
+        m_run_hook.return_value = True
+        with self.assertRaises(SystemExit) as m_exit:
+            curthooks.curthooks(
+                    argparse.Namespace(target="/target", config={}))
+        self.assertEqual(0, m_exit.exception.code)
+        m_builtin_curthooks.assert_not_called()
+        m_uc_curthooks.assert_not_called()
+
+        m_run_hook.reset_mock()
+        # If we explicitly ask for builtin curthooks...
+        with self.assertRaises(SystemExit) as m_exit:
+            curthooks.curthooks(argparse.Namespace(
+                target="/target",
+                config={"curthooks": {"mode": "builtin"}}))
+        m_run_hook.assert_not_called()
+        m_builtin_curthooks.assert_called()
+
 
 # vi: ts=4 expandtab syntax=python
