@@ -6,6 +6,7 @@ import errno
 import fcntl
 import os
 import stat
+import subprocess
 from textwrap import dedent
 
 from curtin import util
@@ -229,6 +230,22 @@ class TestSubp(CiTestCase):
         (out, err) = util.subp(self.stdin2out, data=b'')
         self.assertEqual(err, None)
         self.assertEqual(out, None)
+
+    def test_pipeline(self):
+        ps1 = subprocess.Popen(["echo", "-n", "hello"], stdout=subprocess.PIPE)
+
+        (out, err) = util.subp(
+            self.stdin2out, stdin=ps1.stdout, capture=True, decode="strict")
+
+        ps1.communicate()
+
+        self.assertEqual("hello", out)
+        self.assertEqual("", err)
+
+    def test_stdin_and_data(self):
+        with self.assertRaisesRegex(ValueError, r"mutually exclusive"):
+            (out, err) = util.subp(
+                self.stdin2out, data=b"hello", stdin=mock.Mock())
 
     def _subp_wrap_popen(self, cmd, kwargs,
                          stdout=b'', stderr=b'', returncodes=None):

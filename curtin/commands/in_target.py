@@ -49,7 +49,7 @@ def in_target_main(args):
         exit = 0
         if not args.interactive:
             try:
-                chroot.subp(cmd, capture=args.capture)
+                chroot.subp(cmd, capture=args.capture, stdin=sys.stdin)
             except util.ProcessExecutionError as e:
                 exit = e.exit_code
         else:
