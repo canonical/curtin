@@ -71,7 +71,7 @@ class NotExclusiveError(OSError):
     EBUSY '''
 
 
-def _subp(args, data=None, rcs=None, env=None, capture=False,
+def _subp(args, data=None, stdin=None, rcs=None, env=None, capture=False,
           combine_capture=False, shell=False, logstring=False,
           decode="replace", target=None, cwd=None, log_captured=False,
           unshare_pid=None,
@@ -124,7 +124,6 @@ def _subp(args, data=None, rcs=None, env=None, capture=False,
         LOG.debug(("Running hidden command to protect sensitive "
                    "input/output logstring: %s"), logstring)
     try:
-        stdin = None
         stdout = None
         stderr = None
         if capture:
@@ -133,11 +132,15 @@ def _subp(args, data=None, rcs=None, env=None, capture=False,
         if combine_capture:
             stdout = subprocess.PIPE
             stderr = subprocess.STDOUT
-        if data is None:
+        if stdin is not None and data is not None:
+            raise ValueError("data and stdin are mutually exclusive")
+        elif stdin is not None:
+            pass
+        elif data is not None:
+            stdin = subprocess.PIPE
+        else:
             devnull_fp = open(os.devnull)
             stdin = devnull_fp
-        else:
-            stdin = subprocess.PIPE
         sp = subprocess.Popen(args, stdout=stdout,
                               stderr=stderr, stdin=stdin,
                               env=env, shell=False, cwd=cwd)
@@ -247,7 +250,12 @@ def subp(*args, **kwargs):
     """Run a subprocess.
 
     :param args: command to run in a list. [cmd, arg1, arg2...]
-    :param data: input to the command, made available on its stdin.
+    :param data:
+        input to the command, made available on the executed program's standard
+        input (mutually exclusive with the 'stdin' parameter).
+    :param stdin:
+        a file-like object specifying the executed program's standard
+        input (mutually exclusive with the 'data' parameter).
     :param rcs:
         a list of allowed return codes.  If subprocess exits with a value not
         in this list, a ProcessExecutionError will be raised.  By default,
