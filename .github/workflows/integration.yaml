@@ -1,0 +1,24 @@
+name: Integration
+
+on:
+ - pull_request
+ - push
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  vm-tests:
+    runs-on: ubuntu-24.04
+    steps:
+    - uses: actions/checkout@v4
+    - name: run
+      run: |
+        sudo apt-get install -y make tox libapt-pkg-dev
+        sudo mkdir -p /srv/images
+        sudo ./tools/vmtest-system-setup
+        sudo ./tools/vmtest-sync-images focal jammy
+        sudo ./tools/jenkins-runner --skip-images-dirlock -p 4 \
+          tests/vmtests/test_basic.py:FocalTestBasic \
+          tests/vmtests/test_basic.py:JammyTestBasic
