@@ -1456,4 +1456,51 @@ class TestFlockEx(CiTestCase):
             fcntl.flock(fp, fcntl.LOCK_UN)
 
 
+class TestLoadShellContent(CiTestCase):
+
+    def test_load_os_release_ubuntu_os_release_sample(self):
+        # Regression test for LP#2137175: ensure comment lines
+        # are ignored.
+        content = '''
+NAME="Ubuntu"
+ID=ubuntu
+# Comment Line 1
+ID_LIKE="debian"
+ # Comment Line 2 with space
+VERSION_ID="26.04"
+'''
+        data = util.load_os_release(content)
+
+        self.assertEqual(
+            data,
+            {
+                "NAME": "Ubuntu",
+                "ID": "ubuntu",
+                "ID_LIKE": "debian",
+                "VERSION_ID": "26.04",
+            }
+        )
+
+    def test_load_os_release_ignores_non_assignments(self):
+        # Regression test for LP#2137175: ensure non KEY=VALUE lines
+        # do not raise ValueError and are ignored.
+        content = '''
+NAME="Ubuntu"
+ID=ubuntu
+NOT_AN_ASSIGNMENT
+ID_LIKE="debian"
+VERSION_ID="26.04"
+'''
+        data = util.load_os_release(content)
+
+        self.assertEqual(
+            data,
+            {
+                "NAME": "Ubuntu",
+                "ID": "ubuntu",
+                "ID_LIKE": "debian",
+                "VERSION_ID": "26.04",
+            }
+        )
+
 # vi: ts=4 expandtab syntax=python
