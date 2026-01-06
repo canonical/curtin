@@ -21,6 +21,8 @@ from typing import Dict, List, Optional
 
 import attr
 
+from curtin.vendor.cpython.platform import parse_os_release
+
 # avoid the dependency to python3-six as used in cloud-init
 try:
     from urlparse import urlparse
@@ -1408,6 +1410,13 @@ def load_shell_content(content, add_empty=False, empty_val=None):
             data[key] = value
 
     return data
+
+
+def load_os_release(content):
+    """Read an os-release file in the freedesktop expected format.  Somewhat
+       similar to what load_shell_content() supports but has additional
+       expectations like comments handling and escaped characters."""
+    return parse_os_release(content.splitlines())
 
 
 def uses_systemd():

@@ -10,7 +10,7 @@ from .paths import target_path
 from .util import (
     ChrootableTarget,
     load_file,
-    load_shell_content,
+    load_os_release,
     ProcessExecutionError,
     set_unexecutable,
     string_types,
@@ -74,8 +74,7 @@ def os_release(target=None):
     data = {}
     os_release = target_path(target, 'etc/os-release')
     if os.path.exists(os_release):
-        data = load_shell_content(load_file(os_release),
-                                  add_empty=False, empty_val=None)
+        data = load_os_release(load_file(os_release))
     if not data:
         for relfile in [target_path(target, rel) for rel in
                         ['etc/centos-release', 'etc/redhat-release']]:
