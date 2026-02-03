@@ -375,10 +375,20 @@ class TestEnableDisableUpdateInitramfs(CiTestCase):
         tools = [self.update_initramfs, self.zipl]
         self._test_disable_on_machine(machine, tools)
 
-    def test_disable_on_arm_masks_flash_kernel(self):
-        machine = 'aarch64'
+    def test_disable_on_arm_masks_flash_kernel_if_focal(self):
+        self.add_patch(
+            'curtin.distro.os_release',
+            return_value={"UBUNTU_CODENAME": "focal"},
+        )
         tools = [self.update_initramfs, self.flash_kernel]
-        self._test_disable_on_machine(machine, tools)
+        self._test_disable_on_machine('aarch64', tools)
+
+    def test_disable_on_arm_masks_only_update_initramfs_beyond_focal(self):
+        self.add_patch(
+            'curtin.distro.os_release',
+            return_value={"UBUNTU_CODENAME": "jammy"},
+        )
+        self._test_disable_on_machine('aarch64', [self.update_initramfs])
 
 
 class TestUpdateInitramfs(CiTestCase):
