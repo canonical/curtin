@@ -3,5 +3,7 @@ and unceremonious.
 
 Its goal is to install an operating system as quick as possible.
 
-The canonical location of the source code is https://code.launchpad.net/curtin
-- the github mirror is not currently monitored.
+The canonical location of the source code is at
+https://github.com/canonical/curtin
+- the launchpad mirror should not have new merge proposal opened, and exising
+  launchpad merge proposals will be manually merged or closed.
