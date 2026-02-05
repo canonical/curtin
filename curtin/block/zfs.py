@@ -157,10 +157,11 @@ class ZPoolEncryption:
             cmd = ["zfs", "set", keylocation, self.poolname]
             util.subp(cmd, capture=True)
 
-        # The keystore crypsetup device needs to be closed so we can (at the
-        # end of the install) allow the zpool to complete the export step.
-        # Once we have moved the key over we can close the keystore.
-        util.subp(["cryptsetup", "close", dmpath], capture=True)
+        # LP: #2140415
+        # We used to `cryptsetup close dmpath` here.
+        # This is a problem for recent dracut, which needs to see a crypto_LUKS
+        # device during the install in order for the needed tools to end up in
+        # the initrd.
 
 
 def _join_flags(optflag, params):
