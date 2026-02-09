@@ -831,6 +831,54 @@ class TestInstallMissingPkgs(CiTestCase):
         self.assertEqual(expected_pkgs, sorted(mock_call.args[0]))
 
 
+class TestSetupDracut(CiTestCase):
+    def setUp(self):
+        self.target = self.tmp_dir()
+        self.conf_d = Path(self.target) / "etc/dracut.conf.d"
+        self.pool_name = self.random_string()
+        self.cfg = {
+            'storage': {
+                'version': 1,
+                'config': [{
+                    'id': 'test_pool',
+                    'encryption_style': 'luks_keystore',
+                    'type': 'zpool',
+                    'pool': self.pool_name,
+                }]
+            },
+        }
+        self.storage_cfg = extract_storage_ordered_dict(self.cfg)
+
+    def test_create_zvol_dropin(self):
+        self.conf_d.mkdir(parents=True)
+        curthooks.curthook_dracut_zvol(self.target, self.storage_cfg)
+
+        conf = self.conf_d / f"keystore-{self.pool_name}.conf"
+        for line in conf.read_text().splitlines():
+            if line == f'add_device+=" /dev/zvol/{self.pool_name}/keystore "':
+                return
+
+        self.fail(f"expected add_device directive in {conf} not found")
+
+    def test_create_zvol_no_dropin(self):
+        # not a dracut system
+        with patch('curtin.commands.curthooks.Path.exists') as m_exists:
+            m_exists.return_value = False
+            curthooks.curthook_dracut_zvol(self.target, self.storage_cfg)
+
+        conf = self.conf_d / f"keystore-{self.pool_name}.conf"
+        self.assertFalse(conf.exists())
+
+    def test_no_keystore(self):
+        self.cfg["storage"]["config"][0]["encryption_style"] = None
+        with patch('curtin.commands.curthooks.Path.exists') as m_exists:
+            m_exists.return_value = True
+            curthooks.curthook_dracut_zvol(self.target, self.storage_cfg)
+
+        conf = self.conf_d / f"keystore-{self.pool_name}.conf"
+        self.assertFalse(conf.exists())
+
+
 class TestSetupZipl(CiTestCase):
 
     def setUp(self):
@@ -2971,6 +3019,8 @@ class TestCurthookCloudinit(CiTestCase):
         m_redhat_upgrade.assert_called_once_with("<NETCONFIG>", "/tgt")
 
 
+@patch("curtin.commands.curthooks.extract_storage_ordered_dict",
+       Mock())
 @patch("curtin.commands.curthooks.platform.machine",
        Mock(return_value="amd64"))
 @patch("curtin.commands.curthooks.events.ReportEventStack",

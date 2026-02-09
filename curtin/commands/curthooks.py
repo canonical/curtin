@@ -10,6 +10,7 @@ import re
 import sys
 import shutil
 import textwrap
+from pathlib import Path
 from typing import List, Tuple
 
 from curtin import config
@@ -2032,6 +2033,38 @@ def curthook_zpool_cache(target: str) -> None:
         copy_zpool_cache(zpool_cache, target)
 
 
+def curthook_dracut_zvol(target: str, storage_cfg: dict) -> None:
+    """
+    add a dracut drop-in file informing it of additional devices to consider,
+    if needed. ensures that cryptsetup is included in the initrd.
+    """
+
+    conf_d = Path(target) / "etc/dracut.conf.d"
+    if not conf_d.exists():
+        # not a dracut system seemingly
+        return
+
+    criteria = dict(type="zpool", encryption_style="luks_keystore")
+    for pool in select_configs(storage_cfg, **criteria):
+        pool_name = pool["pool"]
+        filename = conf_d / f"keystore-{pool_name}.conf"
+
+        # LP: #2140415
+        # let dracut know about the keystore zvol, else we fail to decrypt on
+        # first boot. note on dracut syntax - the extra spaces before / after
+        # the device path are not optional!
+        keystore_volume = f"/dev/zvol/{pool_name}/keystore"
+        content = f"""
+# written by curtin
+# This config ensures that the encrypted pool keystore zvol is inspected by
+# dracut, necessary so that cryptsetup and similar are present in the initrd so
+# that decryption actually takes place.
+add_device+=" {keystore_volume} "
+"""
+
+        util.write_file(filename, content)
+
+
 def curthook_zkey(target: str, osfamily, state) -> None:
     zkey_repository = '/etc/zkey/repository'
     zkey_used = os.path.join(os.path.split(state['fstab'])[0], "zkey_used")
@@ -2171,6 +2204,7 @@ def builtin_curthooks(cfg: dict, target: str, state: dict):
 
     if osfamily == DISTROS.debian:
         curthook_zpool_cache(target)
+        curthook_dracut_zvol(target, extract_storage_ordered_dict(cfg))
         curthook_zkey(target, osfamily, state)
         curthook_crypttab(target, state)
 
