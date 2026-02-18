@@ -41,6 +41,12 @@ class TestBlockLvm(CiTestCase):
                                            query_name, 'bad_match_val')
         self.assertEqual(len(result_list), 0)
 
+    def test_get_pvols_in_volgroup__missing_pv(self):
+        with mock.patch('curtin.block.lvm._filter_lvm_info',
+                        return_value=['/dev/sda', '[unknown]', '/dev/sdb']):
+            self.assertEqual(['/dev/sda', '/dev/sdb'],
+                             lvm.get_pvols_in_volgroup('ubuntu-vg'))
+
     @mock.patch('curtin.block.lvm._filter_lvm_info')
     def test_get_lvm_info(self, mock_filter_lvm_info):
         """
