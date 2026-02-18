@@ -7,46 +7,74 @@ This module provides some helper functions for manipulating lvm devices
 from curtin import distro
 from curtin import util
 from curtin.log import LOG
+import json
 import os
 
-# separator to use for lvm/dm tools
+# separator to use for dm tool
 _SEP = '='
 
 
-def _filter_lvm_info(lvtool, match_field, query_field, match_key, args=None):
-    """
-    filter output of pv/vg/lvdisplay tools
-    """
-    if args is None:
-        args = []
-    (out, _) = util.subp([lvtool, '-C', '--separator', _SEP, '--noheadings',
-                          '-o', ','.join([match_field, query_field])] + args,
-                         capture=True)
-    return [qf for (mf, qf) in
-            [line.strip().split(_SEP) for line in out.strip().splitlines()]
-            if mf == match_key]
+def _query_lvmreport(tool, fields=(), filters=None,
+                     *, report_subtype, reportidx):
+    cmd = [tool, '--reportformat=json', "--units=B"]
+
+    if not filters:
+        filters = {}
+
+    # lvmreport supports filters using the --select option, but the syntax
+    # requires careful escaping which is challenging to do. Let's do the
+    # filtering ourselves. This means we need to include the key of the filter
+    # in the list of fields though.
+    orig_fields = set(fields)
+    fields = set(fields).union(filters.keys())
+
+    if fields:
+        cmd.extend(["--options", ",".join(sorted(fields))])
+
+    (out, _) = util.subp(cmd, capture=True)
+    ret = []
+    for entry in json.loads(out)["report"][reportidx][report_subtype]:
+        for key, val in filters.items():
+            if entry[key] != val:
+                break
+        else:
+            # Here we only keep the fields that were requested, not the ones
+            # that were added because of filtering.
+            ret.append({k: v for k, v in entry.items() if k in orig_fields})
+    return ret
+
+
+def _query_pvs(fields=(), filters=None):
+    return _query_lvmreport("pvs", fields=fields, filters=filters,
+                            report_subtype="pv", reportidx=0)
+
+
+def _query_lvs(fields=(), filters=None):
+    return _query_lvmreport("lvs", fields=fields, filters=filters,
+                            report_subtype="lv", reportidx=0)
 
 
 def get_pvols_in_volgroup(vg_name):
     """
     get physical volumes used by volgroup
     """
-    return _filter_lvm_info('pvdisplay', 'vg_name', 'pv_name', vg_name)
+    results = _query_pvs(fields=["pv_name"], filters={"vg_name": vg_name})
+    return [pv["pv_name"] for pv in results]
 
 
 def get_lvols_in_volgroup(vg_name):
     """
     get logical volumes in volgroup
     """
-    return _filter_lvm_info('lvdisplay', 'vg_name', 'lv_name', vg_name)
+    results = _query_lvs(fields=['lv_name'], filters={'vg_name': vg_name})
+    return [lv["lv_name"] for lv in results]
 
 
 def get_lv_size_bytes(lv_name):
     """ get the size in bytes of a logical volume specified by lv_name."""
-    result = _filter_lvm_info('lvdisplay', 'lv_name', 'lv_size', lv_name,
-                              args=['--units=B'])
+    result = _query_lvs(fields=["lv_size"], filters={"lv_name": lv_name})
     if result:
-        return util.human2bytes(result[0])
+        return util.human2bytes(result[0]["lv_size"])
 
 
 def split_lvm_name(full):
