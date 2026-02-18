@@ -56,9 +56,10 @@ def _query_lvs(fields=(), filters=None):
 
 def get_pvols_in_volgroup(vg_name):
     """
-    get physical volumes used by volgroup
+    get physical volumes used by volgroup (excluding missing ones)
     """
-    results = _query_pvs(fields=["pv_name"], filters={"vg_name": vg_name})
+    filters = {"vg_name": vg_name, "pv_missing": ""}
+    results = _query_pvs(fields=["pv_name"], filters=filters)
     return [pv["pv_name"] for pv in results]
 
 

@@ -57,7 +57,7 @@ class TestBlockLvm(CiTestCase):
         mock_query_lvm_report.assert_called_with(
             'pvs',
             fields=['pv_name'],
-            filters={'vg_name': self.vg_name},
+            filters={'vg_name': self.vg_name, "pv_missing": ""},
             report_subtype='pv', reportidx=0)
         lvm.get_lvols_in_volgroup(self.vg_name)
         mock_query_lvm_report.assert_called_with(
