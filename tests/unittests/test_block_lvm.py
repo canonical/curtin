@@ -10,49 +10,60 @@ class TestBlockLvm(CiTestCase):
     vg_name = 'ubuntu-volgroup'
 
     @mock.patch('curtin.block.lvm.util')
-    def test_filter_lvm_info(self, mock_util):
+    def test_query_lvmreport(self, mock_util):
         """make sure lvm._filter_lvm_info filters properly"""
         match_name = "vg_name"
-        query_results = ["lv_1", "lv_2"]
-        lvtool_name = 'lvscan'
-        query_name = 'lv_name'
-        # NOTE: i didn't use textwrap.dedent here on purpose, want to make sure
-        #       that the function can handle leading spaces as some of the
-        #       tools have spaces before the fist column in their output
+        query_results = [{"lv_name": "lv_1"}, {"lv_name": "lv_2"}]
+        lvtool_name = 'lvs'
+        fields = ['lv_name']
         mock_util.subp.return_value = (
             """
-            matchfield_bad1{sep}qfield1
-            {matchfield_good}{sep}{query_good1}
-            matchfield_bad2{sep}qfield2
-            {matchfield_good}{sep}{query_good2}
-            """.format(matchfield_good=self.vg_name,
-                       query_good1=query_results[0],
-                       query_good2=query_results[1],
-                       sep=lvm._SEP), "")
-        result_list = lvm._filter_lvm_info(lvtool_name, match_name,
-                                           query_name, self.vg_name)
+            {
+                "report": [
+                    {
+                        "lv": [
+                            {"lv_name": "lv_1", "vg_name": "ubuntu-volgroup"},
+                            {"lv_name": "lv_2", "vg_name": "ubuntu-volgroup"},
+                            {"lv_name": "lv_3", "vg_name": "ubuntu-vg-2"},
+                            {"lv_name": "lv_4", "vg_name": "ubuntu-vg-2"}
+                        ]
+                    }
+                ]
+            }
+            """, "")
+        result_list = lvm._query_lvmreport(
+                lvtool_name, filters={match_name: self.vg_name}, fields=fields,
+                report_subtype="lv", reportidx=0)
         self.assertEqual(len(result_list), 2)
         mock_util.subp.assert_called_with(
-            [lvtool_name, '-C', '--separator', lvm._SEP, '--noheadings', '-o',
-             '{},{}'.format(match_name, query_name)], capture=True)
+            [
+                lvtool_name, '--reportformat=json', '--units=B',
+                "--options", "lv_name,vg_name",
+            ], capture=True)
         self.assertEqual(result_list, query_results)
-        # make sure _filter_lvm_info can fail gracefully if no match
-        result_list = lvm._filter_lvm_info(lvtool_name, match_name,
-                                           query_name, 'bad_match_val')
+        # make sure _query_lvmreport can fail gracefully if no match
+        result_list = lvm._query_lvmreport(
+                lvtool_name, filters={match_name: 'inexistent'}, fields=fields,
+                report_subtype="lv", reportidx=0)
         self.assertEqual(len(result_list), 0)
 
-    @mock.patch('curtin.block.lvm._filter_lvm_info')
-    def test_get_lvm_info(self, mock_filter_lvm_info):
+    @mock.patch('curtin.block.lvm._query_lvmreport')
+    def test_get_lvm_info(self, mock_query_lvm_report):
         """
         make sure that the get lvm info functions make the right calls to
         lvm._filter_lvm_info
         """
         lvm.get_pvols_in_volgroup(self.vg_name)
-        mock_filter_lvm_info.assert_called_with(
-            'pvdisplay', 'vg_name', 'pv_name', self.vg_name)
+        mock_query_lvm_report.assert_called_with(
+            'pvs',
+            fields=['pv_name'],
+            filters={'vg_name': self.vg_name, "pv_missing": ""},
+            report_subtype='pv', reportidx=0)
         lvm.get_lvols_in_volgroup(self.vg_name)
-        mock_filter_lvm_info.assert_called_with(
-            'lvdisplay', 'vg_name', 'lv_name', self.vg_name)
+        mock_query_lvm_report.assert_called_with(
+            'lvs', fields=['lv_name'],
+            filters={'vg_name': self.vg_name},
+            report_subtype='lv', reportidx=0)
 
     @mock.patch('curtin.block.lvm.util')
     def test_split_lvm_name(self, mock_util):
