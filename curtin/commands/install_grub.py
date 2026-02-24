@@ -358,7 +358,7 @@ def gen_install_commands(grub_name, grub_cmd, distroinfo, devices,
     elif distroinfo.family == distro.DISTROS.suse:
         post_cmds.append(['grub2-mkconfig', '-o', '/boot/grub2/grub.cfg'])
     elif distroinfo.family == distro.DISTROS.redhat:
-        if rhel_ver in ["7", "8", "9"]:
+        if rhel_ver in ["7", "8", "9", "10"]:
             post_cmds.append(
                 ['grub2-mkconfig', '-o', '/boot/grub2/grub.cfg'])
         else:
