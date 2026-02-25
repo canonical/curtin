@@ -1,4 +1,3 @@
-from distutils.core import setup
 from glob import glob
 import os
 import sys
@@ -22,28 +21,35 @@ def in_virtualenv():
 
 USR = "usr" if in_virtualenv() else "/usr"
 
-setup(
-    name="curtin",
-    description='The curtin installer',
-    version=curtin.__version__,
-    author='Scott Moser',
-    author_email='scott.moser@canonical.com',
-    license="AGPL",
-    url='http://launchpad.net/curtin/',
-    packages=[
-        'curtin',
-        'curtin.block',
-        'curtin.deps',
-        'curtin.commands',
-        'curtin.net',
-        'curtin.reporter',
-        'curtin.reporter.legacy',
-    ],
-    scripts=glob('bin/*'),
-    data_files=[
-        (USR + '/share/doc/curtin',
-         [f for f in glob('doc/*') if is_f(f)]),
-        (USR + '/lib/curtin/helpers',
-         [f for f in glob('helpers/*') if is_f(f)])
-    ]
-)
+packages=[
+    'curtin',
+    'curtin.block',
+    'curtin.deps',
+    'curtin.commands',
+    'curtin.net',
+    'curtin.reporter',
+    'curtin.reporter.legacy',
+    'curtin.vendor',
+    'curtin.vendor.cpython',
+]
+
+if __name__ == "__main__":
+    from distutils.core import setup
+
+    setup(
+        name="curtin",
+        description='The curtin installer',
+        version=curtin.__version__,
+        author='Scott Moser',
+        author_email='scott.moser@canonical.com',
+        license="AGPL",
+        url='http://launchpad.net/curtin/',
+        packages=packages,
+        scripts=glob('bin/*'),
+        data_files=[
+            (USR + '/share/doc/curtin',
+             [f for f in glob('doc/*') if is_f(f)]),
+            (USR + '/lib/curtin/helpers',
+             [f for f in glob('helpers/*') if is_f(f)])
+        ]
+    )
