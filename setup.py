@@ -3,6 +3,8 @@ from glob import glob
 import os
 import sys
 
+import setuptools
+
 import curtin
 
 
@@ -30,15 +32,7 @@ setup(
     author_email='scott.moser@canonical.com',
     license="AGPL",
     url='http://launchpad.net/curtin/',
-    packages=[
-        'curtin',
-        'curtin.block',
-        'curtin.deps',
-        'curtin.commands',
-        'curtin.net',
-        'curtin.reporter',
-        'curtin.reporter.legacy',
-    ],
+    packages=setuptools.find_packages('.', include=['curtin', 'curtin.*']),
     scripts=glob('bin/*'),
     data_files=[
         (USR + '/share/doc/curtin',
