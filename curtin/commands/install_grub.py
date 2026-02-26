@@ -85,7 +85,7 @@ def get_grub_package_name(target_arch, uefi, rhel_ver=None, osfamily=None):
             if target_arch == 'x86_64':
                 if rhel_ver == '6':
                     grub_name = 'grub'
-                elif rhel_ver in ['7', '8', '9', '10']:
+                elif int(rhel_ver) > 6:
                     grub_name = 'grub2-pc'
                 else:
                     raise ValueError('Unsupported RHEL version: %s', rhel_ver)
@@ -358,7 +358,7 @@ def gen_install_commands(grub_name, grub_cmd, distroinfo, devices,
     elif distroinfo.family == distro.DISTROS.suse:
         post_cmds.append(['grub2-mkconfig', '-o', '/boot/grub2/grub.cfg'])
     elif distroinfo.family == distro.DISTROS.redhat:
-        if rhel_ver in ["7", "8", "9"]:
+        if int(rhel_ver) > 6:
             post_cmds.append(
                 ['grub2-mkconfig', '-o', '/boot/grub2/grub.cfg'])
         else:
