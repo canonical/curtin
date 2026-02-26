@@ -1,4 +1,3 @@
-from distutils.core import setup
 from glob import glob
 import os
 import sys
@@ -24,7 +23,7 @@ def in_virtualenv():
 
 USR = "usr" if in_virtualenv() else "/usr"
 
-setup(
+setuptools.setup(
     name="curtin",
     description='The curtin installer',
     version=curtin.__version__,
