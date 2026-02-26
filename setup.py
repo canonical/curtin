@@ -1,7 +1,8 @@
-from distutils.core import setup
 from glob import glob
 import os
 import sys
+
+import setuptools
 
 import curtin
 
@@ -22,7 +23,7 @@ def in_virtualenv():
 
 USR = "usr" if in_virtualenv() else "/usr"
 
-setup(
+setuptools.setup(
     name="curtin",
     description='The curtin installer',
     version=curtin.__version__,
@@ -30,15 +31,7 @@ setup(
     author_email='scott.moser@canonical.com',
     license="AGPL",
     url='http://launchpad.net/curtin/',
-    packages=[
-        'curtin',
-        'curtin.block',
-        'curtin.deps',
-        'curtin.commands',
-        'curtin.net',
-        'curtin.reporter',
-        'curtin.reporter.legacy',
-    ],
+    packages=setuptools.find_packages('.', include=['curtin', 'curtin.*']),
     scripts=glob('bin/*'),
     data_files=[
         (USR + '/share/doc/curtin',
