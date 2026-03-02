@@ -67,7 +67,6 @@ def lsb_release(target=None):
         # do not use or update cache if target is provided
         return _lsb_release(target)
 
-    global _LSB_RELEASE
     if not _LSB_RELEASE:
         data = _lsb_release()
         _LSB_RELEASE.update(data)

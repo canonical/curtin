@@ -1,7 +1,5 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
 
-import imp
-import importlib
 import logging
 import mock
 import os
@@ -17,27 +15,12 @@ from curtin import util
 _real_subp = util.subp
 
 
-def builtin_module_name():
-    options = ('builtins', '__builtin__')
-    for name in options:
-        try:
-            imp.find_module(name)
-        except ImportError:
-            continue
-        else:
-            print('importing and returning: %s' % name)
-            importlib.import_module(name)
-            return name
-
-
 @contextmanager
 def simple_mocked_open(content=None):
     if not content:
         content = ''
     m_open = mock.mock_open(read_data=content)
-    mod_name = builtin_module_name()
-    m_patch = '{}.open'.format(mod_name)
-    with mock.patch(m_patch, m_open, create=True):
+    with mock.patch('builtins.open', m_open, create=True):
         yield m_open
 
 

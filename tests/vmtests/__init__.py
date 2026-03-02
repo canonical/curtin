@@ -180,7 +180,6 @@ def sync_images(src_url, base_dir, filters, verbosity=0):
     # do a sync with provided filters
 
     # only sync once per set of filters.  global IMAGE_SYNCS manages that.
-    global IMAGE_SYNCS
     sfilters = ','.join(sorted(filters))
 
     if sfilters in IMAGE_SYNCS:
@@ -2374,7 +2373,6 @@ def apply_keep_settings(success=None, fail=None):
                 raise ValueError("'%s' had invalid token '%s'" % (ename, name))
         data[dname] = toks
 
-    global KEEP_DATA
     KEEP_DATA.update(data)
 
 
