@@ -924,10 +924,9 @@ def setup_boot(
                 name=stack_prefix + '/install-extlinux',
                 reporting_enabled=True, level="INFO",
                 description="installing extlinux to target devices"):
-            # So far we only support x86
-            if machine not in ['i586', 'i686', 'x86_64']:
-                raise ValueError('Invalid arch %s: Only x86 platforms support '
-                                 'extlinux at present' % machine)
+            if machine == 's390x':
+                raise ValueError(
+                    'extlinux is not supported on s390x; use zipl')
             setup_extlinux(cfg, target)
 
     if machine == 's390x':

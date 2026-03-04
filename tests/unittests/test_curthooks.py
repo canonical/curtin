@@ -1636,7 +1636,7 @@ class TestSetupExtlinux(CiTestCase):
                 ]
             }
         }
-        for machine in ['i586', 'i686', 'x86_64']:
+        for machine in ['i586', 'i686', 'x86_64', 'aarch64', 'riscv64']:
             curthooks.setup_boot(
                 cfg, self.target, machine, '/testing',
                 osfamily=self.distro_family, variant=self.variant)
@@ -1655,13 +1655,12 @@ class TestSetupExtlinux(CiTestCase):
         }
         with self.assertRaises(ValueError) as exc:
             curthooks.setup_boot(
-                cfg, self.target, 'aarch64', '/testing',
+                cfg, self.target, 's390x', '/testing',
                 osfamily=self.distro_family, variant=self.variant)
-        self.assertIn('Invalid arch aarch64: Only x86 platforms support '
-                      'extlinux at present', str(exc.exception))
+        self.assertIn('extlinux is not supported on s390x',
+                      str(exc.exception))
         self.m_install_extlinux.assert_not_called()
         self.m_setup_grub.assert_not_called()
-        self.m_run_zipl.assert_not_called()
 
 
 class TestUbuntuCoreHooks(CiTestCase):

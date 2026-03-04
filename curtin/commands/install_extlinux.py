@@ -17,10 +17,10 @@ def build_content(bootcfg: config.BootCfg, target: str, fw_boot_dir: str,
                   root_spec: str):
     """Build the content of the extlinux.conf file
 
-    For now this only supports x86, since it does not handle the 'fdt' option.
-    Rather than add that, the plan is to use a FIT (Flat Image Tree) which can
-    handle FDT selection automatically. This should avoid the complexity
-    associated with fdt and fdtdir options.
+    This does not handle the 'fdt' option. Rather than add that, the plan is
+    to use a FIT (Flat Image Tree) which can handle FDT selection
+    automatically. This should avoid the complexity associated with fdt and
+    fdtdir options.
 
     We assume that the boot directory is available as /boot in the target.
 
