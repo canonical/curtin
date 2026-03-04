@@ -3,6 +3,7 @@
 import os
 from pathlib import Path
 import tempfile
+from unittest import mock
 
 from .helpers import CiTestCase
 
@@ -208,7 +209,8 @@ class TestInstallExtlinux(CiTestCase):
         with open(extlinux_file, encoding='utf-8') as inf:
             return inf.read()
 
-    def test_install(self):
+    @mock.patch.object(install_extlinux, 'ensure_u_boot_menu_installed')
+    def test_install(self, m_ensure):
         """Make sure the file is written to the disk"""
         install_extlinux.install_extlinux(config.BootCfg(USE_EXTLINUX),
                                           self.target, '/boot', ROOT_DEV)
@@ -216,7 +218,8 @@ class TestInstallExtlinux(CiTestCase):
         self.assertEqual(EXPECT_HDR + EXPECT_BODY.format(
             fw_boot_dir='/boot', ROOT_DEV=ROOT_DEV), out)
 
-    def test_install_separate_boot_partition(self):
+    @mock.patch.object(install_extlinux, 'ensure_u_boot_menu_installed')
+    def test_install_separate_boot_partition(self, m_ensure):
         """Check installation with a separate /boot partition"""
         cfg = config.BootCfg(USE_EXTLINUX)
         install_extlinux.install_extlinux(cfg, self.target, '', ROOT_DEV)
@@ -224,7 +227,8 @@ class TestInstallExtlinux(CiTestCase):
         self.assertEqual(EXPECT_HDR + EXPECT_BODY.format
                          (fw_boot_dir='', ROOT_DEV=ROOT_DEV), out)
 
-    def test_install_no_alternatives(self):
+    @mock.patch.object(install_extlinux, 'ensure_u_boot_menu_installed')
+    def test_install_no_alternatives(self, m_ensure):
         """The default in BootCfg is not used when reading a yaml file"""
         cfg = {
             'boot': {'bootloaders': USE_EXTLINUX},
@@ -235,7 +239,8 @@ class TestInstallExtlinux(CiTestCase):
         self.assertEqual(EXPECT_HDR + EXPECT_BODY.format(
             fw_boot_dir='/boot', ROOT_DEV=ROOT_DEV), out)
 
-    def test_separate_boot_partition_cfg(self):
+    @mock.patch.object(install_extlinux, 'ensure_u_boot_menu_installed')
+    def test_separate_boot_partition_cfg(self, m_ensure):
         """setup_extlinux() should see a separate mount and set fw_boot_dir"""
         cfg = {
             'boot': {'bootloaders': USE_EXTLINUX},
@@ -295,7 +300,8 @@ class TestInstallExtlinux(CiTestCase):
         self.assertEqual(EXPECT_HDR + EXPECT_BODY.format(
             fw_boot_dir='', ROOT_DEV=ROOT_DEV), out)
 
-    def test_single_partition_cfg(self):
+    @mock.patch.object(install_extlinux, 'ensure_u_boot_menu_installed')
+    def test_single_partition_cfg(self, m_ensure):
         """setup_extlinux() should see a single mount and set fw_boot_dir"""
         cfg = {
             'boot': {
@@ -308,6 +314,30 @@ class TestInstallExtlinux(CiTestCase):
         out = self.check_extlinux()
         self.assertEqual(EXPECT_HDR + EXPECT_BODY.format(
             fw_boot_dir='/boot', ROOT_DEV=ROOT_DEV), out)
+
+
+class TestEnsureUBootMenu(CiTestCase):
+    @mock.patch(
+        'curtin.commands.install_extlinux.distro.install_packages')
+    @mock.patch(
+        'curtin.commands.install_extlinux.distro.get_installed_packages',
+        return_value={'u-boot-menu', 'linux-image-generic'})
+    def test_already_installed(self, m_get, m_install):
+        """u-boot-menu already present should not trigger install"""
+        install_extlinux.ensure_u_boot_menu_installed('/target')
+        m_get.assert_called_once_with('/target')
+        m_install.assert_not_called()
+
+    @mock.patch(
+        'curtin.commands.install_extlinux.distro.install_packages')
+    @mock.patch(
+        'curtin.commands.install_extlinux.distro.get_installed_packages',
+        return_value={'linux-image-generic'})
+    def test_not_installed(self, m_get, m_install):
+        """u-boot-menu missing should trigger install"""
+        install_extlinux.ensure_u_boot_menu_installed('/target')
+        m_get.assert_called_once_with('/target')
+        m_install.assert_called_once_with(['u-boot-menu'], target='/target')
 
 
 # vi: ts=4 expandtab syntax=python
