@@ -42,7 +42,7 @@ label {label}
 \tappend {params}'''
 
     buf = io.StringIO()
-    params = f'{root_spec} ro quiet'
+    params = f'root={root_spec} ro quiet'
     menu_label = 'Linux'
 
     # For the recovery option, remove 'quiet' and add 'single'

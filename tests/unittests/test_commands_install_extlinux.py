@@ -34,7 +34,7 @@ label l0
 \tmenu label Linux 6.8.0-48-generic
 \tlinux {fw_boot_dir}/vmlinuz-6.8.0-48-generic
 \tinitrd {fw_boot_dir}/initrd.img-6.8.0-48-generic
-\tappend {ROOT_DEV} ro quiet
+\tappend root={ROOT_DEV} ro quiet
 '''
 
 EXPECT_L0R = '''
@@ -42,7 +42,7 @@ label l0r
 \tmenu label Linux 6.8.0-48-generic (rescue target)
 \tlinux {fw_boot_dir}/vmlinuz-6.8.0-48-generic
 \tinitrd {fw_boot_dir}/initrd.img-6.8.0-48-generic
-\tappend {ROOT_DEV} ro single
+\tappend root={ROOT_DEV} ro single
 '''
 
 EXPECT_L1 = '''
@@ -50,7 +50,7 @@ label l1
 \tmenu label Linux 6.8.0-40-generic
 \tlinux {fw_boot_dir}/vmlinuz-6.8.0-40-generic
 \tinitrd {fw_boot_dir}/initrd.img-6.8.0-40-generic
-\tappend {ROOT_DEV} ro quiet
+\tappend root={ROOT_DEV} ro quiet
 '''
 
 EXPECT_L1R = '''
@@ -58,7 +58,7 @@ label l1r
 \tmenu label Linux 6.8.0-40-generic (rescue target)
 \tlinux {fw_boot_dir}/vmlinuz-6.8.0-40-generic
 \tinitrd {fw_boot_dir}/initrd.img-6.8.0-40-generic
-\tappend {ROOT_DEV} ro single
+\tappend root={ROOT_DEV} ro single
 '''
 
 EXPECT_L2 = '''
@@ -66,7 +66,7 @@ label l2
 \tmenu label Linux 5.15.0-127-generic
 \tlinux {fw_boot_dir}/vmlinuz-5.15.0-127-generic
 \tinitrd {fw_boot_dir}/initrd.img-5.15.0-127-generic
-\tappend {ROOT_DEV} ro quiet
+\tappend root={ROOT_DEV} ro quiet
 '''
 
 EXPECT_L2R = '''
@@ -74,7 +74,7 @@ label l2r
 \tmenu label Linux 5.15.0-127-generic (rescue target)
 \tlinux {fw_boot_dir}/vmlinuz-5.15.0-127-generic
 \tinitrd {fw_boot_dir}/initrd.img-5.15.0-127-generic
-\tappend {ROOT_DEV} ro single
+\tappend root={ROOT_DEV} ro single
 '''
 
 EXPECT_BODY = ('\n' + EXPECT_L0 + EXPECT_L0R +
