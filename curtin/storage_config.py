@@ -1068,7 +1068,11 @@ class LvmParser(ProbertParser):
                     errors.append(e)
                     continue
                 configs.append(entry)
-        for lv_name, lv_config in self.class_data['logical_volumes'].items():
+
+        # If there are VGs but none of them has a LV, probert can omit the
+        # "logical_volumes" key.
+        lvs = self.class_data.get('logical_volumes', {})
+        for lv_name, lv_config in lvs.items():
             entry = self.lvm_partition_asdict(lv_name, lv_config)
             if entry:
                 try:
