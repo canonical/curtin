@@ -182,8 +182,8 @@ class TestClearHolders(CiTestCase):
         lvm_name = 'ubuntu--vg-swap'
         vg_name = 'ubuntu-vg'
         lv_name = 'swap'
-        vg_lv_name = "%s/%s" % (vg_name, lv_name)
-        devname = "/dev/" + vg_lv_name
+        vg_lv_name = "ubuntu-vg/swap"
+        dm_path = "/dev/mapper/ubuntu--vg-swap"
         pvols = ['/dev/wda1', '/dev/wda2']
         mock_syspath.return_value = self.test_blockdev
         mock_util.load_file.return_value = lvm_name
@@ -192,7 +192,7 @@ class TestClearHolders(CiTestCase):
         clear_holders.shutdown_lvm(self.test_blockdev)
         mock_syspath.assert_called_with(self.test_blockdev)
         mock_util.load_file.assert_called_with(self.test_blockdev + '/dm/name')
-        mock_zero.assert_called_with(devname, partitions=False)
+        mock_zero.assert_called_with(dm_path, partitions=False)
         mock_lvm.split_lvm_name.assert_called_with(lvm_name.strip())
         self.assertTrue(mock_log.debug.called)
         mock_util.subp.assert_called_with(
