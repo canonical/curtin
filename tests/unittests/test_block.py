@@ -320,8 +320,8 @@ class TestWipeFile(CiTestCase):
         myfile = self.tmp_path("no-such-file")
 
         with self.assertRaises(ValueError):
-            with block.exclusive_open(myfile) as fp:
-                fp.close()
+            with block.exclusive_open(myfile):
+                pass
 
     @mock.patch('os.close')
     @mock.patch('os.fdopen')
@@ -333,10 +333,10 @@ class TestWipeFile(CiTestCase):
         mock_fd = 3
         mock_os_open.return_value = mock_fd
 
-        with block.exclusive_open(myfile) as fp:
-            fp.close()
+        with block.exclusive_open(myfile):
+            pass
 
-        mock_os_open.assert_called_with(myfile, os.O_RDWR | os.O_EXCL)
+        mock_os_open.assert_called_once_with(myfile, os.O_RDWR | os.O_EXCL)
         mock_os_fdopen.assert_called_once_with(mock_fd, 'rb+', closefd=False)
         mock_os_close.assert_called_once_with(mock_fd)
 
@@ -359,13 +359,13 @@ class TestWipeFile(CiTestCase):
         mock_util_fuser.return_value = {}
 
         with self.assertRaises(OSError):
-            with block.exclusive_open(myfile) as fp:
-                fp.close()
+            with block.exclusive_open(myfile):
+                pass
 
-        mock_os_open.assert_called_with(myfile, os.O_RDWR | os.O_EXCL)
-        mock_holders.assert_called_with(myfile)
-        mock_list_mounts.assert_called_with(myfile)
-        self.assertEqual([], mock_os_close.call_args_list)
+        mock_os_open.assert_called_once_with(myfile, os.O_RDWR | os.O_EXCL)
+        mock_holders.assert_called_once_with(myfile)
+        mock_list_mounts.assert_called_once_with(myfile)
+        mock_os_close.assert_not_called()
 
     @mock.patch('os.close')
     @mock.patch('os.fdopen')
@@ -380,11 +380,11 @@ class TestWipeFile(CiTestCase):
         mock_os_fdopen.side_effect = OSError("EBADF")
 
         with self.assertRaises(OSError):
-            with block.exclusive_open(myfile) as fp:
-                fp.close()
+            with block.exclusive_open(myfile):
+                pass
 
-        mock_os_open.assert_called_with(myfile, os.O_RDWR | os.O_EXCL)
-        mock_os_fdopen.assert_called_with(mock_fd, 'rb+', closefd=False)
+        mock_os_open.assert_called_once_with(myfile, os.O_RDWR | os.O_EXCL)
+        mock_os_fdopen.assert_called_once_with(mock_fd, 'rb+', closefd=False)
         mock_os_close.assert_called_once_with(mock_fd)
 
 
