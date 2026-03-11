@@ -1117,21 +1117,6 @@ def exclusive_open(path, exclusive=True):
         flags += os.O_EXCL
     try:
         fd = os.open(path, flags)
-        try:
-            # By default (i.e, with closefd=True), if fdopen succeeds, closing
-            # the returned file-object also closes the original FD.  OTOH, if
-            # fdopen fails, there are scenarios where the FD is not closed.
-            # Since closing a FD multiple times can cause problems (i.e., file
-            # descriptors are reused), let's disable this behavior with
-            # closefd=False.
-            with os.fdopen(fd, mode, closefd=False) as fo:
-                yield fo
-        except OSError:
-            LOG.exception("Failed to create file-object from fd")
-            raise
-        finally:
-            # Ensure the FD is closed.
-            os.close(fd)
     except OSError as exc:
         LOG.error("Failed to exclusively open path: %s", path)
         holders = get_holders(path)
@@ -1144,6 +1129,25 @@ def exclusive_open(path, exclusive=True):
             raise NotExclusiveError from exc
         else:
             raise
+    try:
+        try:
+            # By default (i.e, with closefd=True), if fdopen succeeds, closing
+            # the returned file-object also closes the original FD.  OTOH, if
+            # fdopen fails, there are scenarios where the FD is not closed.
+            # Since closing a FD multiple times can cause problems (i.e., file
+            # descriptors are reused), let's disable this behavior with
+            # closefd=False.
+            fo = os.fdopen(fd, mode, closefd=False)
+        except OSError:
+            LOG.exception("Failed to create file-object from fd")
+            raise
+        try:
+            yield fo
+        finally:
+            fo.close()
+    finally:
+        # Ensure the FD is closed.
+        os.close(fd)
 
 
 def wipe_file(path, reader=None, buflen=4 * 1024 * 1024, exclusive=True):

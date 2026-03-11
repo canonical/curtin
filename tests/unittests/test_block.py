@@ -400,6 +400,25 @@ class TestWipeFile(CiTestCase):
     @mock.patch('os.close')
     @mock.patch('os.fdopen')
     @mock.patch('os.open')
+    def test_exclusive_open_body_ebusy(self, mock_os_open,
+                                       mock_os_fdopen, mock_os_close):
+        flen = 1024
+        myfile = self.tmp_path("my_exclusive_file")
+        util.write_file(myfile, flen * b'\1', omode="wb")
+        mock_fd = 3
+        mock_os_open.return_value = mock_fd
+
+        # Ensure we get an OSError, not an util.NotExclusiveError here.
+        with self.assertRaises(OSError):
+            with block.exclusive_open(myfile):
+                raise OSError(errno.EBUSY, "Device or resource busy")
+
+        mock_os_open.assert_called_once_with(myfile, os.O_RDWR | os.O_EXCL)
+        mock_os_close.assert_called_once_with(mock_fd)
+
+    @mock.patch('os.close')
+    @mock.patch('os.fdopen')
+    @mock.patch('os.open')
     def test_exclusive_open_fdopen_failure(self, mock_os_open,
                                            mock_os_fdopen, mock_os_close):
         flen = 1024
