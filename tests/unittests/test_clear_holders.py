@@ -179,7 +179,7 @@ class TestClearHolders(CiTestCase):
     def test_shutdown_lvm(self, mock_util, mock_lvm, mock_syspath, mock_log,
                           mock_zero):
         """test clear_holders.shutdown_lvm"""
-        lvm_name = b'ubuntu--vg-swap\n'
+        lvm_name = 'ubuntu--vg-swap'
         vg_name = 'ubuntu-vg'
         lv_name = 'swap'
         vg_lv_name = "%s/%s" % (vg_name, lv_name)
