@@ -1,5 +1,6 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
 
+import errno
 import functools
 import json
 import os
@@ -359,6 +360,35 @@ class TestWipeFile(CiTestCase):
         mock_util_fuser.return_value = {}
 
         with self.assertRaises(OSError):
+            with block.exclusive_open(myfile):
+                pass
+
+        mock_os_open.assert_called_once_with(myfile, os.O_RDWR | os.O_EXCL)
+        mock_holders.assert_called_once_with(myfile)
+        mock_list_mounts.assert_called_once_with(myfile)
+        mock_os_close.assert_not_called()
+
+    @mock.patch('curtin.util.fuser_mount')
+    @mock.patch('os.close')
+    @mock.patch('curtin.util.list_device_mounts')
+    @mock.patch('curtin.block.get_holders')
+    @mock.patch('os.open')
+    def test_exclusive_open_open_ebusy(self, mock_os_open,
+                                       mock_holders,
+                                       mock_list_mounts,
+                                       mock_os_close,
+                                       mock_util_fuser):
+        flen = 1024
+        myfile = self.tmp_path("my_exclusive_file")
+        util.write_file(myfile, flen * b'\1', omode="wb")
+        mock_os_open.side_effect = OSError(
+                errno.EBUSY,
+                "Device or resource busy")
+        mock_holders.return_value = ['md1']
+        mock_list_mounts.return_value = []
+        mock_util_fuser.return_value = {}
+
+        with self.assertRaises(util.NotExclusiveError):
             with block.exclusive_open(myfile):
                 pass
 
