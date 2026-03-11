@@ -4,7 +4,6 @@ import functools
 import json
 import os
 from unittest import mock
-import sys
 import textwrap
 
 from collections import OrderedDict
@@ -338,8 +337,8 @@ class TestWipeFile(CiTestCase):
             fp.close()
 
         mock_os_open.assert_called_with(myfile, os.O_RDWR | os.O_EXCL)
-        mock_os_fdopen.assert_called_with(mock_fd, 'rb+')
-        self.assertEqual([], mock_os_close.call_args_list)
+        mock_os_fdopen.assert_called_once_with(mock_fd, 'rb+', closefd=False)
+        mock_os_close.assert_called_once_with(mock_fd)
 
     @mock.patch('curtin.util.fuser_mount')
     @mock.patch('os.close')
@@ -385,11 +384,8 @@ class TestWipeFile(CiTestCase):
                 fp.close()
 
         mock_os_open.assert_called_with(myfile, os.O_RDWR | os.O_EXCL)
-        mock_os_fdopen.assert_called_with(mock_fd, 'rb+')
-        if sys.version_info.major == 2:
-            mock_os_close.assert_called_with(mock_fd)
-        else:
-            self.assertEqual([], mock_os_close.call_args_list)
+        mock_os_fdopen.assert_called_with(mock_fd, 'rb+', closefd=False)
+        mock_os_close.assert_called_once_with(mock_fd)
 
 
 class TestWipeVolume(CiTestCase):

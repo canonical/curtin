@@ -5,7 +5,6 @@ import errno
 import itertools
 import os
 import stat
-import sys
 import tempfile
 from typing import Optional
 
@@ -1118,18 +1117,21 @@ def exclusive_open(path, exclusive=True):
         flags += os.O_EXCL
     try:
         fd = os.open(path, flags)
-        fd_needs_closing = True
         try:
-            with os.fdopen(fd, mode) as fo:
+            # By default (i.e, with closefd=True), if fdopen succeeds, closing
+            # the returned file-object also closes the original FD.  OTOH, if
+            # fdopen fails, there are scenarios where the FD is not closed.
+            # Since closing a FD multiple times can cause problems (i.e., file
+            # descriptors are reused), let's disable this behavior with
+            # closefd=False.
+            with os.fdopen(fd, mode, closefd=False) as fo:
                 yield fo
-            fd_needs_closing = False
         except OSError:
             LOG.exception("Failed to create file-object from fd")
             raise
         finally:
-            # python2 leaves fd open if there os.fdopen fails
-            if fd_needs_closing and sys.version_info.major == 2:
-                os.close(fd)
+            # Ensure the FD is closed.
+            os.close(fd)
     except OSError as exc:
         LOG.error("Failed to exclusively open path: %s", path)
         holders = get_holders(path)
