@@ -136,9 +136,13 @@ def shutdown_lvm(device):
     # (corresponding to the "lv_dm_path" property), let's use this one instead.
     dm_path = os.path.join("/dev/mapper/", lvm_name)
 
-    # wipe contents of the logical volume first
-    LOG.info('Wiping lvm logical volume: %s (%s)', dm_path, vg_lv_name)
-    block.quick_zero(dm_path, partitions=False)
+    if util.load_file(os.path.join(device, 'ro')).strip() == '0':
+        # wipe contents of the logical volume first
+        LOG.info('Wiping lvm logical volume: %s (%s)', dm_path, vg_lv_name)
+        block.quick_zero(dm_path, partitions=False)
+    else:
+        LOG.info("%s (%s) is read-only, skipping attempt to wipe device",
+                 dm_path, vg_lv_name)
 
     # remove the logical volume
     LOG.debug('using "lvremove" on %s', vg_lv_name)
