@@ -6,6 +6,7 @@ import io
 import os
 
 from curtin import config
+from curtin import distro
 from curtin import paths
 from curtin import util
 from curtin.log import LOG
@@ -17,10 +18,10 @@ def build_content(bootcfg: config.BootCfg, target: str, fw_boot_dir: str,
                   root_spec: str):
     """Build the content of the extlinux.conf file
 
-    For now this only supports x86, since it does not handle the 'fdt' option.
-    Rather than add that, the plan is to use a FIT (Flat Image Tree) which can
-    handle FDT selection automatically. This should avoid the complexity
-    associated with fdt and fdtdir options.
+    This does not handle the 'fdt' option. Rather than add that, the plan is
+    to use a FIT (Flat Image Tree) which can handle FDT selection
+    automatically. This should avoid the complexity associated with fdt and
+    fdtdir options.
 
     We assume that the boot directory is available as /boot in the target.
 
@@ -41,7 +42,7 @@ label {label}
 \tappend {params}'''
 
     buf = io.StringIO()
-    params = f'{root_spec} ro quiet'
+    params = f'root={root_spec} ro quiet'
     menu_label = 'Linux'
 
     # For the recovery option, remove 'quiet' and add 'single'
@@ -77,6 +78,16 @@ timeout 50''', file=buf)
     return buf.getvalue()
 
 
+def ensure_u_boot_menu_installed(target: str) -> None:
+    """Ensure u-boot-menu is installed in the target so that future kernel
+    installs regenerate extlinux.conf.
+
+    TODO: Add u-boot-menu to the ISO pool so offline installs can succeed.
+    """
+    if 'u-boot-menu' not in distro.get_installed_packages(target):
+        distro.install_packages(['u-boot-menu'], target=target)
+
+
 def install_extlinux(
         bootcfg: config.BootCfg,
         target: str,
@@ -90,6 +101,7 @@ def install_extlinux(
     :param: fw_boot_dir: Firmware's view of the /boot directory
     :param: root_spec: Root device to pass to kernel
     """
+    ensure_u_boot_menu_installed(target)
     LOG.debug("P: Writing extlinux, fw_boot_dir '%s' root_spec '%s'...",
               fw_boot_dir, root_spec)
     content = build_content(bootcfg, target, fw_boot_dir, root_spec)

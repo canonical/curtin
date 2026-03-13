@@ -31,6 +31,11 @@ Changes to this project should be proposed as pull requests on GitHub at:
 [https://github.com/canonical/curtin/](https://github.com/canonical/curtin/)
 
 
- lint and unit tests should be passing. Install tox with `sudo apt install tox`.
+ lint and unit tests should be passing. Install the required packages:
+
+```sh
+sudo apt install libapt-pkg-dev tox
+```
+
   * lint - run tox -e py3-flake8,py3-pyflakes
   * unit - run tox -e py3

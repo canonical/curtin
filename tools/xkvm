@@ -273,7 +273,7 @@ get_bios_opts() {
     unset _RET
     _RET=( )
     if [ -n "$bios" ]; then
-        _RET=( -drive "${pflash_common},file=$bios" )
+        _RET=( -drive "${pflash_common},file=$bios,readonly=on" )
         return 0
     elif ! $uefi; then
         return 0

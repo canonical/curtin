@@ -624,6 +624,7 @@ class VMBaseClass(TestCase):
     recorded_failures = 0
     conf_replace = {}
     uefi = False
+    bios = None
     proxy = None
     url_map = {
         '/MAAS/api/version/': '2.0',
@@ -1128,7 +1129,12 @@ class VMBaseClass(TestCase):
             configs.append(proxy_config)
 
         uefi_flags = []
-        if cls.uefi:
+        bios_flags = []
+        if cls.bios:
+            logger.debug("Testcase requested launching with bios=%s",
+                         cls.bios)
+            bios_flags = ["--bios=%s" % cls.bios]
+        elif cls.uefi:
             logger.debug("Testcase requested launching with UEFI")
             nvram = os.path.join(cls.td.disks, "ovmf_vars.fd")
             uefi_flags = ["--uefi-nvram=%s" % nvram]
@@ -1383,7 +1389,7 @@ class VMBaseClass(TestCase):
         noreboot = ['--no-reboot'] if cls.target_distro != 'centos' else []
         # create xkvm cmd
         cmd = (["tools/xkvm", "-v", dowait] + noreboot +
-               uefi_flags + netdevs +
+               uefi_flags + bios_flags + netdevs +
                cls.mpath_diskargs(target_disks + extra_disks + nvme_disks) +
                ["--disk=file=%s,if=virtio,media=cdrom" % cls.td.seed_disk] +
                ["--", "-smp",  cls.get_config_smp(), "-m", str(cls.mem)])
