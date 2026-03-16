@@ -55,6 +55,25 @@ APT_SOURCES_PROPOSED_DEB822 = (
     'Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg\n'
 )
 
+# Bad network, disabled network for quicker install after failed attempts
+_APT_NETWORK_BAD = False
+
+
+def apt_retry_call(func, *args, retries=(1, 2), **kwargs):
+    global _APT_NETWORK_BAD
+
+    # If network already proven bad, disable retries
+    if _APT_NETWORK_BAD:
+        retries = []
+
+    try:
+        return func(*args, retries=retries, **kwargs)
+    except Exception:
+        if retries:
+            LOG.warning("APT network failure detected, disabling retries for future operations")
+            _APT_NETWORK_BAD = True
+        raise
+
 
 def get_default_mirrors(arch=None):
     """returns the default mirrors for the target. These depend on the
@@ -724,8 +743,12 @@ def add_apt_key(keyname, ent, target=None):
         if 'keyserver' in ent:
             keyserver = ent['keyserver']
 
-        ent['key'] = gpg.getkeybyid(ent['keyid'], keyserver,
-                                    retries=(1, 2, 5, 10))
+        ent['key'] = apt_retry_call(
+            gpg.getkeybyid,
+            ent['keyid'],
+            keyserver,
+            retries=(1, 2)
+        )
 
     if 'key' in ent:
         add_apt_key_raw(keyname, ent['key'], target)
@@ -767,8 +790,7 @@ def add_apt_sources(srcdict, target=None, template_params=None,
             with util.ChrootableTarget(
                     target, sys_resolvconf=True) as in_chroot:
                 try:
-                    in_chroot.subp(["add-apt-repository", source],
-                                   retries=(1, 2, 5, 10))
+                    apt_retry_call(in_chroot.subp, ["add-apt-repository", source], retries=(1, 2))
                 except util.ProcessExecutionError:
                     LOG.exception("add-apt-repository failed.")
                     raise
