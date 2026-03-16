@@ -1107,29 +1107,34 @@ def exclusive_open(path, exclusive=True):
     Obtain an exclusive file-handle to the file/device specified unless
     caller specifics exclusive=False.
     """
-    mode = 'rb+'
-    fd = None
-    if not os.path.exists(path):
-        raise ValueError("No such file at path: %s" % path)
+    @contextmanager
+    def _open(path):
+        flags = os.O_RDWR
+        if exclusive:
+            flags += os.O_EXCL
+        try:
+            fd = os.open(path, flags)
+        except OSError as exc:
+            LOG.error("Failed to exclusively open path: %s", path)
+            holders = get_holders(path)
+            LOG.error('Device holders with exclusive access: %s', holders)
+            mount_points = util.list_device_mounts(path)
+            LOG.error('Device mounts: %s', mount_points)
+            fusers = util.fuser_mount(path)
+            LOG.error('Possible users of %s:\n%s', path, fusers)
+            if exclusive and exc.errno == errno.EBUSY:
+                raise NotExclusiveError from exc
+            else:
+                raise
+        try:
+            yield fd
+        finally:
+            # Ensure the FD is closed.
+            os.close(fd)
 
-    flags = os.O_RDWR
-    if exclusive:
-        flags += os.O_EXCL
-    try:
-        fd = os.open(path, flags)
-    except OSError as exc:
-        LOG.error("Failed to exclusively open path: %s", path)
-        holders = get_holders(path)
-        LOG.error('Device holders with exclusive access: %s', holders)
-        mount_points = util.list_device_mounts(path)
-        LOG.error('Device mounts: %s', mount_points)
-        fusers = util.fuser_mount(path)
-        LOG.error('Possible users of %s:\n%s', path, fusers)
-        if exclusive and exc.errno == errno.EBUSY:
-            raise NotExclusiveError from exc
-        else:
-            raise
-    try:
+    @contextmanager
+    def _fdopen(fd: int):
+        mode = 'rb+'
         try:
             # By default (i.e, with closefd=True), if fdopen succeeds, closing
             # the returned file-object also closes the original FD.  OTOH, if
@@ -1145,9 +1150,13 @@ def exclusive_open(path, exclusive=True):
             yield fo
         finally:
             fo.close()
-    finally:
-        # Ensure the FD is closed.
-        os.close(fd)
+
+    if not os.path.exists(path):
+        raise ValueError("No such file at path: %s" % path)
+
+    with _open(path) as fd:
+        with _fdopen(fd) as fo:
+            yield fo
 
 
 def wipe_file(path, reader=None, buflen=4 * 1024 * 1024, exclusive=True):
