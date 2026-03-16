@@ -127,11 +127,22 @@ def shutdown_lvm(device):
     lvm_name = util.load_file(name_file).strip()
     (vg_name, lv_name) = lvm.split_lvm_name(lvm_name)
     vg_lv_name = "%s/%s" % (vg_name, lv_name)
-    devname = "/dev/" + vg_lv_name
 
-    # wipe contents of the logical volume first
-    LOG.info('Wiping lvm logical volume: %s', devname)
-    block.quick_zero(devname, partitions=False)
+    # Normal LV-s have a symlink in /dev/{vgname}/{lvname} which corresponds to
+    # the "lv_path" property. This path is what we previously used for wiping.
+    # However, other types of LV-s (such as thin-pools) don't have this
+    # symlink.
+    # Since both types of LV have a /dev/mapper/{vgname}-{lvname} symlink
+    # (corresponding to the "lv_dm_path" property), let's use this one instead.
+    dm_path = os.path.join("/dev/mapper/", lvm_name)
+
+    if util.load_file(os.path.join(device, 'ro')).strip() == '0':
+        # wipe contents of the logical volume first
+        LOG.info('Wiping lvm logical volume: %s (%s)', dm_path, vg_lv_name)
+        block.quick_zero(dm_path, partitions=False)
+    else:
+        LOG.info("%s (%s) is read-only, skipping attempt to wipe device",
+                 dm_path, vg_lv_name)
 
     # remove the logical volume
     LOG.debug('using "lvremove" on %s', vg_lv_name)
