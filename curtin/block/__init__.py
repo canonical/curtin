@@ -1111,7 +1111,7 @@ def exclusive_open(path, exclusive=True):
     def _open(path):
         flags = os.O_RDWR
         if exclusive:
-            flags += os.O_EXCL
+            flags |= os.O_EXCL
         try:
             fd = os.open(path, flags)
         except OSError as exc:
