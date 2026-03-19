@@ -1,10 +1,10 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
 
+import errno
 import functools
 import json
 import os
 from unittest import mock
-import sys
 import textwrap
 
 from collections import OrderedDict
@@ -321,8 +321,8 @@ class TestWipeFile(CiTestCase):
         myfile = self.tmp_path("no-such-file")
 
         with self.assertRaises(ValueError):
-            with block.exclusive_open(myfile) as fp:
-                fp.close()
+            with block.exclusive_open(myfile):
+                pass
 
     @mock.patch('os.close')
     @mock.patch('os.fdopen')
@@ -334,12 +334,12 @@ class TestWipeFile(CiTestCase):
         mock_fd = 3
         mock_os_open.return_value = mock_fd
 
-        with block.exclusive_open(myfile) as fp:
-            fp.close()
+        with block.exclusive_open(myfile):
+            pass
 
-        mock_os_open.assert_called_with(myfile, os.O_RDWR | os.O_EXCL)
-        mock_os_fdopen.assert_called_with(mock_fd, 'rb+')
-        self.assertEqual([], mock_os_close.call_args_list)
+        mock_os_open.assert_called_once_with(myfile, os.O_RDWR | os.O_EXCL)
+        mock_os_fdopen.assert_called_once_with(mock_fd, 'rb+', closefd=False)
+        mock_os_close.assert_called_once_with(mock_fd)
 
     @mock.patch('curtin.util.fuser_mount')
     @mock.patch('os.close')
@@ -360,13 +360,61 @@ class TestWipeFile(CiTestCase):
         mock_util_fuser.return_value = {}
 
         with self.assertRaises(OSError):
-            with block.exclusive_open(myfile) as fp:
-                fp.close()
+            with block.exclusive_open(myfile):
+                pass
 
-        mock_os_open.assert_called_with(myfile, os.O_RDWR | os.O_EXCL)
-        mock_holders.assert_called_with(myfile)
-        mock_list_mounts.assert_called_with(myfile)
-        self.assertEqual([], mock_os_close.call_args_list)
+        mock_os_open.assert_called_once_with(myfile, os.O_RDWR | os.O_EXCL)
+        mock_holders.assert_called_once_with(myfile)
+        mock_list_mounts.assert_called_once_with(myfile)
+        mock_os_close.assert_not_called()
+
+    @mock.patch('curtin.util.fuser_mount')
+    @mock.patch('os.close')
+    @mock.patch('curtin.util.list_device_mounts')
+    @mock.patch('curtin.block.get_holders')
+    @mock.patch('os.open')
+    def test_exclusive_open_open_ebusy(self, mock_os_open,
+                                       mock_holders,
+                                       mock_list_mounts,
+                                       mock_os_close,
+                                       mock_util_fuser):
+        flen = 1024
+        myfile = self.tmp_path("my_exclusive_file")
+        util.write_file(myfile, flen * b'\1', omode="wb")
+        mock_os_open.side_effect = OSError(
+                errno.EBUSY,
+                "Device or resource busy")
+        mock_holders.return_value = ['md1']
+        mock_list_mounts.return_value = []
+        mock_util_fuser.return_value = {}
+
+        with self.assertRaises(util.NotExclusiveError):
+            with block.exclusive_open(myfile):
+                pass
+
+        mock_os_open.assert_called_once_with(myfile, os.O_RDWR | os.O_EXCL)
+        mock_holders.assert_called_once_with(myfile)
+        mock_list_mounts.assert_called_once_with(myfile)
+        mock_os_close.assert_not_called()
+
+    @mock.patch('os.close')
+    @mock.patch('os.fdopen')
+    @mock.patch('os.open')
+    def test_exclusive_open_body_ebusy(self, mock_os_open,
+                                       mock_os_fdopen, mock_os_close):
+        flen = 1024
+        myfile = self.tmp_path("my_exclusive_file")
+        util.write_file(myfile, flen * b'\1', omode="wb")
+        mock_fd = 3
+        mock_os_open.return_value = mock_fd
+
+        # Ensure we get an OSError, not an util.NotExclusiveError here.
+        with self.assertRaises(OSError):
+            with block.exclusive_open(myfile):
+                raise OSError(errno.EBUSY, "Device or resource busy")
+
+        mock_os_open.assert_called_once_with(myfile, os.O_RDWR | os.O_EXCL)
+        mock_os_close.assert_called_once_with(mock_fd)
 
     @mock.patch('os.close')
     @mock.patch('os.fdopen')
@@ -381,15 +429,12 @@ class TestWipeFile(CiTestCase):
         mock_os_fdopen.side_effect = OSError("EBADF")
 
         with self.assertRaises(OSError):
-            with block.exclusive_open(myfile) as fp:
-                fp.close()
+            with block.exclusive_open(myfile):
+                pass
 
-        mock_os_open.assert_called_with(myfile, os.O_RDWR | os.O_EXCL)
-        mock_os_fdopen.assert_called_with(mock_fd, 'rb+')
-        if sys.version_info.major == 2:
-            mock_os_close.assert_called_with(mock_fd)
-        else:
-            self.assertEqual([], mock_os_close.call_args_list)
+        mock_os_open.assert_called_once_with(myfile, os.O_RDWR | os.O_EXCL)
+        mock_os_fdopen.assert_called_once_with(mock_fd, 'rb+', closefd=False)
+        mock_os_close.assert_called_once_with(mock_fd)
 
 
 class TestWipeVolume(CiTestCase):

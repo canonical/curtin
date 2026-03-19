@@ -5,7 +5,6 @@ import errno
 import itertools
 import os
 import stat
-import sys
 import tempfile
 from typing import Optional
 
@@ -1108,40 +1107,56 @@ def exclusive_open(path, exclusive=True):
     Obtain an exclusive file-handle to the file/device specified unless
     caller specifics exclusive=False.
     """
-    mode = 'rb+'
-    fd = None
-    if not os.path.exists(path):
-        raise ValueError("No such file at path: %s" % path)
-
-    flags = os.O_RDWR
-    if exclusive:
-        flags += os.O_EXCL
-    try:
-        fd = os.open(path, flags)
-        fd_needs_closing = True
+    @contextmanager
+    def _open(path):
+        flags = os.O_RDWR
+        if exclusive:
+            flags |= os.O_EXCL
         try:
-            with os.fdopen(fd, mode) as fo:
-                yield fo
-            fd_needs_closing = False
+            fd = os.open(path, flags)
+        except OSError as exc:
+            LOG.error("Failed to exclusively open path: %s", path)
+            holders = get_holders(path)
+            LOG.error('Device holders with exclusive access: %s', holders)
+            mount_points = util.list_device_mounts(path)
+            LOG.error('Device mounts: %s', mount_points)
+            fusers = util.fuser_mount(path)
+            LOG.error('Possible users of %s:\n%s', path, fusers)
+            if exclusive and exc.errno == errno.EBUSY:
+                raise NotExclusiveError from exc
+            else:
+                raise
+        try:
+            yield fd
+        finally:
+            # Ensure the FD is closed.
+            os.close(fd)
+
+    @contextmanager
+    def _fdopen(fd: int):
+        mode = 'rb+'
+        try:
+            # By default (i.e, with closefd=True), if fdopen succeeds, closing
+            # the returned file-object also closes the original FD.  OTOH, if
+            # fdopen fails, there are scenarios where the FD is not closed.
+            # Since closing a FD multiple times can cause problems (i.e., file
+            # descriptors are reused), let's disable this behavior with
+            # closefd=False.
+            fo = os.fdopen(fd, mode, closefd=False)
         except OSError:
             LOG.exception("Failed to create file-object from fd")
             raise
+        try:
+            yield fo
         finally:
-            # python2 leaves fd open if there os.fdopen fails
-            if fd_needs_closing and sys.version_info.major == 2:
-                os.close(fd)
-    except OSError as exc:
-        LOG.error("Failed to exclusively open path: %s", path)
-        holders = get_holders(path)
-        LOG.error('Device holders with exclusive access: %s', holders)
-        mount_points = util.list_device_mounts(path)
-        LOG.error('Device mounts: %s', mount_points)
-        fusers = util.fuser_mount(path)
-        LOG.error('Possible users of %s:\n%s', path, fusers)
-        if exclusive and exc.errno == errno.EBUSY:
-            raise NotExclusiveError from exc
-        else:
-            raise
+            fo.close()
+
+    if not os.path.exists(path):
+        raise ValueError("No such file at path: %s" % path)
+
+    with _open(path) as fd:
+        with _fdopen(fd) as fo:
+            yield fo
 
 
 def wipe_file(path, reader=None, buflen=4 * 1024 * 1024, exclusive=True):
