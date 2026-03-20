@@ -115,7 +115,7 @@ def disable_overlayroot(cfg, target):
         shutil.move(local_conf, local_conf + ".old")
 
 
-def _update_initramfs_tools(machine=None):
+def _update_initramfs_tools(machine=None, target=None):
     """ Return a list of binary names used to update an initramfs.
 
     On some architectures there are helper binaries that are also
@@ -127,14 +127,16 @@ def _update_initramfs_tools(machine=None):
     if machine == 's390x':
         tools.append('zipl')
     elif machine == 'aarch64':
-        tools.append('flash-kernel')
+        old_distro = distro.os_release(target).get("UBUNTU_CODENAME", "focal")
+        if old_distro == "focal":
+            tools.append('flash-kernel')
     return tools
 
 
 def disable_update_initramfs(cfg, target, machine=None):
     """ Find update-initramfs tools in target and change their name. """
     with util.ChrootableTarget(target) as in_chroot:
-        for tool in _update_initramfs_tools(machine=machine):
+        for tool in _update_initramfs_tools(machine=machine, target=target):
             found = util.which(tool, target=target)
             if found:
                 LOG.debug('Diverting original %s in target.', tool)
