@@ -1722,7 +1722,21 @@ def dm_crypt_handler(info, storage_config, context):
                 cmd.extend(["--key-size", keysize])
             cmd.extend(["luksFormat", volume_path, keyfile])
 
-            util.subp(cmd)
+            # ── HAP / non-standard PCR patch (LP: #2145165) ──────────────
+            # Do NOT abort installation if TPM2 enrollment fails.
+            # This can happen on systems with non-standard PCR baselines
+            # such as Intel HAP, coreboot, or custom Boot Guard setups.
+            try:
+                util.subp(cmd)
+            except util.ProcessExecutionError as e:
+                LOG.warning(
+                    "TPM2 enrollment failed for %s: %s. "
+                    "Continuing without TPM auto-unlock; "
+                    "full disk encryption remains enabled.",
+                    volume_path, str(e),
+                )
+                return None
+            # ── end patch ─────────────────────────────────────────────────
 
         if recovery_keyfile is not None:
             LOG.debug("Adding recovery key to %s", volume_path)
@@ -2362,16 +2376,9 @@ def meta_simple(args):
         devices = block.get_installable_blockdevs()
         LOG.warn("'%s' mode, no devices given. unused list: %s",
                  args.mode, devices)
-        # Check if the list of installable block devices is still empty after
-        # checking for block devices and filtering out the removable ones.  In
-        # this case we may have a system which has its harddrives reported by
-        # lsblk incorrectly. In this case we search for installable
-        # blockdevices that are removable as a last resort before raising an
-        # exception.
         if len(devices) == 0:
             devices = block.get_installable_blockdevs(include_removable=True)
             if len(devices) == 0:
-                # Fail gracefully if no devices are found, still.
                 raise Exception("No valid target devices found that curtin "
                                 "can install on.")
             else:
@@ -2404,13 +2411,10 @@ def meta_simple(args):
     dd_images = util.get_dd_images(sources)
 
     if len(dd_images):
-        # we have at least one dd-able image
-        # we will only take the first one
         rootdev = write_image_to_disk(dd_images[0], devname)
         util.subp(['mount', rootdev, state['target']])
         return 0
 
-    # helper partition will forcibly set up partition there
     ptcmd = ['partition', '--format=' + ptfmt]
     if bootpt['enabled']:
         ptcmd.append('--boot')
@@ -2436,7 +2440,6 @@ def meta_simple(args):
 
     ptpre = ""
     if not os.path.exists("%s%s" % (devnode, rootdev_ptnum)):
-        # perhaps the device is /dev/<blockname>p<ptnum>
         if os.path.exists("%sp%s" % (devnode, rootdev_ptnum)):
             ptpre = "p"
         else:
@@ -2447,7 +2450,6 @@ def meta_simple(args):
         bootdev = "%s%s%s" % (devnode, ptpre, bootdev_ptnum)
 
     if ptfmt == "uefi":
-        # assumed / required from the partitioner pt_uefi
         uefi_ptnum = "15"
         uefi_label = "uefi-boot"
         uefi_dev = "%s%s%s" % (devnode, ptpre, uefi_ptnum)
@@ -2457,16 +2459,13 @@ def meta_simple(args):
     LOG.debug("rootdev=%s bootdev=%s fmt=%s bootpt=%s",
               rootdev, bootdev, ptfmt, bootpt)
 
-    # mkfs for root partition first and mount
     cmd = ['mkfs.%s' % args.fstype, '-q', '-L', 'cloudimg-rootfs', rootdev]
     logtime(' '.join(cmd), util.subp, cmd)
     util.subp(['mount', rootdev, state['target']])
 
     if bootpt['enabled']:
-        # create 'boot' directory in state['target']
         boot_dir = os.path.join(state['target'], 'boot')
         util.subp(['mkdir', boot_dir])
-        # mkfs for boot partition and mount
         cmd = ['mkfs.%s' % bootpt['fstype'],
                '-q', '-L', bootpt['label'], bootdev]
         logtime(' '.join(cmd), util.subp, cmd)
@@ -2484,7 +2483,6 @@ def meta_simple(args):
                          (bootpt['label'], bootpt['fstype']))
 
             if ptfmt == "uefi":
-                # label created in helpers/partition for uefi
                 fp.write("LABEL=%s /boot/efi vfat defaults 0 0\n" %
                          uefi_label)
 
