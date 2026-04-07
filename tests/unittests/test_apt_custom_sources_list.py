@@ -212,16 +212,20 @@ class TestAptSourceConfigSourceList(CiTestCase):
         with mock.patch.object(distro, 'get_architecture', return_value=arch):
             with mock.patch.object(distro, 'lsb_release',
                                    return_value={'codename': 'fakerel'}):
-                apt_config.handle_apt(cfg, target)
+                with mock.patch.object(distro, 'os_release',
+                                       return_value={'ID': 'not-ubuntu'}):
+                    apt_config.handle_apt(cfg, target)
 
         self.assertEqual(
             EXPECTED_CONVERTED_CONTENT,
             util.load_file(paths.target_path(target, "/etc/apt/sources.list")))
 
     @mock_want_deb822(False)
+    @mock.patch("curtin.distro.os_release")
     @mock.patch("curtin.distro.lsb_release")
     @mock.patch("curtin.distro.get_architecture", return_value="amd64")
-    def test_trusty_source_lists(self, m_get_arch, m_lsb_release):
+    def test_trusty_source_lists(
+            self, m_get_arch, m_lsb_release, m_os_release):
         """Support mirror equivalency with and without trailing /.
 
         Trusty official images do not have a trailing slash on
@@ -238,6 +242,9 @@ class TestAptSourceConfigSourceList(CiTestCase):
         m_lsb_release.return_value = {
             'codename': 'trusty', 'description': 'Ubuntu 14.04.5 LTS',
             'id': 'Ubuntu', 'release': '14.04'}
+        m_os_release.return_value = {
+            'ID': 'ubuntu', 'VERSION_ID': '14.04',
+        }
 
         target = self.new_root
         my_primary = 'http://fixed-primary.ubuntu.com/ubuntu'
@@ -298,7 +305,9 @@ class TestAptSourceConfigSourceList(CiTestCase):
             ):
                 with mock.patch.object(distro, 'lsb_release',
                                        return_value={'codename': 'fakerel'}):
-                    apt_config.handle_apt(cfg, target)
+                    with mock.patch.object(distro, 'os_release',
+                                           return_value={'ID': 'not-ubuntu'}):
+                        apt_config.handle_apt(cfg, target)
 
             self.assertEqual(
                 EXPECTED_CONVERTED_CONTENT_DEB822,

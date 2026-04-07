@@ -41,8 +41,6 @@ PRIMARY_ARCH_MIRRORS = {"PRIMARY": "http://archive.ubuntu.com/ubuntu/",
                         "SECURITY": "http://security.ubuntu.com/ubuntu/"}
 PORTS_MIRRORS = {"PRIMARY": "http://ports.ubuntu.com/ubuntu-ports",
                  "SECURITY": "http://ports.ubuntu.com/ubuntu-ports"}
-PRIMARY_ARCHES = ['amd64', 'i386']
-PORTS_ARCHES = ['s390x', 'arm64', 'armhf', 'powerpc', 'ppc64el', 'riscv64']
 
 APT_SOURCES_PROPOSED = (
     "deb $MIRROR $RELEASE-proposed main restricted universe multiverse")
@@ -56,15 +54,36 @@ APT_SOURCES_PROPOSED_DEB822 = (
 )
 
 
-def get_default_mirrors(arch=None):
+default_arches = {
+    "primary": {"amd64", "i386"},
+    "ports": {"s390x", "arm64", "armhf", "powerpc", "ppc64el", "riscv64"},
+}
+
+
+def _get_arches(os_release: dict[str, str], *, key: str) -> set[str]:
+    if os_release.get("ID") != "ubuntu":
+        return default_arches[key]
+    # TODO
+    return default_arches[key]
+
+
+def get_primary_arches(os_release: dict[str, str]) -> set[str]:
+    return _get_arches(os_release, key="primary")
+
+
+def get_ports_arches(os_release: dict[str, str]) -> set[str]:
+    return _get_arches(os_release, key="ports")
+
+
+def get_default_mirrors(arch=None, *, os_release):
     """returns the default mirrors for the target. These depend on the
-       architecture, for more see:
+       architecture and the release being installed, for more see:
        https://wiki.ubuntu.com/UbuntuDevelopment/PackageArchive#Ports"""
     if arch is None:
         arch = distro.get_architecture()
-    if arch in PRIMARY_ARCHES:
+    if arch in get_primary_arches(os_release):
         return PRIMARY_ARCH_MIRRORS.copy()
-    if arch in PORTS_ARCHES:
+    if arch in get_ports_arches(os_release):
         return PORTS_MIRRORS.copy()
     raise ValueError("No default mirror known for arch %s" % arch)
 
@@ -184,16 +203,16 @@ def deb822_entry_to_str(entry):
     return stanza
 
 
-def maybe_convert_sources_to_deb822(sources):
+def maybe_convert_sources_to_deb822(sources, target):
     try:
         parse_deb822_sources(sources)
 
         return sources
     except Deb822SourceFormatException:
-        return convert_sources_to_deb822(sources)
+        return convert_sources_to_deb822(sources, target=target)
 
 
-def convert_sources_to_deb822(sources):
+def convert_sources_to_deb822(sources, target):
     index = {}
 
     for entry in [SourceEntry(e) for e in sources.splitlines(True)]:
@@ -246,7 +265,8 @@ def convert_sources_to_deb822(sources):
                 del index[ks]
 
     # Add Signed-By field if URI is default or will render to a configured one.
-    mirrors = list(get_default_mirrors().values())
+    mirrors = list(get_default_mirrors(
+            os_release=distro.os_release(target)).values())
     mirrors += [m.rstrip('/') for m in mirrors]
     mirrors += ['$MIRROR', '$SECURITY', '$PRIMARY']
 
@@ -270,7 +290,8 @@ def handle_apt(cfg, target=None):
     """
     release = distro.lsb_release(target=target)['codename']
     arch = distro.get_architecture(target)
-    mirrors = find_apt_mirror_info(cfg, arch)
+    mirrors = find_apt_mirror_info(
+        cfg, arch, os_release=distro.os_release(target))
     LOG.debug("Apt Mirror info: %s", mirrors)
 
     apply_debconf_selections(cfg, target)
@@ -403,7 +424,8 @@ def rename_apt_lists(new_mirrors, target=None, arch=None):
     """rename_apt_lists - rename apt lists to preserve old cache data"""
     if arch is None:
         arch = distro.get_architecture(target)
-    default_mirrors = get_default_mirrors(arch)
+    default_mirrors = get_default_mirrors(
+        arch, os_release=distro.os_release(target))
 
     pre = paths.target_path(target, APT_LISTS)
     for (name, omirror) in default_mirrors.items():
@@ -429,7 +451,7 @@ def rename_apt_lists(new_mirrors, target=None, arch=None):
 def make_mirrors_replacement(mirrors, target, arch=None):
     if arch is None:
         arch = distro.get_architecture(target)
-    defaults = get_default_mirrors(arch)
+    defaults = get_default_mirrors(arch, os_release=distro.os_release(target))
     mirrors_replacement = {}
 
     uri = mirrors.get('MIRROR')
@@ -603,7 +625,7 @@ def _generate_sources_deb822(cfg, release, mirrors, target=None, arch=None):
         from_file = True
 
     # Convert to deb822 sources if needed.
-    tmpl = maybe_convert_sources_to_deb822(tmpl)
+    tmpl = maybe_convert_sources_to_deb822(tmpl, target=target)
 
     suites_to_disable = set()
     if cfg.get('disable_suites') is not None:
@@ -788,7 +810,7 @@ def add_apt_sources(srcdict, target=None, template_params=None,
 
         # Convert this source to deb822 format if needed.
         if target_wants_deb822:
-            source = maybe_convert_sources_to_deb822(source)
+            source = maybe_convert_sources_to_deb822(source, target)
 
         ext = '.sources' if target_wants_deb822 else '.list'
         splext = os.path.splitext(ent['filename'])
@@ -827,7 +849,7 @@ def search_for_mirror(candidates):
     return None
 
 
-def update_mirror_info(pmirror, smirror, arch):
+def update_mirror_info(pmirror, smirror, arch, os_release):
     """sets security mirror to primary if not defined.
        returns defaults if no mirrors are defined"""
     if pmirror is not None:
@@ -835,7 +857,7 @@ def update_mirror_info(pmirror, smirror, arch):
             smirror = pmirror
         return {'PRIMARY': pmirror,
                 'SECURITY': smirror}
-    return get_default_mirrors(arch)
+    return get_default_mirrors(arch, os_release=os_release)
 
 
 def get_arch_mirrorconfig(cfg, mirrortype, arch):
@@ -876,7 +898,7 @@ def get_mirror(cfg, mirrortype, arch):
     return mirror
 
 
-def find_apt_mirror_info(cfg, arch=None):
+def find_apt_mirror_info(cfg, arch=None, *, os_release):
     """find_apt_mirror_info
        find an apt_mirror given the cfg provided.
        It can check for separate config of primary and security mirrors
@@ -894,7 +916,7 @@ def find_apt_mirror_info(cfg, arch=None):
 
     # Note: curtin has no cloud-datasource fallback
 
-    mirror_info = update_mirror_info(pmirror, smirror, arch)
+    mirror_info = update_mirror_info(pmirror, smirror, arch, os_release)
 
     # less complex replacements use only MIRROR, derive from primary
     mirror_info["MIRROR"] = mirror_info["PRIMARY"]
