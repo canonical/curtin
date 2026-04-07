@@ -13,8 +13,6 @@ import sys
 
 from aptsources.sourceslist import SourceEntry
 
-from debian.deb822 import Deb822
-
 from curtin.log import LOG
 from curtin import (config, distro, gpg, paths, util)
 
@@ -47,14 +45,6 @@ PORTS_ARCHES = ['s390x', 'arm64', 'armhf', 'powerpc', 'ppc64el', 'riscv64']
 APT_SOURCES_PROPOSED = (
     "deb $MIRROR $RELEASE-proposed main restricted universe multiverse")
 
-APT_SOURCES_PROPOSED_DEB822 = (
-    'Types: deb\n'
-    'URIs: $MIRROR\n'
-    'Suites: $RELEASE-proposed\n'
-    'Components: main restricted universe multiverse\n'
-    'Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg\n'
-)
-
 
 def get_default_mirrors(arch=None):
     """returns the default mirrors for the target. These depend on the
@@ -67,199 +57,6 @@ def get_default_mirrors(arch=None):
     if arch in PORTS_ARCHES:
         return PORTS_MIRRORS.copy()
     raise ValueError("No default mirror known for arch %s" % arch)
-
-
-def want_deb822(target=None):
-    """
-    Return True if we want to use deb822 apt sources on the target, and
-    False otherwise.
-
-    This is determined by the version of Ubuntu: deb822 is the default starting
-    with Ubuntu 24.04 (Noble Numbat).
-    """
-    os_release = distro.os_release(target)
-
-    if os_release.get('ID') != 'ubuntu':
-        return False
-
-    try:
-        version = [int(n) for n in os_release.get('VERSION_ID', '').split('.')]
-    except ValueError:
-        return False
-
-    if len(version) != 2:
-        return False
-
-    return version[0] >= 24
-
-
-class Deb822SourceFormatException(Exception):
-    pass
-
-
-def deb822_field_sort_key(name):
-    ordering = ['Enabled', 'Types', 'URIs', 'Suites', 'Components']
-    try:
-        return (0, ordering.index(name))
-    except ValueError:
-        return (1, name)
-
-
-def component_sort_key(comp):
-    ordering = ['main', 'restricted', 'universe', 'multiverse']
-    try:
-        return (0, ordering.index(comp))
-    except ValueError:
-        return (1, comp)
-
-
-def suite_sort_key(suite):
-    ordering = ['', 'updates', 'security', 'backports', 'proposed']
-    pocket = suite.partition('-')[2]
-    try:
-        return (0, ordering.index(pocket))
-    except ValueError:
-        return (1, pocket)
-
-
-def deb_type_sort_key(entry_type):
-    ordering = ['deb', 'deb-src']
-    try:
-        return (0, ordering.index(entry_type))
-    except ValueError:
-        return (1, entry_type)
-
-
-def _normalize_deb822_key(key):
-    if key.lower() == 'uris':
-        return 'URIs'
-
-    return key.title()
-
-
-def parse_deb822_sources(data):
-    sources = []
-
-    for para in Deb822.iter_paragraphs(data):
-        # debian.deb822.Deb822 does not actually support iterable
-        # values, so we need to put this back in a plain dict.
-        entry = {_normalize_deb822_key(k): v for (k, v) in para.items()}
-
-        for key in ('Types', 'URIs', 'Suites', 'Components'):
-            try:
-                entry[key] = entry[key].split()
-            except KeyError:
-                raise Deb822SourceFormatException(
-                    'Source entry is missing required field "{}"'.format(key)
-                )
-
-        sources.append(entry)
-
-    if not sources:
-        raise Deb822SourceFormatException('No valid sources found')
-
-    return sources
-
-
-def deb822_entry_to_str(entry):
-    stanza = ''
-
-    sort_key_fns = {
-        'Types': deb_type_sort_key,
-        'Suites': suite_sort_key,
-        'Components': component_sort_key,
-    }
-
-    for k in sorted(entry.keys(), key=deb822_field_sort_key):
-        v = entry[k]
-        if k == 'Enabled':
-            if v.lower() == 'no':
-                stanza += 'Enabled: no\n'
-        elif isinstance(v, set) or isinstance(v, list):
-            key_fn = sort_key_fns.get(k)
-            stanza += '{}: {}\n'.format(k, ' '.join(sorted(v, key=key_fn)))
-        else:
-            stanza += '{}: {}\n'.format(k, v)
-
-    return stanza
-
-
-def maybe_convert_sources_to_deb822(sources):
-    try:
-        parse_deb822_sources(sources)
-
-        return sources
-    except Deb822SourceFormatException:
-        return convert_sources_to_deb822(sources)
-
-
-def convert_sources_to_deb822(sources):
-    index = {}
-
-    for entry in [SourceEntry(e) for e in sources.splitlines(True)]:
-        if entry.invalid:
-            continue
-
-        # Remove disabled deb-src entries, because stylistically it makes
-        # more sense to add/remove deb-src in the Types: field, rather than
-        # having a deb-src entry with Enabled: no.
-        if entry.type == 'deb-src' and entry.disabled:
-            continue
-
-        # Start by making the existing sources as "flat" as possible. Later
-        # we can consolidate by suite and type if possible.
-        key = (entry.disabled, entry.type, entry.uri, entry.dist)
-        try:
-            e = index[key]
-            e['Components'] |= set(entry.comps)
-        except KeyError:
-            e = {}
-            e['Enabled'] = 'no' if entry.disabled else 'yes'
-            e['Types'] = set([entry.type])
-            e['URIs'] = set([entry.uri])
-            e['Suites'] = set([entry.dist])
-            e['Components'] = set(entry.comps)
-            index[key] = e
-
-    for suite in [k[-1] for k in index.keys()]:
-        for k in [k for k in index.keys() if k[-1] != suite]:
-            try:
-                e = index[(*k[:-1], suite)]
-
-                if e['Components'] == index[k]['Components']:
-                    e['Suites'] |= index[k]['Suites']
-
-                    del index[k]
-            except KeyError:
-                continue
-
-    for (ks, se) in [(k, e) for (k, e) in index.items() if k[1] == 'deb-src']:
-        for (kb, be) in [(k, e) for (k, e) in index.items() if k[1] == 'deb']:
-            can_combine = True
-            can_combine &= se['Enabled'] == be['Enabled']
-            can_combine &= se['URIs'] == be['URIs']
-            can_combine &= se['Suites'] == be['Suites']
-            can_combine &= se['Components'] == be['Components']
-
-            if can_combine:
-                be['Types'] = set(['deb', 'deb-src'])
-                del index[ks]
-
-    # Add Signed-By field if URI is default or will render to a configured one.
-    mirrors = list(get_default_mirrors().values())
-    mirrors += [m.rstrip('/') for m in mirrors]
-    mirrors += ['$MIRROR', '$SECURITY', '$PRIMARY']
-
-    for entry in index.values():
-        if entry.get('Signed-By'):
-            continue
-
-        if not entry['URIs'] - set(mirrors):
-            entry['Signed-By'] = (
-                '/usr/share/keyrings/ubuntu-archive-keyring.gpg'
-            )
-
-    return '\n'.join([deb822_entry_to_str(e) for e in index.values()])
 
 
 def handle_apt(cfg, target=None):
@@ -426,19 +223,16 @@ def rename_apt_lists(new_mirrors, target=None, arch=None):
                 LOG.warn("Failed to rename apt list:", exc_info=True)
 
 
-def make_mirrors_replacement(mirrors, target, arch=None):
+def update_default_mirrors(entries, mirrors, target, arch=None):
+    """replace existing default repos with the configured mirror"""
+
     if arch is None:
         arch = distro.get_architecture(target)
     defaults = get_default_mirrors(arch)
-    mirrors_replacement = {}
-
-    uri = mirrors.get('MIRROR')
-    if uri is not None:
-        mirrors_replacement[defaults['PRIMARY']] = uri
-
-    uri = mirrors.get('SECURITY')
-    if uri is not None:
-        mirrors_replacement[defaults['SECURITY']] = uri
+    mirrors_replacement = {
+        defaults['PRIMARY']: mirrors["MIRROR"],
+        defaults['SECURITY']: mirrors["SECURITY"],
+    }
 
     # allow original file URIs without the trailing slash to match mirror
     # specifications that have it
@@ -448,13 +242,6 @@ def make_mirrors_replacement(mirrors, target, arch=None):
             noslash[key[:-1]] = mirrors_replacement[key]
 
     mirrors_replacement.update(noslash)
-
-    return mirrors_replacement
-
-
-def update_default_mirrors(entries, mirrors, target, arch=None):
-    """replace existing default repos with the configured mirror"""
-    mirrors_replacement = make_mirrors_replacement(mirrors, target, arch)
 
     for entry in entries:
         entry.uri = mirrors_replacement.get(entry.uri, entry.uri)
@@ -543,13 +330,7 @@ def entries_to_str(entries):
     return ''.join([str(entry) + '\n' for entry in entries])
 
 
-def _generate_sources_list_compat(
-    cfg,
-    release,
-    mirrors,
-    target=None,
-    arch=None
-):
+def generate_sources_list(cfg, release, mirrors, target=None, arch=None):
     """ generate_sources_list
         create a source.list file based on a custom or default template
         by replacing mirrors and release in the template
@@ -580,90 +361,6 @@ def _generate_sources_list_compat(
     if os.path.exists(orig):
         os.rename(orig, orig + ".curtin.old")
     util.write_file(paths.target_path(target, aptsrc), output, mode=0o644)
-
-
-def _generate_sources_deb822(cfg, release, mirrors, target=None, arch=None):
-    sources_deb822 = '/etc/apt/sources.list.d/ubuntu.sources'
-    sources_list = '/etc/apt/sources.list'
-
-    tmpl = cfg.get('sources_list', None)
-    from_file = False
-
-    if tmpl is None:
-        LOG.info('No custom template provided, fall back to modify'
-                 'mirrors in %s on the target system', sources_deb822)
-
-        # If we don't already have the deb82 sources file, we will need to read
-        # from sources.list and do the migration.
-        target_path = paths.target_path(target, sources_deb822)
-        if not os.path.exists(target_path):
-            target_path = paths.target_path(target, sources_list)
-
-        tmpl = util.load_file(target_path)
-        from_file = True
-
-    # Convert to deb822 sources if needed.
-    tmpl = maybe_convert_sources_to_deb822(tmpl)
-
-    suites_to_disable = set()
-    if cfg.get('disable_suites') is not None:
-        suites_to_disable = set(
-            [map_known_suites(s, release) for s in cfg.get('disable_suites')]
-        )
-
-    comps_to_disable = set()
-    if cfg.get('disable_components') is not None:
-        comps_to_disable = set(
-            [c for c in cfg.get('disable_components') if c != 'main']
-        )
-
-    mirrors_replacement = make_mirrors_replacement(mirrors, target, arch)
-
-    stanzas = []
-    for entry in parse_deb822_sources(tmpl):
-        if from_file:
-            # when loading from an existing file, we also replace default
-            # URIs with configured mirrors
-            entry['URIs'] = [mirrors_replacement.get(u, u)
-                             for u in entry['URIs']]
-
-        # Update mirrors
-        entry['URIs'] = [util.render_string(u, mirrors)
-                         for u in entry['URIs']]
-        # Update dist
-        entry['Suites'] = [util.render_string(s, {'RELEASE': release})
-                           for s in entry['Suites']]
-
-        # Disable suites and components
-        entry['Suites'] = list(set(entry['Suites']) - suites_to_disable)
-        entry['Components'] = list(set(entry['Components']) - comps_to_disable)
-
-        if not entry['Suites']:
-            # It is invalid for a stanza to have zero suite configured. In
-            # practise, it can happen when -security is disabled.
-            continue
-
-        stanzas.append(deb822_entry_to_str(entry))
-
-    target_path = paths.target_path(target, sources_deb822)
-    if os.path.exists(target_path):
-        os.rename(target_path, target_path + '.curtin.old')
-
-    output = '\n'.join(stanzas)
-    util.write_file(target_path, output, mode=0o644)
-
-    # If sources.list still exists, leave a note about the migration.
-    target_path = paths.target_path(target, sources_list)
-    if os.path.exists(target_path):
-        output = '# Ubuntu sources have moved to {}\n'.format(sources_deb822)
-        util.write_file(target_path, output, mode=0o644)
-
-
-def generate_sources_list(cfg, release, mirrors, target=None, arch=None):
-    if want_deb822(target):
-        _generate_sources_deb822(cfg, release, mirrors, target, arch)
-    else:
-        _generate_sources_list_compat(cfg, release, mirrors, target, arch)
 
 
 def apply_preserve_sources_list(target):
@@ -747,8 +444,6 @@ def add_apt_sources(srcdict, target=None, template_params=None,
     if not isinstance(srcdict, dict):
         raise TypeError('unknown apt format: %s' % (srcdict))
 
-    target_wants_deb822 = want_deb822(target)
-
     for filename in srcdict:
         ent = srcdict[filename]
         if 'filename' not in ent:
@@ -759,9 +454,18 @@ def add_apt_sources(srcdict, target=None, template_params=None,
         keyname = os.path.basename(ent['filename'])
         add_apt_key(keyname, ent, target)
 
-        source = ent.get('source')
-        if source is None:
+        if 'source' not in ent:
             continue
+        source = ent['source']
+        if source == 'proposed':
+            source = APT_SOURCES_PROPOSED
+        source = util.render_string(source, template_params)
+
+        if not ent['filename'].startswith("/"):
+            ent['filename'] = os.path.join("/etc/apt/sources.list.d/",
+                                           ent['filename'])
+        if not ent['filename'].endswith(".list"):
+            ent['filename'] += ".list"
 
         if aa_repo_match(source):
             with util.ChrootableTarget(
@@ -774,30 +478,9 @@ def add_apt_sources(srcdict, target=None, template_params=None,
                     raise
             continue
 
-        if source == 'proposed':
-            if target_wants_deb822:
-                source = APT_SOURCES_PROPOSED_DEB822
-            else:
-                source = APT_SOURCES_PROPOSED
-
-        source = util.render_string(source, template_params)
-
-        if not ent['filename'].startswith("/"):
-            ent['filename'] = os.path.join("/etc/apt/sources.list.d/",
-                                           ent['filename'])
-
-        # Convert this source to deb822 format if needed.
-        if target_wants_deb822:
-            source = maybe_convert_sources_to_deb822(source)
-
-        ext = '.sources' if target_wants_deb822 else '.list'
-        splext = os.path.splitext(ent['filename'])
-        if splext[1] != ext:
-            ent['filename'] = splext[0] + ext
-
         sourcefn = paths.target_path(target, ent['filename'])
         try:
-            contents = "%s\n" % (source.rstrip())
+            contents = "%s\n" % (source)
             util.write_file(sourcefn, contents, omode="a")
         except IOError as detail:
             LOG.exception("failed write to file %s: %s", sourcefn, detail)
