@@ -58,12 +58,25 @@ default_arches = {
     "primary": {"amd64", "i386"},
     "ports": {"s390x", "arm64", "armhf", "powerpc", "ppc64el", "riscv64"},
 }
+# Since Ubuntu 25.10, arm64 is served on the primary mirror.
+ubuntu_ge_25_10_arches = {
+    "primary": {"amd64", "i386", "arm64"},
+    "ports": {"s390x", "armhf", "powerpc", "ppc64el", "riscv64"},
+}
 
 
 def _get_arches(os_release: dict[str, str], *, key: str) -> set[str]:
     if os_release.get("ID") != "ubuntu":
         return default_arches[key]
-    # TODO
+
+    ubuntu_version = os_release["VERSION_ID"].split(".")
+
+    major = int(ubuntu_version[0])
+    minor = int(ubuntu_version[1])
+
+    if major >= 26 or (major == 25 and minor >= 10):
+        return ubuntu_ge_25_10_arches[key]
+
     return default_arches[key]
 
 

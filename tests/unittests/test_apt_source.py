@@ -112,6 +112,10 @@ class TestGetArches(CiTestCase):
              {"amd64", "i386"}),
             ({"ID": "ubuntu", "VERSION_ID": "24.04"},
              {"amd64", "i386"}),
+            ({"ID": "ubuntu", "VERSION_ID": "25.10"},
+             {"amd64", "i386", "arm64"}),
+            ({"ID": "ubuntu", "VERSION_ID": "26.04"},
+             {"amd64", "i386", "arm64"}),
         ),
     )
     def test_primary(self, os_release, expected_arches):
@@ -124,6 +128,10 @@ class TestGetArches(CiTestCase):
              {"s390x", "arm64", "armhf", "powerpc", "ppc64el", "riscv64"}),
             ({"ID": "ubuntu", "VERSION_ID": "24.04"},
              {"s390x", "arm64", "armhf", "powerpc", "ppc64el", "riscv64"}),
+            ({"ID": "ubuntu", "VERSION_ID": "25.10"},
+             {"s390x", "armhf", "powerpc", "ppc64el", "riscv64"}),
+            ({"ID": "ubuntu", "VERSION_ID": "26.04"},
+             {"s390x", "armhf", "powerpc", "ppc64el", "riscv64"}),
         ),
     )
     def test_ports(self, os_release, expected_arches):
