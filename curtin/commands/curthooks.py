@@ -2034,8 +2034,9 @@ def curthook_zpool_cache(target: str) -> None:
 
 def curthook_dracut_zvol(target: str, storage_cfg: dict) -> None:
     """
-    add a dracut drop-in file informing it of additional devices to consider,
-    if needed. ensures that cryptsetup is included in the initrd.
+    add a dracut drop-in file, ensuring if needed that cryptsetup is included
+    in the initrd.
+    See LP: #2140415 and LP: #2148282
     """
 
     conf_d = Path(target) / "etc/dracut.conf.d"
@@ -2044,21 +2045,12 @@ def curthook_dracut_zvol(target: str, storage_cfg: dict) -> None:
         return
 
     criteria = dict(type="zpool", encryption_style="luks_keystore")
-    for pool in select_configs(storage_cfg, **criteria):
-        pool_name = pool["pool"]
-        filename = conf_d / f"keystore-{pool_name}.conf"
+    if select_configs(storage_cfg, **criteria):
+        filename = conf_d / "zfs-luks-keystore.conf"
 
-        # LP: #2140415
-        # let dracut know about the keystore zvol, else we fail to decrypt on
-        # first boot. note on dracut syntax - the extra spaces before / after
-        # the device path are not optional!
-        keystore_volume = f"/dev/zvol/{pool_name}/keystore"
-        content = f"""
+        content = """\
 # written by curtin
-# This config ensures that the encrypted pool keystore zvol is inspected by
-# dracut, necessary so that cryptsetup and similar are present in the initrd so
-# that decryption actually takes place.
-add_device+=" {keystore_volume} "
+add_dracutmodules+=" systemd-cryptsetup "
 """
 
         util.write_file(filename, content)

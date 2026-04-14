@@ -853,12 +853,12 @@ class TestSetupDracut(CiTestCase):
         self.conf_d.mkdir(parents=True)
         curthooks.curthook_dracut_zvol(self.target, self.storage_cfg)
 
-        conf = self.conf_d / f"keystore-{self.pool_name}.conf"
+        conf = self.conf_d / "zfs-luks-keystore.conf"
         for line in conf.read_text().splitlines():
-            if line == f'add_device+=" /dev/zvol/{self.pool_name}/keystore "':
+            if line == 'add_dracutmodules+=" systemd-cryptsetup "':
                 return
 
-        self.fail(f"expected add_device directive in {conf} not found")
+        self.fail(f"expected add_dracutmodules directive in {conf} not found")
 
     def test_create_zvol_no_dropin(self):
         # not a dracut system
@@ -866,7 +866,7 @@ class TestSetupDracut(CiTestCase):
             m_exists.return_value = False
             curthooks.curthook_dracut_zvol(self.target, self.storage_cfg)
 
-        conf = self.conf_d / f"keystore-{self.pool_name}.conf"
+        conf = self.conf_d / "zfs-luks-keystore.conf"
         self.assertFalse(conf.exists())
 
     def test_no_keystore(self):
@@ -875,7 +875,7 @@ class TestSetupDracut(CiTestCase):
             m_exists.return_value = True
             curthooks.curthook_dracut_zvol(self.target, self.storage_cfg)
 
-        conf = self.conf_d / f"keystore-{self.pool_name}.conf"
+        conf = self.conf_d / "zfs-luks-keystore.conf"
         self.assertFalse(conf.exists())
 
 
