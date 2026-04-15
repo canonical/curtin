@@ -91,7 +91,8 @@ def get_ports_arches(os_release: dict[str, str]) -> set[str]:
 def get_default_mirrors(arch=None, *, os_release):
     """returns the default mirrors for the target. These depend on the
        architecture and the release being installed, for more see:
-       https://wiki.ubuntu.com/UbuntuDevelopment/PackageArchive#Ports"""
+       https://documentation.ubuntu.com/project/how-ubuntu-is-made/concepts/supported-architectures/
+    """  # noqa
     if arch is None:
         arch = distro.get_architecture()
     if arch in get_primary_arches(os_release):
