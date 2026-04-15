@@ -20,6 +20,8 @@ from curtin import util
 from curtin.commands import apt_config
 from .helpers import CiTestCase
 
+from parameterized import parameterized
+
 
 EXPECTEDKEY = u"""-----BEGIN PGP PUBLIC KEY BLOCK-----
 Version: GnuPG v1
@@ -102,6 +104,41 @@ def mock_want_deb822(return_value):
     return inner
 
 
+class TestGetArches(CiTestCase):
+    @parameterized.expand(
+        (
+            (
+             {"ID": "ubuntu", "VERSION_ID": "22.04"},
+             {"amd64", "i386"}),
+            ({"ID": "ubuntu", "VERSION_ID": "24.04"},
+             {"amd64", "i386"}),
+            ({"ID": "ubuntu", "VERSION_ID": "25.10"},
+             {"amd64", "i386", "arm64"}),
+            ({"ID": "ubuntu", "VERSION_ID": "26.04"},
+             {"amd64", "i386", "arm64"}),
+        ),
+    )
+    def test_primary(self, os_release, expected_arches):
+        self.assertEqual(expected_arches,
+                         apt_config.get_primary_arches(os_release=os_release))
+
+    @parameterized.expand(
+        (
+            ({"ID": "ubuntu", "VERSION_ID": "22.04"},
+             {"s390x", "arm64", "armhf", "powerpc", "ppc64el", "riscv64"}),
+            ({"ID": "ubuntu", "VERSION_ID": "24.04"},
+             {"s390x", "arm64", "armhf", "powerpc", "ppc64el", "riscv64"}),
+            ({"ID": "ubuntu", "VERSION_ID": "25.10"},
+             {"s390x", "armhf", "powerpc", "ppc64el", "riscv64"}),
+            ({"ID": "ubuntu", "VERSION_ID": "26.04"},
+             {"s390x", "armhf", "powerpc", "ppc64el", "riscv64"}),
+        ),
+    )
+    def test_ports(self, os_release, expected_arches):
+        self.assertEqual(expected_arches,
+                         apt_config.get_ports_arches(os_release=os_release))
+
+
 class TestAptSourceConfig(CiTestCase):
     """ TestAptSourceConfig
     Main Class to test apt configs
@@ -109,6 +146,7 @@ class TestAptSourceConfig(CiTestCase):
     def setUp(self):
         super(TestAptSourceConfig, self).setUp()
         self.target = self.tmp_dir()
+        self.os_release = {'ID': 'ubuntu', 'VERSION_ID': '24.04'}
         self.aptlistfile = "single-deb.list"
         self.aptlistfile2 = "single-deb2.list"
         self.aptlistfile3 = "single-deb3.list"
@@ -138,8 +176,10 @@ class TestAptSourceConfig(CiTestCase):
         params = {}
         params['RELEASE'] = distro.lsb_release()['codename']
         arch = distro.get_architecture()
-        params['MIRROR'] = apt_config.get_default_mirrors(arch)["PRIMARY"]
-        params['SECURITY'] = apt_config.get_default_mirrors(arch)["SECURITY"]
+        mirrors = apt_config.get_default_mirrors(
+            arch, os_release={'ID': 'ubuntu', 'VERSION_ID': '26.04'})
+        params['MIRROR'] = mirrors['PRIMARY']
+        params['SECURITY'] = mirrors['SECURITY']
         return params
 
     def _apt_src_basic(self, filename, cfg):
@@ -582,7 +622,8 @@ class TestAptSourceConfig(CiTestCase):
         fromfn = ("%s/%s_%s" % (pre, archive, post))
         tofn = ("%s/test.ubuntu.com_%s" % (pre, post))
 
-        mirrors = apt_config.find_apt_mirror_info(cfg, arch)
+        mirrors = apt_config.find_apt_mirror_info(
+            cfg, arch, os_release=self.os_release)
 
         self.assertEqual(mirrors['MIRROR'],
                          "http://test.ubuntu.com/%s/" % component)
@@ -762,7 +803,8 @@ Pin-Priority: -1
                "security": [{'arches': ["default"],
                              "uri": smir}]}
 
-        mirrors = apt_config.find_apt_mirror_info(cfg, 'amd64')
+        mirrors = apt_config.find_apt_mirror_info(
+                cfg, 'amd64', os_release=self.os_release)
 
         self.assertEqual(mirrors['MIRROR'],
                          pmir)
@@ -774,10 +816,12 @@ Pin-Priority: -1
     def test_mirror_default(self):
         """test_mirror_default - Test without defining a mirror"""
         arch = distro.get_architecture()
-        default_mirrors = apt_config.get_default_mirrors(arch)
+        default_mirrors = apt_config.get_default_mirrors(
+                arch, os_release=self.os_release)
         pmir = default_mirrors["PRIMARY"]
         smir = default_mirrors["SECURITY"]
-        mirrors = apt_config.find_apt_mirror_info({}, arch)
+        mirrors = apt_config.find_apt_mirror_info(
+                {}, arch, os_release=self.os_release)
 
         self.assertEqual(mirrors['MIRROR'],
                          pmir)
@@ -796,7 +840,8 @@ Pin-Priority: -1
                "security": [{'arches': ["default"], "uri": "nothis-security"},
                             {'arches': [arch], "uri": smir}]}
 
-        mirrors = apt_config.find_apt_mirror_info(cfg, arch)
+        mirrors = apt_config.find_apt_mirror_info(
+                cfg, arch, os_release=self.os_release)
 
         self.assertEqual(mirrors['PRIMARY'], pmir)
         self.assertEqual(mirrors['MIRROR'], pmir)
@@ -815,7 +860,8 @@ Pin-Priority: -1
                             {'arches': ["default"],
                              "uri": smir}]}
 
-        mirrors = apt_config.find_apt_mirror_info(cfg, 'amd64')
+        mirrors = apt_config.find_apt_mirror_info(
+                cfg, 'amd64', os_release=self.os_release)
 
         self.assertEqual(mirrors['MIRROR'],
                          pmir)
@@ -830,10 +876,12 @@ Pin-Priority: -1
         m_get_architecture.return_value = arch
         expected = {'PRIMARY': 'http://ports.ubuntu.com/ubuntu-ports',
                     'SECURITY': 'http://ports.ubuntu.com/ubuntu-ports'}
-        self.assertEqual(expected, apt_config.get_default_mirrors())
+        self.assertEqual(expected, apt_config.get_default_mirrors(
+                    os_release=distro.os_release(self.target)))
 
     def test_get_default_mirrors_non_intel_with_arch(self):
-        found = apt_config.get_default_mirrors('ppc64el')
+        found = apt_config.get_default_mirrors(
+                'ppc64el', os_release=distro.os_release(self.target))
 
         expected = {'PRIMARY': 'http://ports.ubuntu.com/ubuntu-ports',
                     'SECURITY': 'http://ports.ubuntu.com/ubuntu-ports'}
@@ -842,7 +890,8 @@ Pin-Priority: -1
     def test_mirror_arches_sysdefault(self):
         """test_mirror_arches - Test arches falling back to sys default"""
         arch = distro.get_architecture()
-        default_mirrors = apt_config.get_default_mirrors(arch)
+        default_mirrors = apt_config.get_default_mirrors(
+                arch, os_release=distro.os_release(self.target))
         pmir = default_mirrors["PRIMARY"]
         smir = default_mirrors["SECURITY"]
         cfg = {"primary": [{'arches': ["thisarchdoesntexist_64"],
@@ -854,7 +903,8 @@ Pin-Priority: -1
                             {'arches': ["thisarchdoesntexist_64"],
                              "uri": "nothateither"}]}
 
-        mirrors = apt_config.find_apt_mirror_info(cfg, arch)
+        mirrors = apt_config.find_apt_mirror_info(
+                cfg, arch, os_release=self.os_release)
 
         self.assertEqual(mirrors['MIRROR'], pmir)
         self.assertEqual(mirrors['PRIMARY'], pmir)
@@ -872,7 +922,8 @@ Pin-Priority: -1
 
         with mock.patch.object(apt_config, 'search_for_mirror',
                                side_effect=[pmir, smir]) as mocksearch:
-            mirrors = apt_config.find_apt_mirror_info(cfg, 'amd64')
+            mirrors = apt_config.find_apt_mirror_info(
+                    cfg, 'amd64', os_release=self.os_release)
 
         calls = [call(["pfailme", pmir]),
                  call(["sfailme", smir])]
@@ -901,13 +952,15 @@ Pin-Priority: -1
         # should be called only once per type, despite two mirror configs
         with mock.patch.object(apt_config, 'get_mirror',
                                return_value="http://mocked/foo") as mockgm:
-            mirrors = apt_config.find_apt_mirror_info(cfg, arch)
+            mirrors = apt_config.find_apt_mirror_info(
+                    cfg, arch, os_release=self.os_release)
         calls = [call(cfg, 'primary', arch), call(cfg, 'security', arch)]
         mockgm.assert_has_calls(calls)
 
         # should not be called, since primary is specified
         with mock.patch.object(apt_config, 'search_for_mirror') as mockse:
-            mirrors = apt_config.find_apt_mirror_info(cfg, arch)
+            mirrors = apt_config.find_apt_mirror_info(
+                    cfg, arch, os_release=self.os_release)
         mockse.assert_not_called()
 
         self.assertEqual(mirrors['MIRROR'],
@@ -1388,7 +1441,8 @@ deb-src http://ubuntu.com//ubuntu xenial universe multiverse
             )
             write_file.assert_called_with(filepath, expect, mode=0o644)
 
-        default_mirror = apt_config.get_default_mirrors()['PRIMARY']
+        default_mirror = apt_config.get_default_mirrors(
+                os_release=distro.os_release(self.target))['PRIMARY']
 
         # Make sure that default mirrors are replaced correctly when reading
         # from a file.
