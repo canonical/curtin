@@ -33,6 +33,7 @@ from curtin.net import deps as ndeps
 from curtin.reporter import events
 from curtin.commands import apply_net, apt_config, block_meta
 from curtin.commands.install_grub import install_grub
+from curtin.commands.install_bls import install_bls
 from curtin.commands.install_extlinux import install_extlinux
 from curtin.url_helper import get_maas_version
 
@@ -867,13 +868,14 @@ def translate_old_grub_schema(cfg):
     cfg['boot'] = grub_cfg
 
 
-def setup_extlinux(
-        cfg: dict,
-        target: str):
-    """Set up an extlinux.conf file
+def _get_boot_params(cfg):
+    """Extract common boot parameters from the storage configuration
 
-    :param: cfg: A config dict containing config.BootCfg in cfg['boot'].
-    :param: target: A string specifying the path to the chroot mountpoint.
+    Determines the firmware boot directory and root device specification
+    from the storage configuration.
+
+    :param: cfg: A config dict containing storage and boot configuration.
+    Return: tuple of (bootcfg, fw_boot_dir, spec)
     """
     bootcfg = config.fromdict(config.BootCfg, cfg.get('boot', {}))
 
@@ -893,7 +895,33 @@ def setup_extlinux(
     fdata = block_meta.mount_data(root, storage_cfg_dict)
     spec = block_meta.resolve_fdata_spec(fdata)
 
+    return bootcfg, fw_boot_dir, spec
+
+
+def setup_extlinux(
+        cfg: dict,
+        target: str):
+    """Set up an extlinux.conf file
+
+    :param: cfg: A config dict containing config.BootCfg in cfg['boot'].
+    :param: target: A string specifying the path to the chroot mountpoint.
+    """
+    bootcfg, fw_boot_dir, spec = _get_boot_params(cfg)
     install_extlinux(bootcfg, target, fw_boot_dir, spec)
+
+
+def setup_bls(
+        cfg: dict,
+        target: str,
+        machine: str):
+    """Set up Boot Loader Specification (BLS) Type 1 entry files
+
+    :param: cfg: A config dict containing config.BootCfg in cfg['boot'].
+    :param: target: A string specifying the path to the chroot mountpoint.
+    :param: machine: A string specifying the target machine architecture.
+    """
+    bootcfg, fw_boot_dir, spec = _get_boot_params(cfg)
+    install_bls(bootcfg, target, fw_boot_dir, spec, machine)
 
 
 def setup_boot(
@@ -928,6 +956,16 @@ def setup_boot(
                 raise ValueError(
                     'extlinux is not supported on s390x; use zipl')
             setup_extlinux(cfg, target)
+
+    if 'bls' in bootloaders:
+        with events.ReportEventStack(
+                name=stack_prefix + '/install-bls',
+                reporting_enabled=True, level="INFO",
+                description="installing BLS entries to target"):
+            if machine == 's390x':
+                raise ValueError(
+                    'BLS is not supported on s390x; use zipl')
+            setup_bls(cfg, target, machine)
 
     if machine == 's390x':
         with events.ReportEventStack(
