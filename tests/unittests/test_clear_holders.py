@@ -806,6 +806,32 @@ class TestClearHolders(CiTestCase):
     @mock.patch('curtin.block.clear_holders.zfs')
     @mock.patch('curtin.block.clear_holders.mdadm')
     @mock.patch('curtin.block.clear_holders.util')
+    def test_clear_holders_failed_bcache(self, mock_util, mock_mdadm, mock_zfs,
+                                         mock_lvm, mock_mp, mock_udev):
+
+        err = (
+            "modprobe: FATAL: Module bcache not found in directory "
+            "/lib/modules/7.0.0-13-generic"
+        )
+        cmd = ['modprobe', '--use-blacklist', 'bcache']
+        mock_util.load_kernel_module.side_effect = [
+            ProcessExecutionError(cmd=cmd, stdout='', stderr=err, exit_code=1)
+        ]
+
+        # during test time, because all of util is mocked,
+        # ProcessExecutionError is mocked also, so fix that.
+        mock_util.ProcessExecutionError = ProcessExecutionError
+        mock_zfs.zfs_supported.return_value = True
+        clear_holders.start_clear_holders_deps()
+        mock_util.load_kernel_module.assert_has_calls([mock.call('bcache')])
+        self.assertEqual(1, mock_zfs.zfs_supported.call_count)
+
+    @mock.patch('curtin.block.clear_holders.udev')
+    @mock.patch('curtin.block.clear_holders.multipath')
+    @mock.patch('curtin.block.clear_holders.lvm')
+    @mock.patch('curtin.block.clear_holders.zfs')
+    @mock.patch('curtin.block.clear_holders.mdadm')
+    @mock.patch('curtin.block.clear_holders.util')
     def test_start_clear_holders_deps_nozfs(self, mock_util, mock_mdadm,
                                             mock_zfs, mock_lvm, mock_mp,
                                             mock_udev):
