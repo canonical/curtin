@@ -716,7 +716,10 @@ def start_clear_holders_deps():
     # lad the bcache module bcause it is not present in the kernel. if this
     # happens then there is no need to halt installation, as the bcache devices
     # will never appear and will never prevent the disk from being reformatted
-    util.load_kernel_module('bcache')
+    try:
+        util.load_kernel_module('bcache')
+    except util.ProcessExecutionError:
+        LOG.warning('failed loading bcache module, continuing')
 
     if not zfs.zfs_supported():
         LOG.warning('zfs filesystem is not supported in this environment')
