@@ -10,7 +10,6 @@ import re
 import sys
 import shutil
 import textwrap
-from pathlib import Path
 from typing import List, Tuple
 
 from curtin import config
@@ -2032,30 +2031,6 @@ def curthook_zpool_cache(target: str) -> None:
         copy_zpool_cache(zpool_cache, target)
 
 
-def curthook_dracut_zvol(target: str, storage_cfg: dict) -> None:
-    """
-    add a dracut drop-in file, ensuring if needed that cryptsetup is included
-    in the initrd.
-    See LP: #2140415 and LP: #2148282
-    """
-
-    conf_d = Path(target) / "etc/dracut.conf.d"
-    if not conf_d.exists():
-        # not a dracut system seemingly
-        return
-
-    criteria = dict(type="zpool", encryption_style="luks_keystore")
-    if select_configs(storage_cfg, **criteria):
-        filename = conf_d / "zfs-luks-keystore.conf"
-
-        content = """\
-# written by curtin
-add_dracutmodules+=" systemd-cryptsetup "
-"""
-
-        util.write_file(filename, content)
-
-
 def curthook_zkey(target: str, osfamily, state) -> None:
     zkey_repository = '/etc/zkey/repository'
     zkey_used = os.path.join(os.path.split(state['fstab'])[0], "zkey_used")
@@ -2195,7 +2170,6 @@ def builtin_curthooks(cfg: dict, target: str, state: dict):
 
     if osfamily == DISTROS.debian:
         curthook_zpool_cache(target)
-        curthook_dracut_zvol(target, extract_storage_ordered_dict(cfg))
         curthook_zkey(target, osfamily, state)
         curthook_crypttab(target, state)
 
