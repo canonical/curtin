@@ -1,5 +1,6 @@
 pyudev
 pyyaml
+python-debian
 oauthlib
 # For validation of storate configuration format
 jsonschema
