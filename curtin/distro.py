@@ -1,17 +1,13 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
-import glob
 from collections import namedtuple
 import os
 import re
-import shutil
-import tempfile
 import textwrap
 from typing import Optional, Sequence
 
 from .paths import target_path
 from .util import (
     ChrootableTarget,
-    find_newer,
     load_file,
     load_shell_content,
     ProcessExecutionError,
@@ -198,45 +194,14 @@ def _lsb_release(target=None):
     return data
 
 
-def apt_update(target=None, env=None, force=False, comment=None,
-               retries=None):
-
-    marker = "tmp/curtin.aptupdate"
-
+def apt_update(target=None, env=None):
+    LOG.debug("Updating apt sources in %s", target)
     if env is None:
         env = os.environ.copy()
 
-    if retries is None:
-        # by default run apt-update up to 3 times to allow
-        # for transient failures
-        retries = (1, 2, 3)
-
-    if comment is None:
-        comment = "no comment provided"
-
-    if comment.endswith("\n"):
-        comment = comment[:-1]
-
-    marker = target_path(target, marker)
-    # if marker exists, check if there are files that would make it obsolete
-    listfiles = [target_path(target, "/etc/apt/sources.list")]
-    listfiles += glob.glob(
-        target_path(target, "etc/apt/sources.list.d/*.list"))
-
-    if os.path.exists(marker) and not force:
-        if len(find_newer(marker, listfiles)) == 0:
-            return
-
     restore_perms = []
 
-    abs_tmpdir = tempfile.mkdtemp(dir=target_path(target, "/tmp"))
     try:
-        abs_slist = abs_tmpdir + "/sources.list"
-        abs_slistd = abs_tmpdir + "/sources.list.d"
-        ch_tmpdir = "/tmp/" + os.path.basename(abs_tmpdir)
-        ch_slist = ch_tmpdir + "/sources.list"
-        ch_slistd = ch_tmpdir + "/sources.list.d"
-
         # this file gets executed on apt-get update sometimes. (LP: #1527710)
         motd_update = target_path(
             target, "/usr/lib/update-notifier/update-motd-updates-available")
@@ -244,36 +209,17 @@ def apt_update(target=None, env=None, force=False, comment=None,
         if pmode is not None:
             restore_perms.append((motd_update, pmode),)
 
-        # create tmpdir/sources.list with all lines other than deb-src
-        # avoid apt complaining by using existing and empty dir for sourceparts
-        os.mkdir(abs_slistd)
-        with open(abs_slist, "w") as sfp:
-            for sfile in listfiles:
-                with open(sfile, "r") as fp:
-                    contents = fp.read()
-                for line in contents.splitlines():
-                    line = line.lstrip()
-                    if not line.startswith("deb-src"):
-                        sfp.write(line + "\n")
-
         update_cmd = [
             'apt-get', '--quiet',
             '--option=Acquire::Languages=none',
-            '--option=Dir::Etc::sourcelist=%s' % ch_slist,
-            '--option=Dir::Etc::sourceparts=%s' % ch_slistd,
             'update']
 
         # do not using 'run_apt_command' so we can use 'retries' to subp
         with ChrootableTarget(target, allow_daemons=True) as inchroot:
-            inchroot.subp(update_cmd, env=env, retries=retries)
+            inchroot.subp(update_cmd, env=env, retries=(1, 2, 3))
     finally:
         for fname, perms in restore_perms:
             os.chmod(fname, perms)
-        if abs_tmpdir:
-            shutil.rmtree(abs_tmpdir)
-
-    with open(marker, "w") as fp:
-        fp.write(comment + "\n")
 
 
 def run_apt_command(mode, args=None, opts=None, env=None, target=None,
@@ -303,7 +249,7 @@ def run_apt_command(mode, args=None, opts=None, env=None, target=None,
         return env, cmd
 
     if not assume_downloaded:
-        apt_update(target, env=env, comment=' '.join(cmd))
+        apt_update(target, env=env)
     if mode in ['dist-upgrade', 'install', 'upgrade']:
         cmd_rv = apt_install(mode, args, opts=opts, env=env, target=target,
                              allow_daemons=allow_daemons,

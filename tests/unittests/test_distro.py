@@ -583,7 +583,6 @@ class TestSystemUpgrade(CiTestCase):
             'apt-get', '--quiet', '--assume-yes',
             '--option=Dpkg::options::=--force-unsafe-io',
             '--option=Dpkg::Options::=--force-confold']
-        apt_cmd = apt_base + ['dist-upgrade'] + pkglist
         dl_apt_cmd = apt_base + ['dist-upgrade', '--download-only'] + pkglist
         inst_apt_cmd = apt_base + ['dist-upgrade'] + pkglist
         auto_remove = apt_base + ['autoremove']
@@ -595,8 +594,7 @@ class TestSystemUpgrade(CiTestCase):
             mock.call(auto_remove, env=env, target=paths.target_path(target)),
         ]
         which_calls = [mock.call('eatmydata', target=target)]
-        apt_update_calls = [
-            mock.call(target, env=env, comment=' '.join(apt_cmd))]
+        apt_update_calls = [mock.call(target, env=env)]
 
         distro.system_upgrade(target=target, osfamily=osfamily)
         m_which.assert_has_calls(which_calls)

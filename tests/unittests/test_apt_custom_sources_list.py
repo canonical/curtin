@@ -58,6 +58,54 @@ deb http://testsec.ubuntu.com/ubuntu/ fakerel-security multiverse
 # FIND_SOMETHING_SPECIAL
 """
 
+# Input and expected output for the custom template with deb822 sources
+YAML_TEXT_CUSTOM_SL_DEB822 = """
+preserve_sources_list: false
+primary:
+  - arches: [default]
+    uri: http://test.ubuntu.com/ubuntu/
+security:
+  - arches: [default]
+    uri: http://testsec.ubuntu.com/ubuntu/
+sources_list: |
+    Types: deb deb-src
+    URIs: $MIRROR
+    Suites: $RELEASE
+    Components: main restricted
+    Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
+
+    Types: deb
+    URIs: $MIRROR
+    Suites: $RELEASE
+    Components: restricted universe
+    Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
+
+    Types: deb
+    URIs: $SECURITY
+    Suites: $RELEASE-security
+    Components: multiverse
+    Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
+"""
+
+EXPECTED_CONVERTED_CONTENT_DEB822 = """Types: deb deb-src
+URIs: http://test.ubuntu.com/ubuntu/
+Suites: fakerel
+Components: main restricted
+Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
+
+Types: deb
+URIs: http://test.ubuntu.com/ubuntu/
+Suites: fakerel
+Components: restricted universe
+Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
+
+Types: deb
+URIs: http://testsec.ubuntu.com/ubuntu/
+Suites: fakerel-security
+Components: multiverse
+Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
+"""
+
 # mocked to be independent to the unittest system
 MOCKED_APT_SRC_LIST = """
 deb http://test.ubuntu.com/ubuntu/ notouched main restricted
@@ -86,6 +134,18 @@ deb-src http://test.ubuntu.com/ubuntu/ notouched main restricted
 deb http://test.ubuntu.com/ubuntu/ notouched-updates main restricted
 deb http://testsec.ubuntu.com/ubuntu/ notouched-security main restricted
 """)
+
+
+def mock_want_deb822(return_value):
+    def inner(test_func):
+        def patched_test_func(*args, **kwargs):
+            with mock.patch('curtin.commands.apt_config.want_deb822') as m:
+                m.return_value = return_value
+                test_func(*args, **kwargs)
+
+        return patched_test_func
+
+    return inner
 
 
 class TestAptSourceConfigSourceList(CiTestCase):
@@ -123,12 +183,14 @@ class TestAptSourceConfigSourceList(CiTestCase):
                       expected, mode=0o644)]
         self.mockwrite.assert_has_calls(calls)
 
+    @mock_want_deb822(False)
     def test_apt_source_list(self):
         """test_apt_source_list - Test with neither custom sources nor parms"""
         cfg = {'preserve_sources_list': False}
 
         self._apt_source_list(cfg, EXPECTED_BASE_CONTENT)
 
+    @mock_want_deb822(False)
     def test_apt_source_list_psm(self):
         """test_apt_source_list_psm - Test specifying prim+sec mirrors"""
         cfg = {'preserve_sources_list': False,
@@ -139,6 +201,7 @@ class TestAptSourceConfigSourceList(CiTestCase):
 
         self._apt_source_list(cfg, EXPECTED_PRIMSEC_CONTENT)
 
+    @mock_want_deb822(False)
     def test_apt_srcl_custom(self):
         """test_apt_srcl_custom - Test rendering a custom source template"""
         cfg = yaml.safe_load(YAML_TEXT_CUSTOM_SL)
@@ -155,6 +218,7 @@ class TestAptSourceConfigSourceList(CiTestCase):
             EXPECTED_CONVERTED_CONTENT,
             util.load_file(paths.target_path(target, "/etc/apt/sources.list")))
 
+    @mock_want_deb822(False)
     @mock.patch("curtin.distro.lsb_release")
     @mock.patch("curtin.distro.get_architecture", return_value="amd64")
     def test_trusty_source_lists(self, m_get_arch, m_lsb_release):
@@ -217,6 +281,34 @@ class TestAptSourceConfigSourceList(CiTestCase):
         util.write_file(easl, orig_content_slash)
         apt_config.handle_apt(cfg, target)
         self.assertEqual(expected, util.load_file(easl))
+
+    @mock_want_deb822(True)
+    def test_apt_srcl_custom_deb22(self):
+        # Test both deb822 input and migration from classic sources.
+        for custom in (YAML_TEXT_CUSTOM_SL, YAML_TEXT_CUSTOM_SL_DEB822):
+            cfg = yaml.safe_load(custom)
+            target = self.new_root
+
+            arch = distro.get_architecture()
+            # would fail inside the unittest context
+            with mock.patch.object(
+                distro,
+                'get_architecture',
+                return_value=arch
+            ):
+                with mock.patch.object(distro, 'lsb_release',
+                                       return_value={'codename': 'fakerel'}):
+                    apt_config.handle_apt(cfg, target)
+
+            self.assertEqual(
+                EXPECTED_CONVERTED_CONTENT_DEB822,
+                util.load_file(
+                    paths.target_path(
+                        target,
+                        "/etc/apt/sources.list.d/ubuntu.sources"
+                    )
+                )
+            )
 
 
 class TestApplyPreserveSourcesList(CiTestCase):
