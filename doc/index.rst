@@ -19,7 +19,6 @@ Contents:
    topics/storage
    topics/curthooks
    topics/reporting
-   topics/hacking
    topics/integration-testing
 
 
