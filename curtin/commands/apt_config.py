@@ -596,7 +596,7 @@ def _generate_sources_list_compat(
     from_file = False
     if tmpl is None:
         LOG.info("No custom template provided, fall back to modify"
-                 "mirrors in %s on the target system", aptsrc)
+                 " mirrors in %s on the target system", aptsrc)
         tmpl = util.load_file(paths.target_path(target, aptsrc))
         from_file = True
 
@@ -627,7 +627,7 @@ def _generate_sources_deb822(cfg, release, mirrors, target=None, arch=None):
 
     if tmpl is None:
         LOG.info('No custom template provided, fall back to modify'
-                 'mirrors in %s on the target system', sources_deb822)
+                 ' mirrors in %s on the target system', sources_deb822)
 
         # If we don't already have the deb82 sources file, we will need to read
         # from sources.list and do the migration.

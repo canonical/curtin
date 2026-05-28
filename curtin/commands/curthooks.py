@@ -439,7 +439,7 @@ def uefi_remove_old_loaders(bootcfg: config.BootCfg, target: str):
     """Removes the old UEFI loaders from efibootmgr."""
     efi_state = util.get_efibootmgr(target)
 
-    LOG.debug('UEFI remove old olders efi state:\n%s', efi_state)
+    LOG.debug('UEFI remove old loaders efi state:\n%s', efi_state)
 
     old_efi_entries = {
         number: entry
@@ -497,7 +497,7 @@ def _reorder_new_entry(
     target = []
 
     LOG.debug("UEFI previous boot order: %s", efi_orig.order)
-    LOG.debug("UEFI current  boot order: %s", efi_state.order)
+    LOG.debug("UEFI current boot order: %s", efi_state.order)
     new_entries = list(set(efi_state.order).difference(set(efi_orig.order)))
     if new_entries:
         LOG.debug("UEFI Found new boot entries: %s", new_entries)
@@ -1004,7 +1004,7 @@ def update_initramfs(target=None, all_kernels=False):
         # Curtin only knows update-initramfs (provided by initramfs-tools) and
         # dracut.
         if not list(paths.get_kernel_list(target)):
-            LOG.debug("neither update-initramfs or dracut found in target %s"
+            LOG.debug("neither update-initramfs nor dracut found in target %s"
                       " but there is no initramfs to generate, so ignoring",
                       target)
         else:

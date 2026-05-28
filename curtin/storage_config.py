@@ -251,7 +251,7 @@ def _validate_dep_type(source_id, dep_key, dep_id, sconfig):
         s_str = '%s(id=%s).%s' % (source_type.capitalize(),
                                   source_id, dep_key)
         d_str = '%s(id=%s)' % (dep_type.capitalize(), dep_id)
-        dep_chain = "%s cannot depend upon on %s" % (s_str, d_str)
+        dep_chain = "%s cannot depend on %s" % (s_str, d_str)
         raise ValueError(dep_chain)
 
     return result
@@ -345,7 +345,7 @@ def merge_config_trees_to_list(config_trees):
             max_level = level
         item_cfg = tree[top_item_id]
         if top_item_id in reg:
-            LOG.warning('Dropping Duplicate id: %s' % top_item_id)
+            LOG.warning('Dropping duplicate id: %s' % top_item_id)
             continue
         reg[top_item_id] = {'level': level, 'config': item_cfg}
 

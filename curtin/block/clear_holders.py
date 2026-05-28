@@ -178,7 +178,7 @@ def shutdown_mdadm(device):
     blockdev = block.sysfs_to_devpath(device)
 
     if mdadm.md_is_in_container(blockdev):
-        LOG.info('Array is in a container, skip discovering ' +
+        LOG.info('Array is in a container, skipping discovery of ' +
                  'raid devices and spares for %s', device)
         md_devs = []
     else:
@@ -444,7 +444,7 @@ def get_holders(device):
 
 def gen_holders_tree(device):
     """
-    generate a tree representing the current storage hirearchy above 'device'
+    generate a tree representing the current storage hierarchy above 'device'
     """
     device = block.sys_block_path(device)
     dev_name = block.path_to_kname(device)
@@ -482,7 +482,7 @@ def plan_shutdown_holder_trees(holders_trees):
     their path in /sys/block and their dev type
 
     can accept either a single storage tree or a list of storage trees assumed
-    to start at an equal place in storage hirearchy (i.e. a list of trees
+    to start at an equal place in storage hierarchy (i.e. a list of trees
     starting from disk)
     """
     # holds a temporary registry of holders to allow cross references

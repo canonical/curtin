@@ -393,7 +393,7 @@ def zero_device(devpath, force=False):
     assert_valid_devpath(devpath)
     metadata = mdadm_examine(devpath, export=False)
     if not metadata and not force:
-        LOG.debug('%s not mdadm member, force=False so skiping zeroing',
+        LOG.debug('%s not mdadm member, force=False so skipping zeroing',
                   devpath)
         return
     LOG.debug('mdadm.examine metadata:\n%s', util.json_dumps(metadata))

@@ -395,7 +395,7 @@ def make_dname(volume, storage_config):
     sanitized = sanitize_dname(dname)
     if sanitized != dname:
         LOG.warning("dname modified to remove invalid chars. old:"
-                    "'%s' new: '%s'", dname, sanitized)
+                    " '%s' new: '%s'", dname, sanitized)
     content = ['# Written by curtin']
     for match in matches:
         rule = (base_rule + match +
@@ -1222,7 +1222,7 @@ def format_handler(info, storage_config, context):
     mkfs.mkfs_from_config(volume_path, info)
 
     device_type = storage_config.get(volume).get('type')
-    LOG.debug('Formated device type: %s', device_type)
+    LOG.debug('Formatted device type: %s', device_type)
     if device_type == 'bcache':
         # other devs have a udev watch on them. Not bcache (LP: #1680597).
         LOG.debug('Detected bcache device format, calling udevadm trigger to '
@@ -1264,7 +1264,7 @@ def mount_data(info, storage_config):
     else:
         if info['device'] not in storage_config:
             raise ValueError(
-                "mount entry refers to non-existant device %s: (%s)" %
+                "mount entry refers to non-existent device %s: (%s)" %
                 (info['device'], info))
         if not (fstype and spec):
             format_info = storage_config.get(info['device'])
@@ -1273,7 +1273,7 @@ def mount_data(info, storage_config):
             if not spec:
                 if format_info.get('volume') not in storage_config:
                     raise ValueError(
-                        "format type refers to non-existant id %s: (%s)" %
+                        "format type refers to non-existent id %s: (%s)" %
                         (format_info.get('volume'), format_info))
                 volume_path = get_path_to_storage_volume(
                     format_info['volume'],  storage_config)
@@ -1691,7 +1691,7 @@ def dm_crypt_handler(info, storage_config, context):
         zkey_used = None
         if block.zkey_supported(strict=False):
             volume_name = "%s:%s" % (volume_byid_path, dm_name)
-            LOG.debug('Attempting to setup zkey for %s', volume_name)
+            LOG.debug('Attempting to set up zkey for %s', volume_name)
             luks_type = 'luks2'
             gen_cmd = ['zkey', 'generate', '--xts', '--volume-type', luks_type,
                        '--sector-size', '4096', '--name', dm_name,
@@ -1768,9 +1768,9 @@ def dm_crypt_handler(info, storage_config, context):
             omode="a",
         )
     else:
-        LOG.info("fstab configuration is not present in environment, so \
-            cannot locate an appropriate directory to write crypttab in \
-            so not writing crypttab")
+        LOG.info("fstab configuration is not present in environment, so"
+                 " cannot locate an appropriate directory to write"
+                 " crypttab in, so not writing crypttab")
 
 
 def verify_md_components(md_devname, raidlevel, device_paths, spare_paths,
@@ -1884,9 +1884,9 @@ def raid_handler(info, storage_config, context):
         mdadm_scan_data = mdadm.mdadm_detail_scan()
         util.write_file(mdadm_location, mdadm_scan_data)
     else:
-        LOG.info("fstab configuration is not present in the environment, so \
-            cannot locate an appropriate directory to write mdadm.conf in, \
-            so not writing mdadm.conf")
+        LOG.info("fstab configuration is not present in the environment, so"
+                 " cannot locate an appropriate directory to write"
+                 " mdadm.conf in, so not writing mdadm.conf")
 
     # If ptable is specified, call disk_handler on this mdadm device to create
     # the table
@@ -2296,7 +2296,7 @@ def meta_custom(args):
             try:
                 handler(command, storage_config_dict, context)
             except Exception as error:
-                LOG.error("An error occured handling '%s': %s - %s" %
+                LOG.error("An error occurred handling '%s': %s - %s" %
                           (item_id, type(error).__name__, error))
                 raise
 

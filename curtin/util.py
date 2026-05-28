@@ -1106,8 +1106,8 @@ def sanitize_source(source):
 
     elif source.startswith("squashfs:"):
         LOG.warning("The squashfs: prefix is deprecated and"
-                    "will be removed in a future release."
-                    "Please use squashfs:// instead.")
+                    " will be removed in a future release."
+                    " Please use squashfs:// instead.")
         return {'type': 'fsimage', 'uri': source[len("squashfs:"):]}
 
     if source.endswith("squashfs") or source.endswith("squash"):

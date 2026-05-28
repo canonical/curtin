@@ -121,7 +121,7 @@ def net_meta(args):
         with open(t_eni, "r") as fp:
             content = fp.read()
         LOG.warning("net-meta mode is 'copy', static network interfaces files"
-                    "can be brittle.  Copied interfaces: %s", content)
+                    " can be brittle.  Copied interfaces: %s", content)
         target = args.output
 
     elif args.mode == "dhcp":

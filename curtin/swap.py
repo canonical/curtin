@@ -220,7 +220,7 @@ def is_swap_device(path):
     magic_offset = pagesize - 10
     size = util.file_size(path)
     if size < magic_offset:
-        LOG.debug("%s is to small for swap (size=%d < pagesize=%d)",
+        LOG.debug("%s is too small for swap (size=%d < pagesize=%d)",
                   path, size, pagesize)
         return False
     magic = util.load_file(
