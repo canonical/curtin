@@ -218,8 +218,8 @@ def ensure_disk_connected(rfc4173, write_config=True):
     # this is just a sanity check that the disk is actually present and
     # the above did what we expected
     if not os.path.exists(iscsi_disk.devdisk_path):
-        LOG.warn('Unable to find iSCSI disk for target (%s) by path (%s)',
-                 iscsi_disk.target, iscsi_disk.devdisk_path)
+        LOG.warning('Unable to find iSCSI disk for target (%s) by path (%s)',
+                    iscsi_disk.target, iscsi_disk.devdisk_path)
 
     return iscsi_disk
 
@@ -282,8 +282,8 @@ def disconnect_target_disks(target_root_path=None):
                     iscsiadm_logout(target, '%s:%s' % (host, port))
                 except util.ProcessExecutionError as e:
                     fails.append(target)
-                    LOG.warn("Unable to logout of iSCSI target %s: %s",
-                             target, e)
+                    LOG.warning("Unable to logout of iSCSI target %s: %s",
+                                target, e)
     else:
         LOG.warning('Skipping disconnect: failed to find iscsi nodes path: %s',
                     target_nodes_path)
@@ -368,8 +368,8 @@ class IscsiDisk(object):
                              'host:proto:port:lun:targetname' % _rfc4173)
 
         if target_m.group('proto') and target_m.group('proto') != '6':
-            LOG.warn('Specified protocol for iSCSI (%s) is unsupported, '
-                     'assuming 6 (TCP)', target_m.group('proto'))
+            LOG.warning('Specified protocol for iSCSI (%s) is unsupported, '
+                        'assuming 6 (TCP)', target_m.group('proto'))
 
         if not target_m.group('host') or not target_m.group('targetname'):
             raise ValueError('Both host and targetname must be specified for '
@@ -453,7 +453,8 @@ class IscsiDisk(object):
             util.subp(['sync'])
             iscsiadm_logout(self.target, self.portal)
         except util.ProcessExecutionError as e:
-            LOG.warn("Unable to logout of iSCSI target %s from portal %s: %s",
-                     self.target, self.portal, e)
+            LOG.warning(
+                "Unable to logout of iSCSI target %s from portal %s: %s",
+                self.target, self.portal, e)
 
 # vi: ts=4 expandtab syntax=python

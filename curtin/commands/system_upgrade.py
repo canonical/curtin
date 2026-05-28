@@ -21,7 +21,7 @@ def system_upgrade_main(args):
                               allow_daemons=args.allow_daemons,
                               download_retries=args.download_retry_after)
     except util.ProcessExecutionError as e:
-        LOG.warn("system upgrade failed: %s" % e)
+        LOG.warning("system upgrade failed: %s" % e)
         exit_code = e.exit_code
 
     sys.exit(exit_code)

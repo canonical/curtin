@@ -24,7 +24,7 @@ def system_install_pkgs_main(args):
             download_only=args.download_only,
             assume_downloaded=args.assume_downloaded)
     except util.ProcessExecutionError as e:
-        LOG.warn("system install failed for %s: %s" % (args.packages, e))
+        LOG.warning("system install failed for %s: %s" % (args.packages, e))
         exit_code = e.exit_code
 
     sys.exit(exit_code)

@@ -142,7 +142,7 @@ def _disable_ipv6_privacy_extensions(target,
     LOG.debug('Attempting to remove ipv6 privacy extensions')
     cfg = paths.target_path(target, path=path)
     if not os.path.exists(cfg):
-        LOG.warn('Failed to find ipv6 privacy conf file %s', cfg)
+        LOG.warning('Failed to find ipv6 privacy conf file %s', cfg)
         return
 
     bmsg = "Disabling IPv6 privacy extensions config may not apply."
@@ -188,7 +188,7 @@ def _maybe_remove_legacy_eth0(target,
 
     cfg = paths.target_path(target, path=path)
     if not os.path.exists(cfg):
-        LOG.warn('Failed to find legacy network conf file %s', cfg)
+        LOG.warning('Failed to find legacy network conf file %s', cfg)
         return
 
     bmsg = "Dynamic networking config may not apply."
@@ -207,7 +207,7 @@ def _maybe_remove_legacy_eth0(target,
         LOG.exception(msg)
         raise
 
-    LOG.warn(msg)
+    LOG.warning(msg)
 
 
 def apply_net_main(args):

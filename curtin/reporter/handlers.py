@@ -34,7 +34,7 @@ class LogHandler(ReportingHandler):
             try:
                 level = getattr(logging, level.upper())
             except Exception:
-                LOG.warn("invalid level '%s', using WARN", input_level)
+                LOG.warning("invalid level '%s', using WARN", input_level)
                 level = logging.WARN
         self.level = level
 
@@ -67,7 +67,7 @@ class WebHookHandler(ReportingHandler):
         try:
             self.level = getattr(logging, level.upper())
         except Exception:
-            LOG.warn("invalid level '%s', using WARN", level)
+            LOG.warning("invalid level '%s', using WARN", level)
             self.level = logging.WARN
         self.headers = {'Content-Type': 'application/json'}
 
@@ -77,7 +77,8 @@ class WebHookHandler(ReportingHandler):
                 url=self.endpoint, data=event.as_dict(),
                 headers=self.headers, retries=self.retries)
         except Exception as e:
-            LOG.warn("failed posting event: %s [%s]" % (event.as_string(), e))
+            LOG.warning("failed posting event: %s [%s]" %
+                        (event.as_string(), e))
 
 
 class JournaldHandler(ReportingHandler):
@@ -91,7 +92,7 @@ class JournaldHandler(ReportingHandler):
             try:
                 level = getattr(logging, level.upper())
             except Exception:
-                LOG.warn("invalid level '%s', using WARN", input_level)
+                LOG.warning("invalid level '%s', using WARN", input_level)
                 level = logging.WARN
         self.level = level
         self.identifier = identifier

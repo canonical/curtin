@@ -253,8 +253,8 @@ def determine_partition_number(partition_id, storage_config):
     partnumber = vol.get('number')
     if vol.get('flag') == "logical":
         if not partnumber:
-            LOG.warn('partition \'number\' key not set in config:\n%s',
-                     util.json_dumps(vol))
+            LOG.warning('partition \'number\' key not set in config:\n%s',
+                        util.json_dumps(vol))
             partnumber = 5
             for key, item in storage_config.items():
                 if item.get('type') == "partition" and \
@@ -266,8 +266,8 @@ def determine_partition_number(partition_id, storage_config):
                         partnumber += 1
     else:
         if not partnumber:
-            LOG.warn('partition \'number\' key not set in config:\n%s',
-                     util.json_dumps(vol))
+            LOG.warning('partition \'number\' key not set in config:\n%s',
+                        util.json_dumps(vol))
             partnumber = 1
             for key, item in storage_config.items():
                 if item.get('type') == "partition" and \
@@ -1127,8 +1127,8 @@ def partition_handler(info, storage_config, context):
         if config.value_as_boolean(info.get('wipe')):
             LOG.info("Preparing partition location on disk %s", disk)
             if info.get('flag') == "extended":
-                LOG.warn("extended partitions do not need wiping, "
-                         "so skipping: '%s'" % info.get('id'))
+                LOG.warning("extended partitions do not need wiping, "
+                            "so skipping: '%s'" % info.get('id'))
             else:
                 # wipe the start of the new partition first by zeroing 1M at
                 # the length of the previous partition
@@ -2360,8 +2360,8 @@ def meta_simple(args):
 
     if len(devices) == 0 and devpath is None:
         devices = block.get_installable_blockdevs()
-        LOG.warn("'%s' mode, no devices given. unused list: %s",
-                 args.mode, devices)
+        LOG.warning("'%s' mode, no devices given. unused list: %s",
+                    args.mode, devices)
         # Check if the list of installable block devices is still empty after
         # checking for block devices and filtering out the removable ones.  In
         # this case we may have a system which has its harddrives reported by
@@ -2375,21 +2375,22 @@ def meta_simple(args):
                 raise Exception("No valid target devices found that curtin "
                                 "can install on.")
             else:
-                LOG.warn("No non-removable, installable devices found. List "
-                         "populated with removable devices allowed: %s",
-                         devices)
+                LOG.warning(
+                    "No non-removable, installable devices found. List "
+                    "populated with removable devices allowed: %s",
+                    devices)
 
     if devpath is not None:
         target = devpath
     elif len(devices) > 1:
         if args.devices is not None:
-            LOG.warn("'%s' mode but multiple devices given. "
-                     "using first found", args.mode)
+            LOG.warning("'%s' mode but multiple devices given. "
+                        "using first found", args.mode)
         available = [f for f in devices
                      if block.is_valid_device(f)]
         target = sorted(available)[0]
-        LOG.warn("mode is '%s'. multiple devices given. using '%s' "
-                 "(first available)", args.mode, target)
+        LOG.warning("mode is '%s'. multiple devices given. using '%s' "
+                    "(first available)", args.mode, target)
     else:
         target = devices[0]
 
@@ -2440,8 +2441,8 @@ def meta_simple(args):
         if os.path.exists("%sp%s" % (devnode, rootdev_ptnum)):
             ptpre = "p"
         else:
-            LOG.warn("root device %s%s did not exist, expecting failure",
-                     devnode, rootdev_ptnum)
+            LOG.warning("root device %s%s did not exist, expecting failure",
+                        devnode, rootdev_ptnum)
 
     if bootdev_ptnum:
         bootdev = "%s%s%s" % (devnode, ptpre, bootdev_ptnum)

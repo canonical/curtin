@@ -498,7 +498,7 @@ def stop_all_unused_multipath_devices():
         # unless multipath cleared *everything* it will exit with 1
         util.subp(cmd, rcs=[0, 1])
     except util.ProcessExecutionError as e:
-        LOG.warn("Failed to stop multipath devices: %s", e)
+        LOG.warning("Failed to stop multipath devices: %s", e)
 
 
 def rescan_block_devices(devices=None, warn_on_fail=True):
@@ -529,12 +529,12 @@ def rescan_block_devices(devices=None, warn_on_fail=True):
         if warn_on_fail:
             # FIXME: its less than ideal to swallow this error, but until
             # we fix LP: #1489521 we kind of need to.
-            LOG.warn(
+            LOG.warning(
                 "Error rescanning devices, possibly known issue LP: #1489521")
             # Reformatting the exception output so as to not trigger
             # vmtest scanning for Unexepected errors in install logfile
-            LOG.warn("cmd: %s\nstdout:%s\nstderr:%s\nexit_code:%s", e.cmd,
-                     e.stdout, e.stderr, e.exit_code)
+            LOG.warning("cmd: %s\nstdout:%s\nstderr:%s\nexit_code:%s", e.cmd,
+                        e.stdout, e.stderr, e.exit_code)
 
     udevadm_settle()
 
@@ -647,7 +647,7 @@ def get_scsi_wwid(device, replace_whitespace=False):
         scsi_wwid = out.rstrip('\n')
         return scsi_wwid
     except util.ProcessExecutionError as e:
-        LOG.warn("Failed to get WWID: %s", e)
+        LOG.warning("Failed to get WWID: %s", e)
         return None
 
 
