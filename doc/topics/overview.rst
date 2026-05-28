@@ -2,7 +2,7 @@
 Overview
 ========
 
-Curtin is intended to be a bare bones "installer".   Its goal is to take data from a source, and get it onto disk as quick as possible and then boot it.  The key difference from traditional package based installers is that curtin assumes the thing its installing is intelligent and will do the right thing.
+Curtin is intended to be a bare bones "installer".   Its goal is to take data from a source, and get it onto disk as quickly as possible and then boot it.  The key difference from traditional package based installers is that curtin assumes the thing it's installing is intelligent and will do the right thing.
 
 .. _Stages:
 

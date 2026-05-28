@@ -86,7 +86,7 @@ At step 7 you might want to take a look at the output disk yourself.  It is a
 normal qcow image, so one can use ``mount-image-callback`` as described above.
 
 To invoke xkvm on your own take the command you see in the output and remove
-the "-serial ..." but add ``-nographic`` instead For graphical console one can
+the "-serial ..." but add ``-nographic`` instead. For graphical console one can
 add ``--vnc 127.0.0.1:1``
 
 Setup
@@ -318,8 +318,8 @@ Some environment variables affect the running of vmtest
 - ``CURTIN_VMTEST_ADD_REPOS``: default ''
    This is a comma delimited list of apt repositories that will be
    added to the target environment.  If there are repositories
-   provided here, the and CURTIN_VMTEST_SYSTEM_UPGRADE is at its default
-   setting (auto), then a upgrade will be done to make sure to include
+   provided here and CURTIN_VMTEST_SYSTEM_UPGRADE is at its default
+   setting (auto), then an upgrade will be done to make sure to include
    any new packages.
 
    The string 'proposed' is handled specially.  It will enable the

@@ -50,7 +50,7 @@ The general configuration of the apt feature is under an element called ``apt``.
 This can have various "global" subelements as listed in the examples below.
 The file ``apt-source.yaml`` holds more examples.
 
-These global configurations are valid throughput all of the apt feature.
+These global configurations are valid throughout all of the apt feature.
 So for example a global specification of a ``primary`` mirror will apply to all rendered sources entries.
 
 Then there is a section ``sources`` which can hold any number of source subelements itself.
@@ -70,7 +70,7 @@ The values inside the entries consist of the following optional entries
 
 * ``keyserver``: specify an alternate keyserver to pull keys from that were specified by keyid
 
-The section "sources" is is a dictionary (unlike most block/net configs which are lists). This format allows merging between multiple input files than a list like ::
+The section "sources" is a dictionary (unlike most block/net configs which are lists). This format allows merging between multiple input files than a list like ::
 
   sources:
      s1: {'key': 'key1', 'source': 'source1'}
@@ -259,7 +259,7 @@ The file `examples/apt-source.yaml <https://github.com/canonical/curtin/blob/mas
 Timing
 ~~~~~~
 The feature is implemented at the stage of curthooks_commands, which runs just after curtin has extracted the image to the target.
-Additionally it can be ran as standalong command "curtin -v --config <yourconfigfile> apt-config".
+Additionally it can be ran as standalone command "curtin -v --config <yourconfigfile> apt-config".
 
 This will pick up the target from the environment variable that is set by curtin, if you want to use it to a different target or outside of usual curtin handling you can add ``--target <path>`` to it to overwrite the target path.
 This target should have at least a minimal system with apt, apt-add-repository and dpkg being installed for the functionality to work.
@@ -325,4 +325,4 @@ Versions of cloud-init present 16.04+ read the "new" style apt configuration, bu
     apt:
       preserve_sources_list: VALUE
 
-**Note**: If versions of cloud-init that support the new style config receive conflicting values in old style and new style, cloud-init will raise exception and exit failure.  It simplly doesn't know what behavior is desired.
+**Note**: If versions of cloud-init that support the new style config receive conflicting values in old style and new style, cloud-init will raise exception and exit failure.  It simply doesn't know what behavior is desired.
