@@ -461,9 +461,9 @@ def uefi_remove_old_loaders(bootcfg: config.BootCfg, target: str):
                     ['efibootmgr', '-B', '-b', number], capture=True)
     else:
         LOG.debug(
-            "Skipped removing %d old UEFI entrie%s.",
+            "Skipped removing %d old UEFI entr%s.",
             len(old_efi_entries),
-            '' if len(old_efi_entries) == 1 else 's')
+            'y' if len(old_efi_entries) == 1 else 'ies')
         for entry in old_efi_entries.values():
             LOG.debug(
                 "UEFI entry '%s' might no longer exist and "
