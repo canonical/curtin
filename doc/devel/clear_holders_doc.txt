@@ -10,7 +10,6 @@ a holders_tree node are:
       - crypt
       - raid
       - bcache
-      - disk
   - name: the kname of the device (used for display)
   - holders: holders_trees for devices depending on the current device
 
@@ -43,7 +42,6 @@ list of dictionaries, with each dictionary containing the keys:
       - crypt
       - raid
       - bcache
-      - disk
   - level: the level of the device in the current storage hierarchy
            (starting from 0)
 
