@@ -1,6 +1,5 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
 
-import os
 from pathlib import Path
 import tempfile
 from unittest import mock
@@ -122,7 +121,6 @@ class TestInstallExtlinux(CiTestCase):
         versions = ['6.8.0-40', '5.15.0-127', '6.8.0-48']
         boot = Path(self.target) / 'boot'
         boot.mkdir()
-        os.system(f'ls {boot}')
         for ver in versions:
             (boot / f'config-{ver}-generic').touch()
             (boot / f'initrd.img-{ver}-generic').touch()
