@@ -100,7 +100,7 @@ class NetworkState:
             'name',
         ]
         if not self.valid_command(command, required_keys):
-            LOG.warn('Skipping Invalid command: %s', command)
+            LOG.warning('Skipping Invalid command: %s', command)
             LOG.debug(self.dump_network_state())
             return
 
@@ -266,8 +266,8 @@ class NetworkState:
             'params',
         ]
         if not self.valid_command(command, required_keys):
-            LOG.warn('Skipping Invalid command: %s', command)
-            LOG.warn(self.dump_network_state())
+            LOG.warning('Skipping Invalid command: %s', command)
+            LOG.warning(self.dump_network_state())
             return
 
         # find one of the bridge port ifaces to get mac_addr
@@ -297,8 +297,8 @@ class NetworkState:
             'address',
         ]
         if not self.valid_command(command, required_keys):
-            LOG.warn('Skipping Invalid command: %s', command)
-            LOG.warn(self.dump_network_state())
+            LOG.warning('Skipping Invalid command: %s', command)
+            LOG.warning(self.dump_network_state())
             return
 
         dns = self.network_state.get('dns')
@@ -320,8 +320,8 @@ class NetworkState:
             'destination',
         ]
         if not self.valid_command(command, required_keys):
-            LOG.warn('Skipping Invalid command: %s', command)
-            LOG.warn(self.dump_network_state())
+            LOG.warning('Skipping Invalid command: %s', command)
+            LOG.warning(self.dump_network_state())
             return
 
         routes = self.network_state.get('routes')

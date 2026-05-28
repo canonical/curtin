@@ -157,7 +157,7 @@ def get_maas_version(endpoint):
     try:
         parsed = urlparse(endpoint)
     except AttributeError as e:
-        LOG.warn('Failed to parse endpoint URL: %s', e)
+        LOG.warning('Failed to parse endpoint URL: %s', e)
         return None
 
     maas_host = "%s://%s" % (parsed.scheme, parsed.netloc)
@@ -166,14 +166,14 @@ def get_maas_version(endpoint):
     try:
         result = geturl(maas_api_version_url)
     except UrlError as e:
-        LOG.warn('Failed to query MAAS API version URL: %s', e)
+        LOG.warning('Failed to query MAAS API version URL: %s', e)
         return None
 
     api_version = result.decode('utf-8')
     if api_version not in MAAS_API_SUPPORTED_VERSIONS:
-        LOG.warn('Endpoint "%s" API version "%s" not in MAAS supported'
-                 'versions: "%s"', endpoint, api_version,
-                 MAAS_API_SUPPORTED_VERSIONS)
+        LOG.warning('Endpoint "%s" API version "%s" not in MAAS supported'
+                    'versions: "%s"', endpoint, api_version,
+                    MAAS_API_SUPPORTED_VERSIONS)
         return None
 
     maas_version_url = "%s/MAAS/api/%s/version/" % (maas_host, api_version)
@@ -182,9 +182,9 @@ def get_maas_version(endpoint):
         result = geturl(maas_version_url)
         maas_version = json.loads(result.decode('utf-8'))
     except UrlError as e:
-        LOG.warn('Failed to query MAAS version via URL: %s', e)
+        LOG.warning('Failed to query MAAS version via URL: %s', e)
     except (ValueError, TypeError):
-        LOG.warn('Failed to load MAAS version result: %s', result)
+        LOG.warning('Failed to load MAAS version result: %s', result)
 
     return maas_version
 
@@ -342,14 +342,14 @@ class OauthUrlHelper(object):
             return
 
         if 'date' not in exception.headers:
-            LOG.warn("Missing header 'date' in %s response", exception.code)
+            LOG.warning("Missing header 'date' in %s response", exception.code)
             return
 
         date = exception.headers['date']
         try:
             remote_time = time.mktime(parsedate(date))
         except Exception as e:
-            LOG.warn("Failed to convert datetime '%s': %s", date, e)
+            LOG.warning("Failed to convert datetime '%s': %s", date, e)
             return
 
         skew = int(remote_time - time.time())
@@ -357,7 +357,7 @@ class OauthUrlHelper(object):
         old_skew = self.skew_data.get(host, 0)
         if abs(old_skew - skew) > self.skew_change_limit:
             self.update_skew_file(host, skew)
-            LOG.warn("Setting oauth clockskew for %s to %d", host, skew)
+            LOG.warning("Setting oauth clockskew for %s to %d", host, skew)
         self.skew_data[host] = skew
 
         return

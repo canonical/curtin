@@ -76,10 +76,10 @@ def copy_install_log(logfile, target, log_target_path):
     """Copy curtin install log file to target system"""
     basemsg = 'Cannot copy curtin install log "%s" to target.' % logfile
     if not logfile:
-        LOG.warn(basemsg)
+        LOG.warning(basemsg)
         return
     if not os.path.isfile(logfile):
-        LOG.warn(basemsg + "  file does not exist.")
+        LOG.warning(basemsg + "  file does not exist.")
         return
 
     LOG.debug('Copying curtin install log from %s to target/%s',
@@ -278,7 +278,7 @@ class Stage(object):
                             stderr=subprocess.STDOUT,
                             env=env, shell=shell)
                     except OSError as e:
-                        LOG.warn("%s command failed", cmdname)
+                        LOG.warning("%s command failed", cmdname)
                         raise util.ProcessExecutionError(cmd=cmd, reason=e)
 
                     output = b""
@@ -291,7 +291,7 @@ class Stage(object):
 
                     rc = sp.returncode
                     if rc != 0:
-                        LOG.warn("%s command failed", cmdname)
+                        LOG.warning("%s command failed", cmdname)
                         raise util.ProcessExecutionError(
                             stdout=output, stderr="",
                             exit_code=rc, cmd=cmd)
@@ -315,7 +315,7 @@ def apply_power_state(pstate):
             util.subp(cmd)
             os._exit(0)
         except Exception as e:
-            LOG.warn("%s returned non-zero: %s" % (cmd, e))
+            LOG.warning("%s returned non-zero: %s" % (cmd, e))
             os._exit(1)
     return
 
@@ -430,9 +430,9 @@ def migrate_proxy_settings(cfg):
         hp = cfg['http_proxy']
         if hp:
             if proxy.get('http_proxy', hp) != hp:
-                LOG.warn("legacy http_proxy setting (%s) differs from "
-                         "proxy/http_proxy (%s), using %s",
-                         hp, proxy['http_proxy'], proxy['http_proxy'])
+                LOG.warning("legacy http_proxy setting (%s) differs from "
+                            "proxy/http_proxy (%s), using %s",
+                            hp, proxy['http_proxy'], proxy['http_proxy'])
             else:
                 LOG.debug("legacy 'http_proxy' migrated to proxy/http_proxy")
                 proxy['http_proxy'] = hp

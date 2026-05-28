@@ -120,8 +120,8 @@ def net_meta(args):
         t_eni = os.path.sep.join((args.target, "etc/network/interfaces",))
         with open(t_eni, "r") as fp:
             content = fp.read()
-        LOG.warn("net-meta mode is 'copy', static network interfaces files"
-                 "can be brittle.  Copied interfaces: %s", content)
+        LOG.warning("net-meta mode is 'copy', static network interfaces files"
+                    "can be brittle.  Copied interfaces: %s", content)
         target = args.output
 
     elif args.mode == "dhcp":

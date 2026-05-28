@@ -112,8 +112,8 @@ class TestGetMaasVersion(CiTestCase):
         ])
         result = url_helper.get_maas_version(endpoint)
         self.assertIsNone(result)
-        self.assertTrue(mock_log.warn.called)
-        mock_log.warn.assert_called_with(
+        self.assertTrue(mock_log.warning.called)
+        mock_log.warning.assert_called_with(
             'Endpoint "%s" API version "%s" not in MAAS supported'
             'versions: "%s"', endpoint, maas_api_version, supported)
         mock_get_url.assert_has_calls([
@@ -140,8 +140,8 @@ class TestGetMaasVersion(CiTestCase):
         ])
         result = url_helper.get_maas_version(endpoint)
         self.assertIsNone(result)
-        self.assertTrue(mock_log.warn.called)
-        mock_log.warn.assert_called_with(
+        self.assertTrue(mock_log.warning.called)
+        mock_log.warning.assert_called_with(
             'Failed to load MAAS version result: %s', bad_json)
         mock_get_url.assert_has_calls([
             mock.call('http://%s/MAAS/api/version/' % host),
@@ -164,8 +164,8 @@ class TestGetMaasVersion(CiTestCase):
         ])
         result = url_helper.get_maas_version(endpoint)
         self.assertIsNone(result)
-        self.assertTrue(mock_log.warn.called)
-        mock_log.warn.assert_called_with(
+        self.assertTrue(mock_log.warning.called)
+        mock_log.warning.assert_called_with(
             'Failed to query MAAS version via URL: %s', exception)
         mock_get_url.assert_has_calls([
             mock.call('http://%s/MAAS/api/version/' % host),

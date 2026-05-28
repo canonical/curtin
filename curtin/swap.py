@@ -123,7 +123,7 @@ def get_target_kernel_version(target):
             pkg_ver = distro.get_package_version('linux-image-generic',
                                                  target=target)
         except Exception as e:
-            LOG.warn(
+            LOG.warning(
                 "failed reading linux-image-generic package version, %s", e)
     return pkg_ver
 
@@ -192,7 +192,7 @@ def setup_swapfile(target, fstab=None, swapfile=None, size=None, maxsize=None,
                  (' && mkswap "$1" || { r=$?; rm -f "$1"; exit $r; }'),
                  'setup_swap', fpath, mbsize])
     except Exception:
-        LOG.warn("failed %s" % msg)
+        LOG.warning("failed %s" % msg)
         raise
 
     if fstab is None:

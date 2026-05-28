@@ -364,8 +364,8 @@ def dpkg_reconfigure(packages, target=None):
             unhandled.append(pkg)
 
     if len(unhandled):
-        LOG.warn("The following packages were installed and preseeded, "
-                 "but cannot be unconfigured: %s", unhandled)
+        LOG.warning("The following packages were installed and preseeded, "
+                    "but cannot be unconfigured: %s", unhandled)
 
     if len(to_config):
         util.subp(['dpkg-reconfigure', '--frontend=noninteractive'] +
@@ -459,7 +459,7 @@ def rename_apt_lists(new_mirrors, target=None, arch=None):
                 os.rename(filename, newname)
             except OSError:
                 # since this is a best effort task, warn with but don't fail
-                LOG.warn("Failed to rename apt list:", exc_info=True)
+                LOG.warning("Failed to rename apt list:", exc_info=True)
 
 
 def make_mirrors_replacement(mirrors, target, arch=None):

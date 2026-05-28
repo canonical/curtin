@@ -81,7 +81,7 @@ def write_files(files, base_dir=None):
        owner: (optional, default -1:-1): string of 'uid:gid'."""
     for (key, info) in files.items():
         if not info.get('path'):
-            LOG.warn("Warning, write_files[%s] had no 'path' entry", key)
+            LOG.warning("Warning, write_files[%s] had no 'path' entry", key)
             continue
 
         write_finfo(path=target_path(base_dir, info['path']),

@@ -189,7 +189,7 @@ def setup_zipl(cfg, target):
 
     if not root_arg:
         msg = "Failed to identify root= for %s at %s." % (target, target_dev)
-        LOG.warn(msg)
+        LOG.warning(msg)
         raise ValueError(msg)
 
     zipl_conf = """
@@ -430,8 +430,9 @@ def install_kernel(cfg, target):
                          package, kernel_cfg.fallback_package)
                 install(kernel_cfg.fallback_package)
             else:
-                LOG.warn("Kernel package '%s' not available and no fallback."
-                         " System may not boot.", package)
+                LOG.warning(
+                    "Kernel package '%s' not available and no fallback."
+                    " System may not boot.", package)
 
 
 def uefi_remove_old_loaders(bootcfg: config.BootCfg, target: str):
@@ -708,7 +709,7 @@ def uefi_find_grub_device_ids(sconfig):
             if sconfig[primary_esp]['type'] == 'partition':
                 LOG.debug("Found primary UEFI ESP: %s", primary_esp)
             else:
-                LOG.warn('Found primary ESP not on a partition: %s', item)
+                LOG.warning('Found primary ESP not on a partition: %s', item)
 
     if primary_esp is None:
         raise RuntimeError('Failed to find primary ESP mounted at /boot/efi')
@@ -774,9 +775,10 @@ def setup_grub(
         if len(storage_grub_devices) > 0:
             if bootcfg.install_devices and \
                bootcfg.install_devices is not bootcfg.install_devices_default:
-                LOG.warn("Storage Config grub device config takes precedence "
-                         "over grub 'install_devices' value, ignoring: %s",
-                         bootcfg['install_devices'])
+                LOG.warning(
+                    "Storage Config grub device config takes precedence "
+                    "over grub 'install_devices' value, ignoring: %s",
+                    bootcfg['install_devices'])
             bootcfg.install_devices = storage_grub_devices
 
     LOG.debug("install_devices: %s", bootcfg.install_devices)
@@ -816,10 +818,10 @@ def setup_grub(
                     capture=True)
                 instdevs = str(out).splitlines()
                 if not instdevs:
-                    LOG.warn("No power grub target partitions found!")
+                    LOG.warning("No power grub target partitions found!")
                     instdevs = None
             except util.ProcessExecutionError as e:
-                LOG.warn("Failed to find power grub partitions: %s", e)
+                LOG.warning("Failed to find power grub partitions: %s", e)
                 instdevs = None
         else:
             instdevs = list(blockdevs)
@@ -1013,7 +1015,7 @@ def update_initramfs(target=None, all_kernels=False):
 
 def copy_fstab(fstab, target):
     if not fstab:
-        LOG.warn("fstab variable not in state, not copying fstab")
+        LOG.warning("fstab variable not in state, not copying fstab")
         return
 
     content = util.load_file(fstab)
@@ -1024,7 +1026,7 @@ def copy_fstab(fstab, target):
 
 def copy_crypttab(crypttab, target):
     if not crypttab:
-        LOG.warn("crypttab config must be specified, not copying")
+        LOG.warning("crypttab config must be specified, not copying")
         return
 
     shutil.copy(crypttab, os.path.sep.join([target, 'etc/crypttab']))
@@ -1058,7 +1060,7 @@ def copy_cdrom(cdrom: str, target: str) -> None:
 
 def copy_iscsi_conf(nodes_dir, target, target_nodes_dir='etc/iscsi/nodes'):
     if not nodes_dir:
-        LOG.warn("nodes directory must be specified, not copying")
+        LOG.warning("nodes directory must be specified, not copying")
         return
 
     LOG.info("copying iscsi nodes database into target")
@@ -1075,7 +1077,7 @@ def copy_iscsi_conf(nodes_dir, target, target_nodes_dir='etc/iscsi/nodes'):
 
 def copy_mdadm_conf(mdadm_conf, target):
     if not mdadm_conf:
-        LOG.warn("mdadm config must be specified, not copying")
+        LOG.warning("mdadm config must be specified, not copying")
         return
 
     LOG.info("copying mdadm.conf into target")
@@ -1085,7 +1087,7 @@ def copy_mdadm_conf(mdadm_conf, target):
 
 def copy_zpool_cache(zpool_cache, target):
     if not zpool_cache:
-        LOG.warn("zpool_cache path must be specified, not copying")
+        LOG.warning("zpool_cache path must be specified, not copying")
         return
 
     shutil.copy(zpool_cache, os.path.sep.join([target, 'etc/zfs']))
@@ -1094,7 +1096,7 @@ def copy_zpool_cache(zpool_cache, target):
 def copy_zkey_repository(zkey_repository, target,
                          target_repo='etc/zkey/repository'):
     if not zkey_repository:
-        LOG.warn("zkey repository path must be specified, not copying")
+        LOG.warning("zkey repository path must be specified, not copying")
         return
 
     tdir = os.path.sep.join([target, target_repo])
@@ -1133,7 +1135,7 @@ def apply_networking(target, state):
 
 def copy_interfaces(interfaces, target):
     if not interfaces or not os.path.exists(interfaces):
-        LOG.warn("no interfaces file to copy!")
+        LOG.warning("no interfaces file to copy!")
         return
     eni = os.path.sep.join([target, 'etc/network/interfaces'])
     shutil.copy(interfaces, eni)
@@ -1141,7 +1143,7 @@ def copy_interfaces(interfaces, target):
 
 def copy_dname_rules(rules_d, target):
     if not rules_d:
-        LOG.warn("no udev rules directory to copy")
+        LOG.warning("no udev rules directory to copy")
         return
     target_rules_dir = paths.target_path(target, "etc/udev/rules.d")
     for rule in os.listdir(rules_d):
@@ -1238,8 +1240,8 @@ def detect_and_handle_multipath(cfg, target, osfamily=DISTROS.debian):
             if pkg_ver['semantic_version'] < 500:
                 replace_spaces = False
         except Exception as e:
-            LOG.warn("failed reading multipath-tools version, "
-                     "assuming it wants no spaces in wwids: %s", e)
+            LOG.warning("failed reading multipath-tools version, "
+                        "assuming it wants no spaces in wwids: %s", e)
 
     multipath_cfg_path = os.path.sep.join([target, '/etc/multipath.conf'])
     multipath_bind_path = os.path.sep.join([target, '/etc/multipath/bindings'])
@@ -1350,7 +1352,7 @@ def detect_and_handle_multipath(cfg, target, osfamily=DISTROS.debian):
             util.write_file(grub_cfg, omode=omode, content=msg)
 
     else:
-        LOG.warn("Not sure how this will boot")
+        LOG.warning("Not sure how this will boot")
 
     if osfamily == DISTROS.debian:
         # Initrams needs to be updated to include /etc/multipath.cfg
