@@ -180,4 +180,13 @@ class TestBlockMkfs(CiTestCase):
         uuid = mkfs.mkfs("/dev/null", "ext4")
         self.assertIsNotNone(uuid)
 
+
+class TestGetFlagMapping(CiTestCase):
+    @mock.patch("curtin.block.mkfs.distro.lsb_release",
+                mock.Mock(return_value={"codename": "resolute"}))
+    def test_unsupported_fs_family(self):
+        with self.assertRaisesRegex(
+                ValueError, "flag 'quiet' not supported by fs family 'btrfs'"):
+            mkfs.get_flag_mapping("quiet", "btrfs", strict=True)
+
 # vi: ts=4 expandtab syntax=python
