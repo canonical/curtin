@@ -123,7 +123,7 @@ def get_flag_mapping(flag_name, fs_family, param=None, strict=False):
     if flag_sym is None:
         if strict:
             raise ValueError("flag '%s' not supported by fs family '%s'" %
-                             flag_name, fs_family)
+                             (flag_name, fs_family))
         else:
             return ret
 
