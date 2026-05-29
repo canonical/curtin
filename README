@@ -1,9 +1,9 @@
 This is 'curtin', the curt installer.  It is blunt, brief, snappish, snippety
 and unceremonious.
 
-Its goal is to install an operating system as quick as possible.
+Its goal is to install an operating system as quickly as possible.
 
 The canonical location of the source code is at
 https://github.com/canonical/curtin
-- the launchpad mirror should not have new merge proposal opened, and exising
+- the launchpad mirror should not have new merge proposal opened, and existing
   launchpad merge proposals will be manually merged or closed.

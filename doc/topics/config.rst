@@ -275,7 +275,7 @@ This setting is ignored if *update_nvram* is False.
         - /dev/sda1
      probe_additional_os: True
 
-**Avoid writting any settings to etc/default/grub.d/50-curtin-settings.cfg**::
+**Avoid writing any settings to etc/default/grub.d/50-curtin-settings.cfg**::
 
   boot:
      bootloaders:
@@ -623,7 +623,7 @@ boot for systems with multipath.  Curtin does not apply any advanced
 configuration or tuning, rather it uses distro defaults and provides
 enough configuration to enable booting.
 
-**mode**: *<['auto', ['disabled']>*
+**mode**: *<['auto', 'disabled']>*
 
 Defaults to auto which will configure enough to enable booting on multipath
 devices.  Disabled will prevent curtin from installing or configuring
@@ -673,7 +673,7 @@ Mapping is a dictionary of key value pairs which will result in the string
 'key/value' being present in the pollinate user-agent string sent to the
 pollen server.
 
-Setting the ``user_agent`` value to false will disable writting of the
+Setting the ``user_agent`` value to false will disable writing of the
 user-agent string.
 
 **Example**::
@@ -801,7 +801,7 @@ Example::
 
 **Layer Dependencies**
 
-Layers are parts of the name seperated by dots. Any layer in the name will
+Layers are parts of the name separated by dots. Any layer in the name will
 be included as a dependency. The file extension pattern is used to find
 related layers.
 
@@ -839,7 +839,7 @@ Examples:
 If there is a missing image in the path to a leaf, an error will be raised
 
  source='fsimage-layered://images/main.squashfs' -> images='/images/main.squashfs'
- source='fsimage-layered://images/main.upper.debug.squashfs' -> Raised Error'
+ source='fsimage-layered://images/main.upper.debug.squashfs' -> 'Raised Error'
 
  Remote Layers::
 
@@ -936,7 +936,7 @@ this stage does nothing.
       99-cmd:  ['echo', 'I ran last']
       00-cmd:  ['echo', 'I ran first']
   late_commands:
-      50-cmd: ['curtin', 'in-target' '--', 'touch', '/etc/disable_overlayroot']
+      50-cmd: ['curtin', 'in-target', '--', 'touch', '/etc/disable_overlayroot']
     
 
 swap
@@ -975,7 +975,7 @@ In some target filesystems, e.g. btrfs, xfs, zfs, the use of a swap file has
 restrictions.  If curtin detects that there may be issues it will refuse
 to create the swapfile.  Users can force creation of a swapfile by passing
 ``force: true``.  A forced swapfile may not be used by the target OS and could
-log cause an error.
+cause an error.
 
 **Example**::
 

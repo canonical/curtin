@@ -34,7 +34,7 @@ Image provided curtin-hooks
 An image provides curtin hooks support by containing a file
 ``/curtin/curtin-hooks``.
 
-If an Ubuntu image image contains this path it will override the builtin
+If an Ubuntu image contains this path it will override the builtin
 curtin support.
 
 The ``curtin-hooks`` program should be executable in the filesystem and

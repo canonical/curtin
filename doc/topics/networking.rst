@@ -40,7 +40,7 @@ the key ``subnets``.
 Physical
 ~~~~~~~~
 The ``physical`` type configuration represents a "physical" network device,
-typically Ethernet-based.  At least one of of these entries is required for
+typically Ethernet-based.  At least one of these entries is required for
 external network connectivity.  Type ``physical`` requires only one key:
 ``name``.  A ``physical`` device may contain some or all of the following keys:
 
@@ -233,14 +233,14 @@ Valid keys are:
           - jumbo0
         params:
           bridge_ageing: 250
-		  bridge_bridgeprio: 22
-		  bridge_fd: 1
+          bridge_bridgeprio: 22
+          bridge_fd: 1
           bridge_hello: 1
           bridge_maxage: 10
           bridge_maxwait: 0
           bridge_pathcost:
             - jumbo0 75
-          bridge_pathprio:
+          bridge_portprio:
             - jumbo0 28
           bridge_stp: 'off'
           bridge_maxwait:
@@ -278,7 +278,7 @@ Users can specify a ``nameserver`` type.  Nameserver dictionaries include
 the following keys:
 
 - ``address``: List of IPv4 or IPv6 address of nameservers.
-- ``search``: List of of hostnames to include in the resolv.conf search path.
+- ``search``: List of hostnames to include in the resolv.conf search path.
 
 **Nameserver Example**::
 
@@ -336,14 +336,14 @@ For any network device (one of the Config Types) users can define a list of
 entries will create interface alias allowing a single interface to use different
 ip configurations.  
 
-Valid keys for for ``subnets`` include the following:
+Valid keys for ``subnets`` include the following:
 
 - ``type``: Specify the subnet type.
 - ``control``: Specify manual, auto or hotplug.  Indicates how the interface will be handled during boot.
 - ``address``: IPv4 or IPv6 address.  It may include CIDR netmask notation.
 - ``netmask``: IPv4 subnet mask in dotted format or CIDR notation.
 - ``gateway``: IPv4 address of the default gateway for this subnet.
-- ``dns_nameserver``: Specify a list of IPv4 dns server IPs to end up in resolv.conf.
+- ``dns_nameservers``: Specify a list of IPv4 dns server IPs to end up in resolv.conf.
 - ``dns_search``: Specify a list of search paths to be included in resolv.conf.
 
 

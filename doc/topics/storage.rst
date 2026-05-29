@@ -70,7 +70,7 @@ commands include:
 - RAID Command (``raid``)
 - Bcache Command (``bcache``)
 - Zpool Command (``zpool``) **Experimental**
-- ZFS Command (``zfs``)) **Experimental**
+- ZFS Command (``zfs``) **Experimental**
 - NVMe Controller Command (``nvme_controller``) **Experimental**
 - Device "Command" (``device``)
 
@@ -143,7 +143,7 @@ These ``label`` values are reserved and cannot be used:
 
 **disk_layout**: *cdl, ldl*
 
-The default ``disk_layout`` value is ``cdl``, the compaible disk layout which
+The default ``disk_layout`` value is ``cdl``, the compatible disk layout which
 allows for up to 3 partitions and a VTOC.  The ``ldl``, Linux layout has only
 one partition.
 
@@ -420,7 +420,7 @@ it has already been processed.
 **wipe**: *superblock, superblock-recursive, pvremove, zero, random*
 
 After the partition is added to the disk's partition table, curtin can run a
-wipe command on the partition. The wipe command values are the sames as for
+wipe command on the partition. The wipe command values are the same as for
 disks.
 
 .. note::
@@ -437,7 +437,7 @@ only apply to gpt partition tables.
 
 The *logical/extended* partition flags can be used to create logical partitions
 on a msdos table. An extended partition should be created containing all of the
-empty space on the drive, and logical partitions can be created within it. A
+empty space on the drive, and logical partitions can be created within it. An
 extended partition must already be present to create logical partitions.
 
 On msdos partition tables, the *boot* flag sets the boot parameter to
@@ -547,7 +547,7 @@ target volume can be specified, as well as a few other options.
 .. note::
 
   Filesystems support for ZFS on root is **Experimental**.
-  Utilizing the the ``fstype: zfsroot`` will indicate to curtin
+  Utilizing the ``fstype: zfsroot`` will indicate to curtin
   that it should automatically inject the appropriate ``type: zpool``
   and ``type: zfs`` command structures based on which target ``volume``
   is specified in the ``format`` command.  There may be only *one*
@@ -798,7 +798,7 @@ with ``name`` *lv1* on a ``lvm_volgroup`` named *vg1* would have the path
 
 .. note::
 
-   dname values for contructed devices (such as lvm) only remain persistent
+   dname values for constructed devices (such as lvm) only remain persistent
    as long as the device metadata does not change.  If users modify the device
    such that device metadata is changed then the udev rule may no longer apply.
 
@@ -833,7 +833,7 @@ the lvm partition.
 
 .. note::
 
-  Curtin does not adjust size values.  If you specific a size that exceeds the 
+  Curtin does not adjust size values.  If you specify a size that exceeds the
   capacity of a device then installation will fail.
 
 
@@ -948,7 +948,7 @@ The ``name`` key specifies the name of the md device.
   Curtin creates a udev rule to create a link to the md device in
   ``/dev/disk/by-dname/<name>`` using the specified name.  The dname
   symbolic link is only persistent as long as the raid metadata is
-  not modifed or destroyed.
+  not modified or destroyed.
 
 **raidlevel**: *0, 1, 5, 6, 10*
 
@@ -1053,7 +1053,7 @@ If the ``name`` key is present, curtin will create a link to the device at
 
 .. note::
 
-   dname values for contructed devices (such as bcache) only remain persistent
+   dname values for constructed devices (such as bcache) only remain persistent
    as long as the device metadata does not change.  If users modify the device
    such that device metadata is changed then the udev rule may no longer apply.
 

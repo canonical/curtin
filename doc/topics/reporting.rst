@@ -7,11 +7,11 @@ This enables the user to obtain status information from curtin.
 
 Events
 ------
-Reporting consists of notification of a series of 'events.  Each event has:
+Reporting consists of notification of a series of 'events'.  Each event has:
  - **event_type**: 'start' or 'finish'
  - **description**: human readable text
  - **level**: the log level of the event, DEBUG/INFO/WARN etc.
- - **name**: and id for this event
+ - **name**: an id for this event
  - **result**: only present when event_type is 'finish', its value is one of "SUCCESS", "WARN", or "FAIL".  A result of WARN indicates something is likely wrong, but a non-fatal error.  A result of "FAIL" is fatal.
  - **origin**: literal value 'curtin'
  - **timestamp**: the unix timestamp at which this event occurred
