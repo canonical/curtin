@@ -1,6 +1,5 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
 
-import os
 from pathlib import Path
 import tempfile
 from unittest import mock
@@ -120,15 +119,14 @@ class TestInstallExtlinux(CiTestCase):
         self.target = self.tmpdir.name
 
         versions = ['6.8.0-40', '5.15.0-127', '6.8.0-48']
-        boot = os.path.join(self.target, 'boot')
-        Path(f'{boot}').mkdir()
-        os.system(f'ls {boot}')
+        boot = Path(self.target) / 'boot'
+        boot.mkdir()
         for ver in versions:
-            Path(f'{boot}/config-{ver}-generic').touch()
-            Path(f'{boot}/initrd.img-{ver}-generic').touch()
-            Path(f'{boot}/vmlinuz-{ver}-generic').touch()
+            (boot / f'config-{ver}-generic').touch()
+            (boot / f'initrd.img-{ver}-generic').touch()
+            (boot / f'vmlinuz-{ver}-generic').touch()
 
-        Path(f'{self.target}/empty-dir').mkdir()
+        (Path(self.target) / 'empty-dir').mkdir()
         self.maxDiff = None
 
     def test_get_kernel_list(self):
@@ -202,11 +200,11 @@ class TestInstallExtlinux(CiTestCase):
 
         Return: Contents of extlinux.conf
         """
-        extlinux_path = self.target + '/boot/extlinux'
-        self.assertTrue(os.path.exists(extlinux_path))
-        extlinux_file = extlinux_path + '/extlinux.conf'
-        self.assertTrue(os.path.exists(extlinux_file))
-        with open(extlinux_file, encoding='utf-8') as inf:
+        extlinux_path = Path(self.target) / 'boot/extlinux'
+        self.assertTrue(extlinux_path.exists())
+        extlinux_file = extlinux_path / 'extlinux.conf'
+        self.assertTrue(extlinux_file.exists())
+        with extlinux_file.open(encoding='utf-8') as inf:
             return inf.read()
 
     @mock.patch.object(install_extlinux, 'ensure_u_boot_menu_installed')
