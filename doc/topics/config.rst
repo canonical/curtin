@@ -871,6 +871,7 @@ This results in Curtin downloading the following URLs::
     - cp:///
 
 **Example squashfs from NFS mount**::
+
   sources:
     - squashfs:///media/filesystem.squashfs
 
