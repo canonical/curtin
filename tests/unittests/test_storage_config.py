@@ -960,6 +960,18 @@ class TestLvmParser(CiTestCase):
         self.assertEqual(5, len(configs))
         self.assertEqual(0, len(errors))
 
+    @skipUnlessJsonSchema()
+    def test_lvm_parser_parse__vg_with_no_lv(self):
+        # Remove the logical_volumes key, to match what probert does when no LV
+        # is present.
+        del self.probe_data["lvm"]["logical_volumes"]
+        lvmp = LvmParser(self.probe_data)
+
+        configs, errors = lvmp.parse()
+
+        self.assertFalse(errors)
+        self.assertEqual(2, len(configs))
+
 
 class TestRaidParser(CiTestCase):
 
