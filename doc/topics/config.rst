@@ -124,13 +124,13 @@ This is a list, which can contain up to two options: `grub` and `extlinux`.
 
 Two bootloaders are available:
 
-- `GRUB <https://www.gnu.org/software/grub/>`_ (GRand Unified Bootloader)
+- `GRUB <https://www.gnu.org/software/grub/>`__ (GRand Unified Bootloader)
   installs itself on one or more block devices and takes care of booting.
   Typically grub is built as an EFI application. Curtin controls aspects of
   grub's configuration-file (/boot/grub/grub.cfg) which tells grub which OS
   options to present to the user.
 
-- `extlinux <https://wiki.syslinux.org/wiki/index.php?title=EXTLINUX>`_
+- `extlinux <https://wiki.syslinux.org/wiki/index.php?title=EXTLINUX>`__
   is really just a file format, similar to a grub configuration-file but much
   less flexible. It specifies which OS options to present to the user.
 
@@ -161,8 +161,8 @@ If ``terminal`` is not provided, Curtin will set the value to 'console'.  If the
 ``terminal`` value is 'unmodified' then Curtin will not set any value at all and
 will use Grub defaults.
 
-extlinux
-""""""""
+extlinux bootloader
+"""""""""""""""""""
 
 Curtin can add an ``extlinux.conf`` file to a filesystem. This contains a list
 of possible kernels, etc. similar to grub. This is somewhat more flexible on
@@ -171,8 +171,8 @@ with devicetree, verified boot, etc. automatically. It also avoids specifying
 which bootloader must be used, since extlinux is supported by U-Boot, for
 example.
 
-grub
-""""
+grub bootloader
+"""""""""""""""
 
 Curtin can configure grub as the target machine's grub boot loader.  Users
 can control a few options to tailor how the system will boot after
@@ -871,6 +871,7 @@ This results in Curtin downloading the following URLs::
     - cp:///
 
 **Example squashfs from NFS mount**::
+
   sources:
     - squashfs:///media/filesystem.squashfs
 
