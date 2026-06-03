@@ -29,9 +29,11 @@ def _filter_lvm_info(lvtool, match_field, query_field, match_key, args=None):
 
 def get_pvols_in_volgroup(vg_name):
     """
-    get physical volumes used by volgroup
+    get physical volumes used by volgroup (excluding missing ones)
     """
-    return _filter_lvm_info('pvdisplay', 'vg_name', 'pv_name', vg_name)
+    pvs = _filter_lvm_info('pvdisplay', 'vg_name', 'pv_name', vg_name)
+    # filter out missing PVs (LP: #2142196)
+    return [pv for pv in pvs if pv != '[unknown]']
 
 
 def get_lvols_in_volgroup(vg_name):

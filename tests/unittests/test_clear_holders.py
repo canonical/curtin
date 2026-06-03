@@ -179,20 +179,25 @@ class TestClearHolders(CiTestCase):
     def test_shutdown_lvm(self, mock_util, mock_lvm, mock_syspath, mock_log,
                           mock_zero):
         """test clear_holders.shutdown_lvm"""
-        lvm_name = b'ubuntu--vg-swap\n'
+        lvm_name = 'ubuntu--vg-swap'
         vg_name = 'ubuntu-vg'
         lv_name = 'swap'
-        vg_lv_name = "%s/%s" % (vg_name, lv_name)
-        devname = "/dev/" + vg_lv_name
+        vg_lv_name = "ubuntu-vg/swap"
+        dm_path = "/dev/mapper/ubuntu--vg-swap"
         pvols = ['/dev/wda1', '/dev/wda2']
         mock_syspath.return_value = self.test_blockdev
-        mock_util.load_file.return_value = lvm_name
+        mock_util.load_file.side_effect = (lvm_name, '0\n')
         mock_lvm.split_lvm_name.return_value = (vg_name, lv_name)
         mock_lvm.get_lvols_in_volgroup.return_value = ['lvol2']
         clear_holders.shutdown_lvm(self.test_blockdev)
         mock_syspath.assert_called_with(self.test_blockdev)
-        mock_util.load_file.assert_called_with(self.test_blockdev + '/dm/name')
-        mock_zero.assert_called_with(devname, partitions=False)
+        expected_load_file_calls = [
+            mock.call(self.test_blockdev + '/dm/name'),
+            mock.call(self.test_blockdev + '/ro'),
+        ]
+        self.assertEqual(expected_load_file_calls,
+                         mock_util.load_file.mock_calls)
+        mock_zero.assert_called_with(dm_path, partitions=False)
         mock_lvm.split_lvm_name.assert_called_with(lvm_name.strip())
         self.assertTrue(mock_log.debug.called)
         mock_util.subp.assert_called_with(
@@ -201,12 +206,46 @@ class TestClearHolders(CiTestCase):
         self.assertEqual(len(mock_util.subp.call_args_list), 1)
         mock_lvm.get_lvols_in_volgroup.return_value = []
         self.assertTrue(mock_lvm.lvm_scan.called)
+        mock_util.load_file.side_effect = (lvm_name, '0\n')
         mock_lvm.get_pvols_in_volgroup.return_value = pvols
         clear_holders.shutdown_lvm(self.test_blockdev)
         mock_util.subp.assert_called_with(
             ['vgremove', '--force', '--force', vg_name], rcs=[0, 5])
         for pv in pvols:
             mock_zero.assert_any_call(pv, partitions=False)
+        self.assertTrue(mock_lvm.lvm_scan.called)
+
+    @mock.patch('curtin.block.quick_zero')
+    @mock.patch('curtin.block.clear_holders.LOG')
+    @mock.patch('curtin.block.clear_holders.block.sys_block_path')
+    @mock.patch('curtin.block.clear_holders.lvm')
+    @mock.patch('curtin.block.clear_holders.util')
+    def test_shutdown_lvm__thin_pool(self, mock_util, mock_lvm, mock_syspath,
+                                     mock_log, mock_zero):
+        """test clear_holders.shutdown_lvm when given a thin pool"""
+        lvm_name = 'pve-data'
+        vg_name = 'pve'
+        lv_name = 'data'
+        vg_lv_name = "pve/data"
+        mock_syspath.return_value = self.test_blockdev
+        mock_util.load_file.side_effect = (lvm_name, '1\n')
+        mock_lvm.split_lvm_name.return_value = (vg_name, lv_name)
+        mock_lvm.get_lvols_in_volgroup.return_value = ['lvol2']
+        clear_holders.shutdown_lvm(self.test_blockdev)
+        mock_syspath.assert_called_with(self.test_blockdev)
+        expected_load_file_calls = [
+            mock.call(self.test_blockdev + '/dm/name'),
+            mock.call(self.test_blockdev + '/ro'),
+        ]
+        self.assertEqual(expected_load_file_calls,
+                         mock_util.load_file.mock_calls)
+        # We skipped it because the device is read-only
+        mock_zero.assert_not_called()
+        mock_lvm.split_lvm_name.assert_called_with(lvm_name.strip())
+        self.assertTrue(mock_log.debug.called)
+        mock_util.subp.assert_called_with(
+            ['lvremove', '--force', '--force', vg_lv_name])
+        mock_util.subp.assert_called_once()
         self.assertTrue(mock_lvm.lvm_scan.called)
 
     @mock.patch('curtin.block.clear_holders.block')
