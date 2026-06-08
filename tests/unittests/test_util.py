@@ -1197,6 +1197,7 @@ class TestNotExclusiveRetry(CiTestCase):
             util.not_exclusive_retry(f, 1, 2, 3)
         self.assertEqual(1, sleep.call_count)
 
+
 class TestLoadShellContent(CiTestCase):
 
     def test_load_os_release_ubuntu_os_release_sample(self):
