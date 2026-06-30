@@ -154,7 +154,8 @@ def _redact_sensitive_information(target_dir, redact_values):
             with open(fpath) as stream:
                 content = stream.read()
             for redact_value in redact_values:
-                content = re.sub(redact_value, '<REDACTED>', content)
+                content = re.sub(re.escape(redact_value), '<REDACTED>',
+                                 content)
             util.write_file(fpath, content, mode=0o666)
 
 
