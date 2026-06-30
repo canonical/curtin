@@ -190,6 +190,17 @@ class TestBlock(CiTestCase):
                                     "not present in sfdisk dump"):
             block.get_partition_sfdisk_info("/dev/sda1", {"partitions": []})
 
+    @mock.patch('curtin.block.sfdisk_info')
+    @mock.patch('curtin.block.os.path.realpath',
+                mock.Mock(side_effect=lambda x: x))
+    def test_get_partition_sfdisk_info__no_passed_data(self, m_sfdisk_info):
+        devpath = "/dev/sda1"
+        expected_part = {"node": "/dev/sda1", "start": 2048, "size": 1000}
+        m_sfdisk_info.return_value = {"partitions": [expected_part]}
+        result = block.get_partition_sfdisk_info(devpath)
+        self.assertEqual(expected_part, result)
+        m_sfdisk_info.assert_called_once_with(devpath)
+
 
 class TestSysBlockPath(CiTestCase):
     @mock.patch("os.path.exists")
