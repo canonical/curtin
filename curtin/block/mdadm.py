@@ -193,7 +193,7 @@ def mdadm_create(md_devname, raidlevel, devices, spares=None, container=None,
         holders = get_holders(device)
         if len(holders) > 0:
             LOG.warning('Detected holders during mdadm creation: %s', holders)
-            raise OSError('Failed to remove holders from %s', device)
+            raise OSError('Failed to remove holders from %s' % device)
         zero_device(device)
         cmd.append(device)
 
@@ -350,7 +350,7 @@ def mdadm_stop(devpath, retries=None):
             time.sleep(wait)
             pass
 
-    raise OSError('Failed to stop mdadm device %s', devpath)
+    raise OSError('Failed to stop mdadm device %s' % devpath)
 
 
 def mdadm_remove(devpath):
@@ -610,7 +610,7 @@ def __mdadm_detail_to_dict(input):
     if device:
         data.update({'device': device})
     else:
-        raise ValueError('Failed to determine device from input:\n%s', input)
+        raise ValueError('Failed to determine device from input:\n%s' % input)
 
     # start after the first newline
     remainder = input[input.find('\n')+1:]

@@ -30,8 +30,8 @@ def pack_main(args):
     addl = []
     for tok in args.add:
         if delim not in tok:
-            raise ValueError("'--add' argument '%s' did not have a '%s'",
-                             (tok, delim))
+            raise ValueError("'--add' argument '%s' did not have a '%s'"
+                             % (tok, delim))
         (archpath, filepath) = tok.split(":", 1)
         addl.append((archpath, filepath),)
 
