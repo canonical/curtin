@@ -1544,7 +1544,7 @@ def inject_pollinate_user_agent_config(ua_cfg, target):
     user-agent file (/etc/pollinate/add-user-agent) in target.
     """
     if not isinstance(ua_cfg, dict):
-        raise ValueError('ua_cfg is not a dictionary: %s', ua_cfg)
+        raise ValueError('ua_cfg is not a dictionary: %s' % ua_cfg)
 
     pollinate_cfg = paths.target_path(target, '/etc/pollinate/add-user-agent')
     comment = "# written by curtin"

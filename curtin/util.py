@@ -351,7 +351,7 @@ def wait_for_removal(path, retries=[1, 3, 5, 7]):
         LOG.debug('%s has been removed', path)
         return
 
-    raise OSError('Timeout exceeded for removal of %s', path)
+    raise OSError('Timeout exceeded for removal of %s' % path)
 
 
 def load_command_environment(env=os.environ, strict=False):
@@ -375,7 +375,7 @@ def is_kmod_loaded(module):
     """Test if kernel module 'module' is current loaded by checking sysfs"""
 
     if not module:
-        raise ValueError('is_kmod_loaded: invalid module: "%s"', module)
+        raise ValueError('is_kmod_loaded: invalid module: "%s"' % module)
 
     return os.path.isdir('/sys/module/%s' % module)
 
@@ -386,7 +386,7 @@ def load_kernel_module(module, check_loaded=True):
     """
 
     if not module:
-        raise ValueError('load_kernel_module: invalid module: "%s"', module)
+        raise ValueError('load_kernel_module: invalid module: "%s"' % module)
 
     if check_loaded:
         if is_kmod_loaded(module):
@@ -1204,7 +1204,7 @@ def human2bytes(size):
 def bytes2human(size):
     """convert size in bytes to human readable"""
     if not isinstance(size, numeric_types):
-        raise ValueError('size must be a numeric value, not %s', type(size))
+        raise ValueError('size must be a numeric value, not %s' % type(size))
     isize = int(size)
     if isize != size:
         raise ValueError('size "%s" is not a whole number.' % size)

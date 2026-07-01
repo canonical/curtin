@@ -36,7 +36,7 @@ def resolve_alias(alias):
         # should read /proc/cmdline here for BOOTIF
         raise NotImplementedError("netboot alias not implemented")
     else:
-        raise ValueError("'%s' is not an alias: %s", alias, DEVNAME_ALIASES)
+        raise ValueError("'%s' is not an alias: %s" % (alias, DEVNAME_ALIASES))
 
 
 def interfaces_basic_dhcp(devices, macs=None):

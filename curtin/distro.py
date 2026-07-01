@@ -437,8 +437,8 @@ def system_upgrade(opts=None, target=None, env=None, allow_daemons=False,
                        'subcommands': ('refresh', 'update', 'purge-kernels',)},
     }
     if osfamily not in distro_cfg:
-        raise ValueError('Distro "%s" does not have system_upgrade support',
-                         osfamily)
+        raise ValueError('Distro "%s" does not have system_upgrade support'
+                         % osfamily)
 
     for mode in distro_cfg[osfamily]['subcommands']:
         ret = distro_cfg[osfamily]['function'](
@@ -599,8 +599,8 @@ def has_pkg_available(pkg, target=None, osfamily=None):
         osfamily = get_osfamily(target=target)
 
     if osfamily not in [DISTROS.debian, DISTROS.redhat, DISTROS.suse]:
-        raise ValueError('has_pkg_available: unsupported distro family: %s',
-                         osfamily)
+        raise ValueError('has_pkg_available: unsupported distro family: %s'
+                         % osfamily)
 
     if osfamily == DISTROS.suse:
         out, _ = subp(['zypper', '--quiet', 'search',

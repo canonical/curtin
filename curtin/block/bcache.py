@@ -368,7 +368,7 @@ def validate_bcache_ready(bcache_device, bcache_sys_path):
                        'in slaves list %s' % slaves)
                 raise OSError(msg)
         else:
-            msg = 'didnt find "dev" attribute on: %s', bcache_dev
+            msg = 'didnt find "dev" attribute on: %s' % bcache_dev
             raise OSError(msg)
 
     else:
@@ -472,7 +472,7 @@ def create_backing_device(backing_device, cache_device, cache_mode, cset_uuid):
     bdir = os.path.join(backing_device_sysfs, "bcache")
     if os.path.exists(bdir):
         raise RuntimeError(
-            'Unexpected old bcache device: %s', backing_device)
+            'Unexpected old bcache device: %s' % backing_device)
 
     LOG.debug('Creating a backing device on %s', backing_device)
     util.subp(["make-bcache", "-B", backing_device])

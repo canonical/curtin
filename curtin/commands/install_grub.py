@@ -54,14 +54,14 @@ def get_grub_package_name(target_arch, uefi, rhel_ver=None, osfamily=None):
                 grub_name = "grub2-efi-aa64"
                 grub_target = "arm64-efi"
             else:
-                raise ValueError('Unsupported RHEL version: %s', rhel_ver)
+                raise ValueError('Unsupported RHEL version: %s' % rhel_ver)
         elif osfamily == distro.DISTROS.suse:
             if target_arch == 'x86_64':
                 grub_target = "x86_64-efi"
             elif target_arch == 'aarch64':
                 grub_target = "arm64-efi"
             else:
-                raise ValueError('Unsupported SUSE arch: %s', target_arch)
+                raise ValueError('Unsupported SUSE arch: %s' % target_arch)
             grub_name = 'grub2-%s' % grub_target
         else:
             if target_arch == 'amd64':
@@ -88,11 +88,11 @@ def get_grub_package_name(target_arch, uefi, rhel_ver=None, osfamily=None):
                 elif int(rhel_ver) > 6:
                     grub_name = 'grub2-pc'
                 else:
-                    raise ValueError('Unsupported RHEL version: %s', rhel_ver)
+                    raise ValueError('Unsupported RHEL version: %s' % rhel_ver)
             elif target_arch == 'i386':
                 grub_name = 'grub-pc'
             else:
-                raise ValueError('Unsupported RHEL arch: %s', target_arch)
+                raise ValueError('Unsupported RHEL arch: %s' % target_arch)
         elif osfamily == distro.DISTROS.suse:
             grub_name = 'grub2-i386-pc'
         elif target_arch in ['i386', 'amd64']:

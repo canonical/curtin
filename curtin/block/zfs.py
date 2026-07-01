@@ -178,10 +178,10 @@ def _join_flags(optflag, params):
     """
 
     if not isinstance(optflag, str) or not optflag:
-        raise ValueError("Invalid optflag: %s", optflag)
+        raise ValueError("Invalid optflag: %s" % optflag)
 
     if not isinstance(params, dict):
-        raise ValueError("Invalid params: %s", params)
+        raise ValueError("Invalid params: %s" % params)
 
     # zfs flags and params require string booleans ('on', 'off')
     # yaml implicity converts those and others to booleans, we
@@ -206,7 +206,8 @@ def _join_pool_volume(poolname, volume):
     Combine poolname and volume.
     """
     if not poolname or not volume:
-        raise ValueError('Invalid pool (%s) or volume (%s)', poolname, volume)
+        raise ValueError('Invalid pool (%s) or volume (%s)'
+                         % (poolname, volume))
 
     return os.path.normpath("%s/%s" % (poolname, volume))
 
@@ -281,7 +282,7 @@ def zpool_create(poolname, vdevs, storage_config=None, context=None,
                                     invoking `zpool create`.
     """
     if not isinstance(poolname, util.string_types) or not poolname:
-        raise ValueError("Invalid poolname: %s", poolname)
+        raise ValueError("Invalid poolname: %s" % poolname)
 
     if isinstance(vdevs, util.string_types) or isinstance(vdevs, dict):
         raise TypeError("Invalid vdevs: expected list-like iterable")
@@ -345,10 +346,10 @@ def zfs_create(poolname, volume, zfs_properties=None, size=None):
                                     invoking `zfs create`.
     """
     if not isinstance(poolname, util.string_types) or not poolname:
-        raise ValueError("Invalid poolname: %s", poolname)
+        raise ValueError("Invalid poolname: %s" % poolname)
 
     if not isinstance(volume, util.string_types) or not volume:
-        raise ValueError("Invalid volume: %s", volume)
+        raise ValueError("Invalid volume: %s" % volume)
 
     zfs_cfg = {}
     if zfs_properties:
@@ -380,10 +381,10 @@ def zfs_mount(poolname, volume):
     """
 
     if not isinstance(poolname, util.string_types) or not poolname:
-        raise ValueError("Invalid poolname: %s", poolname)
+        raise ValueError("Invalid poolname: %s" % poolname)
 
     if not isinstance(volume, util.string_types) or not volume:
-        raise ValueError("Invalid volume: %s", volume)
+        raise ValueError("Invalid volume: %s" % volume)
 
     cmd = ['zfs', 'mount', _join_pool_volume(poolname, volume)]
     util.subp(cmd, capture=True)
@@ -411,7 +412,7 @@ def zpool_export(poolname):
     """
 
     if not isinstance(poolname, util.string_types) or not poolname:
-        raise ValueError("Invalid poolname: %s", poolname)
+        raise ValueError("Invalid poolname: %s" % poolname)
 
     util.subp(['zpool', 'export', poolname])
 

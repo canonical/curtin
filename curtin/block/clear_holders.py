@@ -62,8 +62,8 @@ def shutdown_bcache(device):
     """
     if not device.startswith('/sys/class/block'):
         raise ValueError('Invalid Device (%s): '
-                         'Device path must start with /sys/class/block/',
-                         device)
+                         'Device path must start with /sys/class/block/'
+                         % device)
 
     # bcache device removal should be fast but in an extreme
     # case, might require the cache device to flush large
@@ -230,7 +230,7 @@ def shutdown_mdadm(device):
                 break
 
         if mdadm.md_present(block.path_to_kname(blockdev)):
-            raise OSError('Timeout exceeded for removal of %s', blockdev)
+            raise OSError('Timeout exceeded for removal of %s' % blockdev)
 
     except OSError:
         LOG.critical('Failed to stop mdadm device %s', device)
