@@ -117,7 +117,7 @@ class MAASReporter(BaseReporter):
 
     def _random_string(self, length):
         return ''.join(random.choice(string.ascii_letters)
-                       for ii in range(length + 1))
+                       for ii in range(length))
 
     def _get_content_type(self, filename):
         return mimetypes.guess_type(filename)[0] or 'application/octet-stream'
