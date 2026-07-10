@@ -329,6 +329,7 @@ def gen_uefi_install_commands(grub_name, grub_target, grub_cmd, update_nvram,
                                      '--loader',
                                      efi_loader_esp_path(loader)])
         post_cmds.append(['grub2-mkconfig', '-o', grub_cfg])
+        post_cmds.append(['dracut', '--force', '--kver', '$(ls /lib/modules)'])
     else:
         raise ValueError("Unsupported os family for grub "
                          "install: %s" % distroinfo.family)
