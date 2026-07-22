@@ -1,6 +1,7 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
 
 import os
+import tempfile
 from typing import (
     List,
     Optional,
@@ -100,6 +101,21 @@ def align_down(size, block_size):
     return size & ~(block_size - 1)
 
 
+def resize_btrfs(path, size):
+    # btrfs filesystem resize requires a mount point, not a raw device.
+    # Device id 1 is the default for single-device filesystems.
+    mountpoint = tempfile.mkdtemp(prefix='curtin-btrfs-')
+    try:
+        with util.mount(path, mountpoint):
+            util.subp(['btrfs', 'filesystem', 'resize',
+                       '1:{}'.format(size), mountpoint])
+    finally:
+        try:
+            os.rmdir(mountpoint)
+        except OSError:
+            pass
+
+
 def resize_ext(path, size):
     util.subp(['e2fsck', '-p', '-f', path])
     size_k = size // 1024
@@ -123,6 +139,7 @@ def perform_resize(kname, resize):
 
 
 resizers = {
+    'btrfs': resize_btrfs,
     'ext2': resize_ext,
     'ext3': resize_ext,
     'ext4': resize_ext,
