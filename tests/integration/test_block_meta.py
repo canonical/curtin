@@ -729,12 +729,12 @@ subprocess.run(cmd, env=env)
         size_to(140 << 20)
 
     def test_resize_up_btrfs(self):
-        # btrfs needs more headroom than ext/ntfs; keep above typical
-        # empty min-dev-size (~240MiB on large volumes).
-        self._do_test_resize(400, 700, 'btrfs', image_size='1G')
+        # btrfs needs more headroom than ext/ntfs; keep above empty
+        # min-dev-size (250MiB was rejected as too small on 24.04).
+        self._do_test_resize(300, 370, 'btrfs', image_size='400M')
 
     def test_resize_down_btrfs(self):
-        self._do_test_resize(700, 400, 'btrfs', image_size='1G')
+        self._do_test_resize(370, 300, 'btrfs', image_size='400M')
 
     def test_resize_up_ext2(self):
         self._do_test_resize(40, 80, 'ext2')

@@ -3807,6 +3807,22 @@ class TestPartitionNeedsResize(CiTestCase):
             self.sfdisk_part_info)
         self.assertEqual(expected, actual)
 
+    def test_partition_resize_btrfs(self):
+        self.partition['preserve'] = True
+        self.partition['resize'] = True
+        self.format['preserve'] = True
+        self.format['fstype'] = 'btrfs'
+        self.m_get_volume_fstype.return_value = 'btrfs'
+        expected = {
+            'fstype': 'btrfs',
+            'size': 5 << 30,
+            'direction': 'up',
+        }
+        actual = block_meta_v2._prepare_resize(
+            self.storage_config, self.partition, self.table,
+            self.sfdisk_part_info)
+        self.assertEqual(expected, actual)
+
     def test_partition_resize_no_format_action(self):
         self.partition['preserve'] = True
         self.partition['resize'] = True

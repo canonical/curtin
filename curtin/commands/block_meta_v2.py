@@ -104,16 +104,10 @@ def align_down(size, block_size):
 def resize_btrfs(path, size):
     # btrfs filesystem resize requires a mount point, not a raw device.
     # Device id 1 is the default for single-device filesystems.
-    mountpoint = tempfile.mkdtemp(prefix='curtin-btrfs-')
-    try:
+    with tempfile.TemporaryDirectory(prefix='curtin-btrfs-') as mountpoint:
         with util.mount(path, mountpoint):
             util.subp(['btrfs', 'filesystem', 'resize',
                        '1:{}'.format(size), mountpoint])
-    finally:
-        try:
-            os.rmdir(mountpoint)
-        except OSError:
-            pass
 
 
 def resize_ext(path, size):
