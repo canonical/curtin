@@ -65,6 +65,20 @@ class PartData:
         return True
 
 
+def _get_btrfs_size(dev, part_action):
+    num = part_action['number']
+    cmd = ['btrfs', 'inspect-internal', 'dump-super', f'{dev}p{num}']
+    out = util.subp(cmd, capture=True)[0]
+    # Sample input:
+    # dev_item.total_bytes	419430400
+    volsize_matcher = re.compile(r'^dev_item\.total_bytes\s+(\d+)')
+    for line in out.splitlines():
+        m = volsize_matcher.match(line)
+        if m:
+            return int(m.group(1))
+    raise Exception('btrfs volume size not found')
+
+
 def _get_ext_size(dev, part_action):
     num = part_action['number']
     cmd = ['dumpe2fs', '-h', f'{dev}p{num}']
@@ -95,6 +109,7 @@ def _get_ntfs_size(dev, part_action):
 
 
 _get_fs_sizers = {
+    'btrfs': _get_btrfs_size,
     'ext2': _get_ext_size,
     'ext3': _get_ext_size,
     'ext4': _get_ext_size,
@@ -656,12 +671,12 @@ subprocess.run(cmd, env=env)
         finally:
             server.stop()
 
-    def _do_test_resize(self, start, end, fstype):
+    def _do_test_resize(self, start, end, fstype, image_size='200M'):
         start <<= 20
         end <<= 20
         img = self.tmp_path('image.img')
         config = StorageConfigBuilder(version=2)
-        config.add_image(path=img, size='200M', ptable='gpt')
+        config.add_image(path=img, size=image_size, ptable='gpt')
         p1 = config.add_part(size=start, offset=1 << 20, number=1,
                              fstype=fstype)
         self.run_bm(config.render())
@@ -712,6 +727,14 @@ subprocess.run(cmd, env=env)
 
         size_to(160 << 20)
         size_to(140 << 20)
+
+    def test_resize_up_btrfs(self):
+        # btrfs needs more headroom than ext/ntfs; keep above empty
+        # min-dev-size (250MiB was rejected as too small on 24.04).
+        self._do_test_resize(300, 370, 'btrfs', image_size='400M')
+
+    def test_resize_down_btrfs(self):
+        self._do_test_resize(370, 300, 'btrfs', image_size='400M')
 
     def test_resize_up_ext2(self):
         self._do_test_resize(40, 80, 'ext2')
