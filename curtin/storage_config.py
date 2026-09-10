@@ -51,6 +51,8 @@ MBR_BOOT_FLAG = '0x80'
 StorageConfig = namedtuple('StorageConfig', ('type', 'schema'))
 STORAGE_CONFIG_TYPES = {
     'bcache': StorageConfig(type='bcache', schema=schemas.BCACHE),
+    'btrfs_subvolume': StorageConfig(type='btrfs_subvolume',
+                                     schema=schemas.BTRFS_SUBVOLUME),
     'dasd': StorageConfig(type='dasd', schema=schemas.DASD),
     'disk': StorageConfig(type='disk', schema=schemas.DISK),
     'nvme_controller': StorageConfig(type='nvme_controller',
@@ -163,6 +165,7 @@ def _stype_to_deps(stype):
 
     depends_keys = {
         'bcache': {'backing_device', 'cache_device'},
+        'btrfs_subvolume': {'volume'},
         'dasd': set(),
         'disk': {'nvme_controller'},
         'dm_crypt': {'volume'},
@@ -183,6 +186,7 @@ def _stype_to_order_key(stype):
     default_sort = {'id'}
     order_key = {
         'bcache': {'name'},
+        'btrfs_subvolume': {'id'},
         'dasd': default_sort,
         'disk': default_sort,
         'dm_crypt': default_sort,
@@ -210,6 +214,7 @@ def _validate_dep_type(source_id, dep_key, dep_id, sconfig):
     depends = {
         'bcache': {'bcache', 'disk', 'dm_crypt', 'lvm_partition',
                    'partition', 'raid'},
+        'btrfs_subvolume': {'format'},
         'dasd': {},
         'disk': {'dasd', 'nvme_controller'},
         'dm_crypt': {'bcache', 'disk', 'dm_crypt', 'lvm_partition',
