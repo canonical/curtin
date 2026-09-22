@@ -1401,6 +1401,28 @@ class TestFstabData(CiTestCase):
             lines[1].split())
         self.assertEqual(0, m_get_uuid.call_count)
 
+    @parameterized.expand(
+        (
+            ("subvol=with\t\ttabs", "subvol=with\\011\\011tabs"),
+            ("subvol=with  spaces", "subvol=with\\040\\040spaces"),
+        ),
+    )
+    def test_fstab_line_for_data_option_with_spaces(
+            self, options, fstab_options):
+        with patch('curtin.block.get_volume_id') as m_get_uuid:
+            fdata = block_meta.FstabData(
+                spec="/dev/vda",
+                path="/mnt", fstype='btrfs', options=options)
+            m_get_uuid.return_value = None
+            lines = block_meta.fstab_line_for_data(fdata).splitlines()
+            self.assertEqual(
+                '# /mnt was on /dev/vda during curtin installation',
+                lines[0])
+            self.assertEqual(
+                ["/dev/vda", "/mnt", "btrfs", fstab_options, "0", "1"],
+                lines[1].split())
+            self.assertEqual(0, m_get_uuid.call_count)
+
     @patch('curtin.util.ensure_dir')
     @patch('curtin.util.subp')
     def test_mount_fstab_data_without_target(self, m_subp, m_ensure_dir):

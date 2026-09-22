@@ -1420,8 +1420,15 @@ def fstab_line_for_data(fdata):
     if int(passno) < 0:
         passno = proc_filesystems_passno(fdata.fstype)
 
-    entry = ' '.join((spec, path, fdata.fstype, options,
-                      fdata.freq, passno)) + "\n"
+    # fstab fields are separated by spaces or tabs. This means we need to
+    # escape any tab or space in any of the fields.
+    # See fstab(5)
+    def escape(field: str) -> str:
+        return field.replace(" ", "\\040").replace("\t", "\\011")
+
+    fields = (spec, path, fdata.fstype, options, fdata.freq, passno)
+    entry = ' '.join([escape(field) for field in fields]) + "\n"
+
     line = '\n'.join([comment, entry] if comment else [entry])
     return line
 
