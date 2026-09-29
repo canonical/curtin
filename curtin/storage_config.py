@@ -186,7 +186,7 @@ def _stype_to_order_key(stype):
     default_sort = {'id'}
     order_key = {
         'bcache': {'name'},
-        'btrfs_subvolume': {'id'},
+        'btrfs_subvolume': default_sort,
         'dasd': default_sort,
         'disk': default_sort,
         'dm_crypt': default_sort,
