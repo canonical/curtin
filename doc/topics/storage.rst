@@ -64,6 +64,7 @@ commands include:
 - Partition Command (``partition``)
 - Format Command (``format``)
 - Mount Command  (``mount``)
+- Btrfs Subvolume Command (``btrfs_subvolume``)
 - LVM_VolGroup Command (``lvm_volgroup``)
 - LVM_Partition Command (``lvm_partition``)
 - DM_Crypt Command (``dm_crypt``)
@@ -744,6 +745,37 @@ Below is an example of configuring a tmpfsbind mount.
 That would result in a fstab entry like::
 
   none /my/tmpfs tmpfs size=4194304 0 0
+
+
+Btrfs Subvolume Command
+~~~~~~~~~~~~~~~~~~~~~~~
+The btrfs_subvolume command creates a btrfs subvolume on a filesystem
+that was formatted with ``fstype: btrfs``.
+
+**volume**: *<volume id>*
+
+The ``volume`` key refers to the ``id`` of a :ref:`Format <format>` entry
+with ``fstype: btrfs``. The format entry must already have been processed.
+
+**name**: *<name>*
+
+The ``name`` key specifies the name of the subvolume to create. The name
+must not contain whitespace or forward slashes.
+
+**Config Example**::
+
+ - id: disk0-part1-fs
+   type: format
+   fstype: btrfs
+   volume: disk0-part1
+ - id: disk0-part1-subvol-root
+   type: btrfs_subvolume
+   name: '@'
+   volume: disk0-part1-fs
+ - id: disk0-part1-subvol-home
+   type: btrfs_subvolume
+   name: '@home'
+   volume: disk0-part1-fs
 
 
 Lvm Volgroup Command
