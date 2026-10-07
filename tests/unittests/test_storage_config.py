@@ -243,6 +243,40 @@ class TestProbertParser(CiTestCase):
         }
         self.assertFalse(baseparser.looks_like_ldm_disk(blockdev))
 
+    def test_has_partition_at_offset_zero(self):
+        blockdev = {
+            "DEVNAME": "/dev/sda",
+            "DEVTYPE": "disk",
+            "partitiontable": {
+                "label": "dos",
+                "partitions": [
+                    {"node": "/dev/sda1", "start": 0, "size": 10303640},
+                    {"node": "/dev/sda2", "start": 10303640, "size": 10144},
+                ]
+            }
+        }
+        self.assertTrue(baseparser.has_partition_at_offset_zero(blockdev))
+
+    def test_has_partition_at_offset_zero__no_such_part(self):
+        blockdev = {
+            "DEVNAME": "/dev/sda",
+            "DEVTYPE": "disk",
+            "partitiontable": {
+                "label": "dos",
+                "partitions": [
+                    {"node": "/dev/sda1", "start": 2048, "size": 10303640},
+                ]
+            }
+        }
+        self.assertFalse(baseparser.has_partition_at_offset_zero(blockdev))
+
+    def test_has_partition_at_offset_zero__no_ptable(self):
+        blockdev = {
+            "DEVNAME": "/dev/sda",
+            "DEVTYPE": "disk",
+        }
+        self.assertFalse(baseparser.has_partition_at_offset_zero(blockdev))
+
     def test_detect_partition_scheme__unpartitioned(self):
         blockdev = {
             "DEVNAME": "/dev/sda",
@@ -285,6 +319,22 @@ class TestProbertParser(CiTestCase):
                                return_value=True):
             self.assertEqual(
                 "unsupported", baseparser.detect_partition_scheme(blockdev))
+
+    def test_detect_partition_scheme__partition_at_offset_zero(self):
+        # LP: #2093314
+        blockdev = {
+            "DEVNAME": "/dev/sda",
+            "DEVTYPE": "disk",
+            "ID_PART_TABLE_TYPE": "dos",
+            "partitiontable": {
+                "label": "dos",
+                "partitions": [
+                    {"node": "/dev/sda1", "start": 0, "size": 10303640},
+                ]
+            }
+        }
+        self.assertEqual(
+            "unsupported", baseparser.detect_partition_scheme(blockdev))
 
 
 def _get_data(datafile):
@@ -1402,6 +1452,18 @@ class TestExtractStorageConfig(CiTestCase):
         }
         self.assertEqual(1, len(disks))
         self.assertEqual(expected_dict, disks[0])
+
+    @skipUnlessJsonSchema()
+    def test_blockdev_partition_at_offset_zero(self):
+        # LP: #2093314 - /dev/sdc is a USB stick with an ISO image written to
+        # it. Its first partition starts at offset 0.
+        self.probe_data = _get_data('probert_storage_bogus_wwn.json')
+        extracted = storage_config.extract_storage_config(self.probe_data)
+        config = extracted['storage']['config']
+        disks = [cfg for cfg in config
+                 if cfg['type'] == 'disk' and cfg['path'] == '/dev/sdc']
+        self.assertEqual(1, len(disks))
+        self.assertEqual('unsupported', disks[0]['ptable'])
 
     @skipUnlessJsonSchema()
     def test_arbitrary_fstype_if_preserve_true(self):

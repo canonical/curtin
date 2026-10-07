@@ -511,6 +511,20 @@ class ProbertParser(object):
             return False
 
     @staticmethod
+    def has_partition_at_offset_zero(blockdev) -> bool:
+        """ Tell if the disk has a partition that starts at offset 0, i.e.,
+            where the partition table itself is stored. This can happen with
+            some images (e.g., hybrid ISO images) written to a disk or a USB
+            stick. Writing to such a partition can destroy the partition
+            table.
+        """
+        try:
+            parts = blockdev["partitiontable"]["partitions"]
+        except KeyError:
+            return False
+        return any(part.get("start") == 0 for part in parts)
+
+    @staticmethod
     def detect_partition_scheme(blockdev) -> Optional[str]:
         ''' Return either:
              * None if the blockdev is not partitioned
@@ -527,6 +541,12 @@ class ProbertParser(object):
         if ProbertParser.looks_like_ldm_disk(blockdev):
             LOG.debug('%s: reassigning ptable property to %s because it'
                       ' looks like a dynamic disk',
+                      blockdev.get('DEVNAME', ''), schemas._ptable_unsupported)
+            return schemas._ptable_unsupported
+
+        if ProbertParser.has_partition_at_offset_zero(blockdev):
+            LOG.debug('%s: reassigning ptable property to %s because it'
+                      ' has a partition at offset 0',
                       blockdev.get('DEVNAME', ''), schemas._ptable_unsupported)
             return schemas._ptable_unsupported
         return ptype
