@@ -639,6 +639,12 @@ def get_path_to_storage_volume(volume, storage_config):
     elif vol.get('type') == 'device':
         volume_path = vol['path']
 
+    elif vol.get('type') == 'format':
+        # formats are not block devices; resolve the volume the
+        # format action was applied to
+        volume_path = get_path_to_storage_volume(vol.get('volume'),
+                                                 storage_config)
+
     else:
         raise NotImplementedError("cannot determine the path to storage \
             volume '%s' with type '%s'" % (volume, vol.get('type')))
@@ -2101,16 +2107,9 @@ def btrfs_subvolume_handler(info, storage_config, context):
         raise ValueError("name must be specified for btrfs_subvolume "
                          "'%s'" % info.get('id'))
 
-    # 'volume' refers to a format action, not a block device. Resolve the
-    # device that the format action was applied to.
-    fmt = storage_config.get(volume)
-    if not fmt or fmt.get('type') != 'format':
-        raise ValueError(
-            "volume '%s' of btrfs_subvolume '%s' must reference a format "
-            "action" % (volume, info.get('id')))
-
-    volume_path = get_path_to_storage_volume(fmt.get('volume'),
-                                             storage_config)
+    # 'volume' refers to a format action; get_path_to_storage_volume()
+    # resolves it to the volume the format action was applied to.
+    volume_path = get_path_to_storage_volume(volume, storage_config)
     LOG.info('Creating btrfs subvolume %s on %s', name, volume_path)
     btrfs.btrfs_subvolume_create(volume_path, name)
 
