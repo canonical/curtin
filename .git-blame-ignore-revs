@@ -1,0 +1,5 @@
+# Automatically apply to git blame with
+# `git config blame.ignorerevsfile .git-blame-ignore-revs`
+
+# initial import sorting with isort 9.0.2
+86738e96a9b43659d8968bc3d916c4f8b8bc1c1a
