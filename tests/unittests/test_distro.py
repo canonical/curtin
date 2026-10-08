@@ -1,13 +1,11 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
 
-from unittest import skipIf
-from unittest import mock
 import os
 import sys
+from unittest import mock, skipIf
 
-from curtin import distro
-from curtin import paths
-from curtin import util
+from curtin import distro, paths, util
+
 from .helpers import CiTestCase
 
 

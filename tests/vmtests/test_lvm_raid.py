@@ -1,10 +1,10 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
 
-from .releases import base_vm_classes as relbase
-from .test_mdadm_bcache import TestMdadmAbs
-from .test_lvm import TestLvmAbs
-
 import textwrap
+
+from .releases import base_vm_classes as relbase
+from .test_lvm import TestLvmAbs
+from .test_mdadm_bcache import TestMdadmAbs
 
 
 class TestLvmOverRaidAbs(TestMdadmAbs, TestLvmAbs):

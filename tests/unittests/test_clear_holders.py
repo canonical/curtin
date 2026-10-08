@@ -1,12 +1,13 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
 
-from unittest import mock
 import os
 import textwrap
 import uuid
+from unittest import mock
 
 from curtin.block import clear_holders
 from curtin.util import ProcessExecutionError
+
 from .helpers import CiTestCase
 
 

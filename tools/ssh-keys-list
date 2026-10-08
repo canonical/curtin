@@ -2,10 +2,11 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
 
 import argparse
-import subprocess
-import os.path
-import sys
 import json
+import os.path
+import subprocess
+import sys
+
 VALID_MODES = (
     # one key per line
     'dump',

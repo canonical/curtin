@@ -4,10 +4,10 @@ import os
 import sys
 
 import curtin.util as util
+from curtin import distro
+from curtin.log import LOG
 
 from . import populate_one_subcmd
-from curtin.log import LOG
-from curtin import distro
 
 
 def system_upgrade_main(args):

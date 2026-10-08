@@ -1,8 +1,8 @@
 from unittest import mock
 
 from curtin.block import multipath
-from .helpers import CiTestCase
 
+from .helpers import CiTestCase
 
 # dmsetup uses tabs as separators
 DMSETUP_LS_BLKDEV_OUTPUT = '''\

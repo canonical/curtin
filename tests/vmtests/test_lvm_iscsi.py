@@ -1,11 +1,11 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
 
+import textwrap
+
 from .releases import base_vm_classes as relbase
 from .releases import centos_base_vm_classes as centos_relbase
-from .test_lvm import TestLvmAbs
 from .test_iscsi import TestBasicIscsiAbs
-
-import textwrap
+from .test_lvm import TestLvmAbs
 
 
 class TestLvmIscsiAbs(TestLvmAbs, TestBasicIscsiAbs):

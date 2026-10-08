@@ -1,16 +1,16 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
 
-from pathlib import Path
-from unittest import mock
 import errno
 import fcntl
 import os
 import stat
 import subprocess
+from pathlib import Path
 from textwrap import dedent
+from unittest import mock
 
-from curtin import util
-from curtin import paths
+from curtin import paths, util
+
 from .helpers import CiTestCase, simple_mocked_open
 
 

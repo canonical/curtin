@@ -1,12 +1,13 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
 
+import argparse
+import os
+from unittest import mock
+
 from curtin.commands import unmount
 from curtin.util import FileMissingError
-from .helpers import CiTestCase
 
-import argparse
-from unittest import mock
-import os
+from .helpers import CiTestCase
 
 
 class TestUnmount(CiTestCase):

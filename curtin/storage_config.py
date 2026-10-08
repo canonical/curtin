@@ -1,17 +1,18 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
-from collections import namedtuple, OrderedDict
 import contextlib
 import copy
 import operator
 import os
 import re
+from collections import OrderedDict, namedtuple
 from typing import Optional
+
 import yaml
 
-from curtin.log import LOG
-from curtin.block import multipath, schemas
 from curtin import config as curtin_config
 from curtin import util
+from curtin.block import multipath, schemas
+from curtin.log import LOG
 
 # map
 # https://en.wikipedia.org/wiki/GUID_Partition_Table#Partition_type_GUIDs

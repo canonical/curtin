@@ -8,8 +8,8 @@ import typing
 import attr
 
 from curtin import config
-from .helpers import CiTestCase
 
+from .helpers import CiTestCase
 
 # Selects the extlinux bootloader
 EXTLINUX = ['extlinux']

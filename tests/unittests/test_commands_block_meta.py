@@ -1,22 +1,19 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
 
-from argparse import Namespace
-from collections import OrderedDict
 import copy
-from unittest.mock import (
-    call,
-    MagicMock,
-    Mock,
-    patch,
-)
 import os
 import random
 import uuid
+from argparse import Namespace
+from collections import OrderedDict
+from unittest.mock import MagicMock, Mock, call, patch
 
 from parameterized import parameterized
+
+from curtin import paths, util
 from curtin.block import dasd
 from curtin.commands import block_meta, block_meta_v2
-from curtin import paths, util
+
 from .helpers import CiTestCase
 
 

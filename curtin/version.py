@@ -1,8 +1,9 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
 
-from curtin import __version__ as old_version
 import os
 import subprocess
+
+from curtin import __version__ as old_version
 
 _PACKAGED_VERSION = '@@PACKAGED_VERSION@@'
 _PACKED_VERSION = '@@PACKED_VERSION@@'

@@ -1,13 +1,15 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
 
-from unittest import mock
 import os
+from textwrap import dedent
+from unittest import mock
+
 import yaml
 
-from curtin import config, net, util
 import curtin.net.network_state as network_state
+from curtin import config, net, util
+
 from .helpers import CiTestCase
-from textwrap import dedent
 
 
 class TestNetParserData(CiTestCase):

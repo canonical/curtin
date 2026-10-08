@@ -9,10 +9,8 @@ import os
 import re
 import shutil
 
-from curtin import (paths, util, udev)
-from curtin.block import (get_device_slave_knames,
-                          path_to_kname)
-
+from curtin import paths, udev, util
+from curtin.block import get_device_slave_knames, path_to_kname
 from curtin.log import LOG
 
 _ISCSI_DISKS = {}

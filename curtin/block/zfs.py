@@ -5,16 +5,16 @@ Wrap calls to the zfsutils-linux package (zpool, zfs) for creating zpools
 and volumes."""
 
 import os
-import tempfile
 import secrets
 import shutil
+import tempfile
 from contextlib import ExitStack
 from pathlib import Path
 
+from curtin import distro, util
 from curtin.config import merge_config
 from curtin.udev import udevadm_settle
-from curtin import distro
-from curtin import util
+
 from . import blkid, get_supported_filesystems
 
 ZPOOL_DEFAULT_PROPERTIES = {

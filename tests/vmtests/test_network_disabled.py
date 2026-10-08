@@ -1,12 +1,11 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
 
+import os
+from unittest import SkipTest
+
 from . import skip_if_flag
 from .releases import base_vm_classes as relbase
 from .test_network import TestNetworkBaseTestsAbs
-
-from unittest import SkipTest
-
-import os
 
 
 class CurtinDisableNetworkRendering(TestNetworkBaseTestsAbs):

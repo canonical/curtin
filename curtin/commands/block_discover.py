@@ -1,8 +1,10 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
 
 import json
-from . import populate_one_subcmd
+
 from curtin import block
+
+from . import populate_one_subcmd
 
 
 def block_discover_main(args):

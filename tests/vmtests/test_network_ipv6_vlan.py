@@ -2,8 +2,7 @@
 
 from .releases import base_vm_classes as relbase
 from .releases import centos_base_vm_classes as centos_relbase
-from .test_network_vlan import (TestNetworkVlanAbs,
-                                CentosTestNetworkVlanAbs)
+from .test_network_vlan import CentosTestNetworkVlanAbs, TestNetworkVlanAbs
 
 
 class TestNetworkIPV6VlanAbs(TestNetworkVlanAbs):

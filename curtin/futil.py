@@ -1,13 +1,13 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
 
 import grp
-import pwd
 import os
+import pwd
 import warnings
 
-from .util import write_file
-from .paths import target_path
 from .log import LOG
+from .paths import target_path
+from .util import write_file
 
 
 def chownbyid(fname, uid=None, gid=None):

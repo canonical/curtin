@@ -10,14 +10,10 @@ import glob
 import os
 import time
 
-from curtin import (block, udev, util)
-from curtin.swap import is_swap_device
-from curtin.block import bcache
-from curtin.block import lvm
-from curtin.block import mdadm
-from curtin.block import multipath
-from curtin.block import zfs
+from curtin import block, udev, util
+from curtin.block import bcache, lvm, mdadm, multipath, zfs
 from curtin.log import LOG
+from curtin.swap import is_swap_device
 
 # poll frequenty, but wait up to 60 seconds total
 MDADM_RELEASE_RETRIES = [0.4] * 150

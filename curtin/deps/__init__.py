@@ -3,18 +3,8 @@
 import os
 import sys
 
-from curtin.util import (
-    ProcessExecutionError,
-    is_uefi_bootable,
-    subp,
-    which,
-)
-
-from curtin.distro import (
-    get_architecture,
-    install_packages,
-    lsb_release,
-    )
+from curtin.distro import get_architecture, install_packages, lsb_release
+from curtin.util import ProcessExecutionError, is_uefi_bootable, subp, which
 
 REQUIRED_IMPORTS = [
     # import string to execute, python2 package, python3 package

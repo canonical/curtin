@@ -2,8 +2,8 @@
 
 from .releases import base_vm_classes as relbase
 from .releases import centos_base_vm_classes as centos_relbase
-from .test_network_static import (TestNetworkStaticAbs,
-                                  CentosTestNetworkStaticAbs)
+from .test_network_static import (CentosTestNetworkStaticAbs,
+                                  TestNetworkStaticAbs)
 
 
 # reuse basic network tests but with different config (static, no dhcp)

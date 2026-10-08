@@ -1,9 +1,10 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
 
-from curtin.commands import clear_holders
-from .helpers import CiTestCase
-
 import argparse
+
+from curtin.commands import clear_holders
+
+from .helpers import CiTestCase
 
 
 class TestClearHolders(CiTestCase):

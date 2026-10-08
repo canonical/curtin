@@ -3,13 +3,11 @@
 # This module wraps calls to mkfs.<fstype> and determines the appropriate flags
 # for each filesystem type
 
-from curtin import block
-from curtin import distro
-from curtin import util
-
-import string
 import os
+import string
 from uuid import uuid4
+
+from curtin import block, distro, util
 
 mkfs_commands = {
     "btrfs": "mkfs.btrfs",

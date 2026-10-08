@@ -1,28 +1,5 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
 
-from collections import OrderedDict, namedtuple
-from curtin import (block, compat, config, paths, storage_actions, util)
-from curtin.block import schemas
-from curtin.block import (bcache, clear_holders, dasd, iscsi, lvm, mdadm, mkfs,
-                          multipath, zfs)
-from curtin import distro
-from curtin.log import LOG, logged_time
-from curtin.reporter import events
-from curtin.storage_config import (
-    extract_storage_ordered_dict,
-    ptable_part_type_to_flag,
-    )
-
-
-from . import populate_one_subcmd
-from curtin.udev import (
-    compose_udev_equality,
-    udev_all_block_device_properties,
-    udevadm_info,
-    udevadm_settle,
-    udevadm_trigger,
-    )
-
 import glob
 import json
 import os
@@ -32,7 +9,20 @@ import string
 import sys
 import tempfile
 import time
+from collections import OrderedDict, namedtuple
 
+from curtin import block, compat, config, distro, paths, storage_actions, util
+from curtin.block import (bcache, clear_holders, dasd, iscsi, lvm, mdadm, mkfs,
+                          multipath, schemas, zfs)
+from curtin.log import LOG, logged_time
+from curtin.reporter import events
+from curtin.storage_config import (extract_storage_ordered_dict,
+                                   ptable_part_type_to_flag)
+from curtin.udev import (compose_udev_equality,
+                         udev_all_block_device_properties, udevadm_info,
+                         udevadm_settle, udevadm_trigger)
+
+from . import populate_one_subcmd
 
 FstabData = namedtuple(
     "FstabData", ('spec', 'path', 'fstype', 'options', 'freq', 'passno',
@@ -2276,10 +2266,8 @@ def meta_custom(args):
 
     storage_config_dict.version = cfg['storage']['version']
     if storage_config_dict.version > 1:
-        from curtin.commands.block_meta_v2 import (
-            disk_handler_v2,
-            partition_handler_v2,
-            )
+        from curtin.commands.block_meta_v2 import (disk_handler_v2,
+                                                   partition_handler_v2)
         command_handlers.update({
             'disk': disk_handler_v2,
             'partition': partition_handler_v2,

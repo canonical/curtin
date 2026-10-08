@@ -1,11 +1,11 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
 
+import os
+import textwrap
+
 from . import VMBaseClass
 from .releases import base_vm_classes as relbase
 from .releases import centos_base_vm_classes as centos_relbase
-
-import os
-import textwrap
 
 centos70_xenial = centos_relbase.centos70_xenial
 

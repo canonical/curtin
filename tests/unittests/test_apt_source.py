@@ -7,21 +7,16 @@ import glob
 import os
 import re
 import socket
-
-
 from unittest import mock
 from unittest.mock import call
 
 from aptsources.sourceslist import SourceEntry
-
-from curtin import distro
-from curtin import gpg
-from curtin import util
-from curtin.commands import apt_config
-from .helpers import CiTestCase
-
 from parameterized import parameterized
 
+from curtin import distro, gpg, util
+from curtin.commands import apt_config
+
+from .helpers import CiTestCase
 
 EXPECTEDKEY = u"""-----BEGIN PGP PUBLIC KEY BLOCK-----
 Version: GnuPG v1

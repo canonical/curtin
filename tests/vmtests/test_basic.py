@@ -1,15 +1,11 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
 
-from . import (
-    VMBaseClass,
-    get_apt_proxy,
-    skip_if_arch,
-    skip_if_flag)
-from .releases import base_vm_classes as relbase
-from .releases import centos_base_vm_classes as centos_relbase
-
 import textwrap
 from unittest import SkipTest
+
+from . import VMBaseClass, get_apt_proxy, skip_if_arch, skip_if_flag
+from .releases import base_vm_classes as relbase
+from .releases import centos_base_vm_classes as centos_relbase
 
 
 class TestBasicAbs(VMBaseClass):

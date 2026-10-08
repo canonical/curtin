@@ -5,10 +5,11 @@ import glob
 import os
 import re
 
+import curtin.config as config
+import curtin.util as util
 from curtin.log import LOG
 from curtin.udev import generate_udev_rule
-import curtin.util as util
-import curtin.config as config
+
 from . import network_state
 
 SYS_CLASS_NET = "/sys/class/net/"

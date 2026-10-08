@@ -5,17 +5,16 @@ Test templating of custom sources list
 """
 import logging
 import os
-import yaml
-
+import textwrap
 from unittest import mock
 from unittest.mock import call
-import textwrap
 
-from curtin import distro
-from curtin import paths
-from curtin import util
+import yaml
+
+from curtin import distro, paths, util
 from curtin.commands import apt_config
 from curtin.config import load_config
+
 from .helpers import CiTestCase
 
 LOG = logging.getLogger(__name__)

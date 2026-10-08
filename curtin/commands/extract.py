@@ -11,11 +11,10 @@ import sys
 import tempfile
 
 import curtin.config
-from curtin.log import LOG
-from curtin import util
+from curtin import url_helper, util
 from curtin.futil import write_files
+from curtin.log import LOG
 from curtin.reporter import events
-from curtin import url_helper
 
 from . import populate_one_subcmd
 

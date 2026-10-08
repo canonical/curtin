@@ -1,14 +1,14 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
 
-from curtin import url_helper
-
-from . import (BaseReporter, LoadReporterException)
-
 import mimetypes
 import os.path
 import random
 import string
 import sys
+
+from curtin import url_helper
+
+from . import BaseReporter, LoadReporterException
 
 
 class MAASReporter(BaseReporter):

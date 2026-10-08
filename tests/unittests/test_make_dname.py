@@ -1,11 +1,11 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
 
-from unittest import mock
-
 import textwrap
 import uuid
+from unittest import mock
 
 from curtin.commands import block_meta
+
 from .helpers import CiTestCase
 
 

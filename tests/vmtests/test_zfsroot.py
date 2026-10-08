@@ -1,9 +1,9 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
 
+import textwrap
+
 from . import VMBaseClass, check_install_log, skip_if_flag
 from .releases import base_vm_classes as relbase
-
-import textwrap
 
 
 class TestZfsRootAbs(VMBaseClass):

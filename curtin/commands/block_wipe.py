@@ -1,9 +1,11 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
 
 import sys
+
 import curtin.block as block
-from . import populate_one_subcmd
+
 from .. import log
+from . import populate_one_subcmd
 
 LOG = log.LOG
 

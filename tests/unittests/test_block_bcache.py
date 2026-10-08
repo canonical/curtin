@@ -1,8 +1,9 @@
-from unittest import mock
 import os
+from unittest import mock
 
 from curtin.block import bcache
-from curtin.util import (FileMissingError, load_file, ProcessExecutionError)
+from curtin.util import FileMissingError, ProcessExecutionError, load_file
+
 from .helpers import CiTestCase
 
 

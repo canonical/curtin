@@ -6,10 +6,8 @@ import os
 import sys
 import traceback
 
-from .. import log
-from .. import util
+from .. import log, util, version
 from ..deps import install_deps
-from .. import version
 
 VERSIONSTR = version.version_string()
 
@@ -127,7 +125,7 @@ def main(argv=None):
 
     # Above here, only standard library modules can be assumed.
     from .. import config
-    from ..reporter import (events, update_configuration)
+    from ..reporter import events, update_configuration
 
     parser = get_main_parser(stacktrace=stacktrace, verbosity=verbosity)
     subps = parser.add_subparsers(dest="subcmd")

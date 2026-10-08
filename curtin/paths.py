@@ -1,8 +1,9 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
 import glob
 import os
-from packaging import version
 import re
+
+from packaging import version
 
 try:
     string_types = (basestring,)

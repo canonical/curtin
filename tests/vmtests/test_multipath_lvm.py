@@ -1,12 +1,12 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
 
+import textwrap
+from unittest import SkipTest
+
 from . import skip_if_flag
 from .releases import base_vm_classes as relbase
 from .releases import centos_base_vm_classes as centos_relbase
 from .test_multipath import TestMultipathBasicAbs
-
-from unittest import SkipTest
-import textwrap
 
 
 class TestMultipathLvmAbs(TestMultipathBasicAbs):

@@ -3,13 +3,12 @@
 import os
 import sys
 
-from .. import log
 import curtin.net as net
 import curtin.util as util
-from curtin import config
-from curtin import paths
-from . import populate_one_subcmd
+from curtin import config, paths
 
+from .. import log
+from . import populate_one_subcmd
 
 LOG = log.LOG
 

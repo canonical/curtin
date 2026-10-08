@@ -10,18 +10,11 @@ import re
 import shlex
 import time
 
-from curtin.block import (
-    dev_path,
-    dev_short,
-    get_holders,
-    is_valid_device,
-    md_get_devices_list,
-    md_get_spares_list,
-    sys_block_path,
-    zero_file_at_offsets,
-)
+from curtin import udev, util
+from curtin.block import (dev_path, dev_short, get_holders, is_valid_device,
+                          md_get_devices_list, md_get_spares_list,
+                          sys_block_path, zero_file_at_offsets)
 from curtin.distro import lsb_release
-from curtin import (util, udev)
 from curtin.log import LOG
 
 NOSPARE_RAID_LEVELS = [

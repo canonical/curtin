@@ -5,10 +5,7 @@
 import io
 import os
 
-from curtin import config
-from curtin import distro
-from curtin import paths
-from curtin import util
+from curtin import config, distro, paths, util
 from curtin.log import LOG
 
 EXTLINUX_DIR = '/boot/extlinux'

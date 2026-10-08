@@ -1,15 +1,12 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
 
-from unittest import mock
 import shlex
+from unittest import mock
 
-from curtin.udev import (
-        udevadm_info,
-        shlex_quote,
-        )
 from curtin import util
-from .helpers import CiTestCase
+from curtin.udev import shlex_quote, udevadm_info
 
+from .helpers import CiTestCase
 
 UDEVADM_INFO_QUERY = """\
 DEVLINKS='/dev/disk/by-id/nvme-eui.0025388b710116a1 /dev/disk/by-id/nvme-n1'

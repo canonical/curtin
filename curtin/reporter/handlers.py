@@ -2,10 +2,9 @@
 
 import abc
 
-from .registry import DictRegistry
-from .. import url_helper
 from .. import log as logging
-
+from .. import url_helper
+from .registry import DictRegistry
 
 LOG = logging.getLogger(__name__)
 

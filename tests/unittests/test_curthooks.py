@@ -3,20 +3,19 @@
 import argparse
 import contextlib
 import os
-from pathlib import Path
-from unittest.mock import ANY, call, Mock, patch
 import textwrap
+from pathlib import Path
 from typing import Optional
+from unittest.mock import ANY, Mock, call, patch
 
 import attr
 from parameterized import parameterized
 
+from curtin import config, distro, util
 from curtin.commands import curthooks
 from curtin.commands.block_meta import extract_storage_ordered_dict
-from curtin import distro
-from curtin import util
-from curtin import config
 from curtin.reporter import events
+
 from .helpers import CiTestCase, dir2dict, populate_dir, random
 
 

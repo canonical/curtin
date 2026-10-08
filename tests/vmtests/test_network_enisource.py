@@ -1,12 +1,13 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
 
+import shutil
+import subprocess
+
+import yaml
+
 from . import helpers
 from .releases import base_vm_classes as relbase
 from .test_network import TestNetworkBaseTestsAbs
-
-import shutil
-import subprocess
-import yaml
 
 
 class TestNetworkENISource(TestNetworkBaseTestsAbs):

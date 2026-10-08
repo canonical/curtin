@@ -1,11 +1,12 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
 
-from unittest.mock import patch, call
 import copy
 import os
+from unittest.mock import call, patch
 
-from curtin.commands import apply_net
 from curtin import paths
+from curtin.commands import apply_net
+
 from .helpers import CiTestCase
 
 

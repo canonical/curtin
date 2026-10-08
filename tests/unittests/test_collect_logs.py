@@ -2,8 +2,9 @@
 
 from pathlib import Path
 
-from .helpers import CiTestCase
 from curtin.commands import collect_logs
+
+from .helpers import CiTestCase
 
 
 class TestRedactSensitiveInformation(CiTestCase):

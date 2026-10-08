@@ -1,8 +1,7 @@
 import os
 
+from curtin import udev, util
 from curtin.log import LOG
-from curtin import util
-from curtin import udev
 
 SHOW_PATHS_FMT = ("device='%d' serial='%z' multipath='%m' host_wwpn='%N' "
                   "target_wwnn='%n' host_wwpn='%R' target_wwpn='%r' "

@@ -3,11 +3,11 @@
 import os
 import resource
 
-from .log import LOG
-from . import util
-from curtin import paths
-from curtin import distro
+from curtin import distro, paths
 from curtin.util import bytes2human
+
+from . import util
+from .log import LOG
 
 
 def suggested_swapsize(memsize=None, maxsize=None, fsys=None, avail=None):

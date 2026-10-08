@@ -1,8 +1,10 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
 
 import os
+
+from curtin import block, util
+
 from . import populate_one_subcmd
-from curtin import (block, util)
 
 
 def block_info_main(args):

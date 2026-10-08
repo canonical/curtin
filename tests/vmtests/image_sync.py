@@ -1,20 +1,16 @@
 #!/usr/bin/python3
 # This file is part of curtin. See LICENSE file for copyright and license info.
 
-from simplestreams import util as sutil
-from simplestreams import contentsource
-from simplestreams import objectstores
-from simplestreams import log
-from simplestreams.log import LOG
-from simplestreams import mirrors
-from simplestreams import filters
-
 import argparse
 import errno
 import hashlib
 import os
 import signal
 import sys
+
+from simplestreams import contentsource, filters, log, mirrors, objectstores
+from simplestreams import util as sutil
+from simplestreams.log import LOG
 
 try:
     from json.decoder import JSONDecodeError

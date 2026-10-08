@@ -1,11 +1,12 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
 
-from unittest import mock
-import subprocess
 import os
+import subprocess
+from unittest import mock
 
-from curtin import version
 from curtin import __version__ as old_version
+from curtin import version
+
 from .helpers import CiTestCase
 
 

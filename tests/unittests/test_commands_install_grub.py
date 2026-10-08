@@ -1,14 +1,12 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
 
-from curtin import config
-from curtin import distro
-from curtin import util
-from curtin import paths
-from curtin.commands import install_grub
-from .helpers import CiTestCase
-
-from unittest import mock
 import os
+from unittest import mock
+
+from curtin import config, distro, paths, util
+from curtin.commands import install_grub
+
+from .helpers import CiTestCase
 
 USE_GRUB = ['grub']
 

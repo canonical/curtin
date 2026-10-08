@@ -1,23 +1,16 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
-from collections import namedtuple
-from contextlib import contextmanager
 import os
 import re
 import textwrap
+from collections import namedtuple
+from contextlib import contextmanager
 from typing import Optional, Sequence
 
-from .paths import target_path
-from .util import (
-    ChrootableTarget,
-    load_file,
-    load_os_release,
-    ProcessExecutionError,
-    set_unexecutable,
-    string_types,
-    subp,
-    which
-)
 from .log import LOG
+from .paths import target_path
+from .util import (ChrootableTarget, ProcessExecutionError, load_file,
+                   load_os_release, set_unexecutable, string_types, subp,
+                   which)
 
 DistroInfo = namedtuple('DistroInfo', ('variant', 'family'))
 DISTRO_NAMES = ['arch', 'centos', 'debian', 'fedora', 'freebsd', 'gentoo',

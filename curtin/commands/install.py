@@ -1,7 +1,6 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
 
 import argparse
-from copy import deepcopy
 import json
 import os
 import re
@@ -10,18 +9,16 @@ import shutil
 import subprocess
 import sys
 import tempfile
+from copy import deepcopy
 
 import attr
 
+from curtin import config, distro, paths, util, version
 from curtin.block import iscsi, zfs
-from curtin import config
-from curtin import distro
-from curtin import util
-from curtin import paths
-from curtin import version
 from curtin.log import LOG, logged_time
-from curtin.reporter.legacy import load_reporter
 from curtin.reporter import events
+from curtin.reporter.legacy import load_reporter
+
 from . import populate_one_subcmd
 
 INSTALL_LOG = "/var/log/curtin/install.log"

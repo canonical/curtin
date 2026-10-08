@@ -12,11 +12,10 @@ import sys
 sys.path.insert(1, os.path.realpath(os.path.join(
                                     os.path.dirname(__file__), '..')))
 
-from tests.vmtests import (
-    IMAGE_DIR, IMAGE_SRC_URL, sync_images)  # noqa: E402
+from tests.vmtests import IMAGE_DIR, IMAGE_SRC_URL, sync_images  # noqa: E402
+from tests.vmtests.helpers import find_arches  # noqa: E402
+from tests.vmtests.helpers import find_releases_by_distro
 from tests.vmtests.image_sync import ITEM_NAME_FILTERS  # noqa: E402
-from tests.vmtests.helpers import (
-    find_arches, find_releases_by_distro)  # noqa: E402
 
 
 def _fmt_list_filter(filter_name, matches):

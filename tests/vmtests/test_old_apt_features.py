@@ -6,12 +6,11 @@
 import re
 import textwrap
 
+from curtin import distro
+from curtin.config import load_config
 
 from . import VMBaseClass
 from .releases import base_vm_classes as relbase
-
-from curtin import distro
-from curtin.config import load_config
 
 
 def sources_to_dict(lines):

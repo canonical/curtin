@@ -1,12 +1,12 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
 
+import textwrap
+
+from curtin import util
+
 from .releases import base_vm_classes as relbase
 from .releases import centos_base_vm_classes as centos_relbase
 from .test_network import TestNetworkBaseTestsAbs
-from curtin import util
-
-import textwrap
-
 
 bridge_param_to_sysfs = {
     'bridge_ageing': '/sys/class/net/{name}/bridge/ageing_time',

@@ -1,9 +1,9 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
 
+import yaml
+
 from . import VMBaseClass
 from .releases import base_vm_classes as relbase
-
-import yaml
 
 
 class TestInstallUnmount(VMBaseClass):
