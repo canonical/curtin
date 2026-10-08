@@ -24,6 +24,10 @@ style-check: pep8 pyflakes3
 coverage: coverageopts ?= $(DEFAULT_COVERAGEOPTS)
 coverage: unittest
 
+.PHONY: isort
+isort:
+	pre-commit run -a $@
+
 pep8:
 	@$(CWD)/tools/run-pep8
 
