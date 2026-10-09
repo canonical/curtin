@@ -1,15 +1,15 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
 
 import logging
-from unittest import mock
 import os
 import random
 import shutil
 import string
 import sys
 import tempfile
-from unittest import TestCase, skipIf
 from contextlib import contextmanager
+from unittest import TestCase, mock, skipIf
+
 from curtin import util
 
 _real_subp = util.subp

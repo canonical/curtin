@@ -1,38 +1,30 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
 
-import copy
 import contextlib
+import copy
 import glob
 import os
 import pathlib
 import platform
 import re
-import sys
 import shutil
+import sys
 import textwrap
 from typing import List, Tuple
 
-from curtin import config
-from curtin import block
-from curtin import distro
-from curtin.block import iscsi, lvm, zfs
-from curtin import net
-from curtin import futil
-from curtin.log import LOG
-from curtin import nvme_tcp
-from curtin import paths
-from curtin.storage_config import extract_storage_ordered_dict, select_configs
-from curtin import swap
-from curtin import util
+from curtin import (block, config, distro, futil, kernel_crash_dumps, net,
+                    nvme_tcp, paths, swap, util)
 from curtin import version as curtin_version
-from curtin import kernel_crash_dumps
 from curtin.block import deps as bdeps
+from curtin.block import iscsi, lvm, zfs
+from curtin.commands import apply_net, apt_config, block_meta
+from curtin.commands.install_extlinux import install_extlinux
+from curtin.commands.install_grub import install_grub
 from curtin.distro import DISTROS
+from curtin.log import LOG
 from curtin.net import deps as ndeps
 from curtin.reporter import events
-from curtin.commands import apply_net, apt_config, block_meta
-from curtin.commands.install_grub import install_grub
-from curtin.commands.install_extlinux import install_extlinux
+from curtin.storage_config import extract_storage_ordered_dict, select_configs
 from curtin.url_helper import get_maas_version
 
 from . import populate_one_subcmd

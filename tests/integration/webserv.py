@@ -1,8 +1,9 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
 
-import threading
 import socketserver
+import threading
 from http.server import SimpleHTTPRequestHandler
+
 from tests.vmtests.image_sync import IMAGE_DIR
 
 

@@ -1,20 +1,20 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
 
-from email.utils import parsedate
 import json
 import os
 import socket
 import sys
 import time
 import uuid
+from email.utils import parsedate
 from functools import partial
 
 from curtin import version
 
 try:
+    from urllib import error as _u_e  # pylint: disable=no-name-in-module
     from urllib import request as _u_re  # pylint: disable=no-name-in-module
-    from urllib import error as _u_e     # pylint: disable=no-name-in-module
-    from urllib.parse import urlparse    # pylint: disable=no-name-in-module
+    from urllib.parse import urlparse  # pylint: disable=no-name-in-module
     urllib_request = _u_re
     urllib_error = _u_e
 except ImportError:

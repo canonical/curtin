@@ -1,8 +1,9 @@
 from unittest import mock
 
-from curtin.config import merge_config
 from curtin.block import zfs
+from curtin.config import merge_config
 from curtin.util import ProcessExecutionError
+
 from .helpers import CiTestCase
 
 

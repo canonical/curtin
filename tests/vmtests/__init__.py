@@ -3,8 +3,8 @@
 import atexit
 import datetime
 import errno
-import logging
 import json
+import logging
 import os
 import random
 import re
@@ -14,22 +14,23 @@ import tempfile
 import textwrap
 import time
 import uuid
+from functools import wraps
+from unittest import SkipTest, TestCase
+
 import yaml
+
 import curtin.net as curtin_net
 import curtin.util as util
 from curtin.block import iscsi
+from curtin.commands.block_meta import sanitize_dname
+from curtin.commands.install import INSTALL_PASS_MSG
 from curtin.config import load_config
 
-from .report_webhook_logger import CaptureReporting
-from curtin.commands.install import INSTALL_PASS_MSG
-from curtin.commands.block_meta import sanitize_dname
-
-from .image_sync import query as imagesync_query
+from .helpers import TimeoutExpired, check_call, ip_a_to_dict
+from .image_sync import IMAGE_DIR, IMAGE_SRC_URL, ITEM_NAME_FILTERS
 from .image_sync import mirror as imagesync_mirror
-from .image_sync import (IMAGE_SRC_URL, IMAGE_DIR, ITEM_NAME_FILTERS)
-from .helpers import check_call, TimeoutExpired, ip_a_to_dict
-from functools import wraps
-from unittest import TestCase, SkipTest
+from .image_sync import query as imagesync_query
+from .report_webhook_logger import CaptureReporting
 
 try:
     IMAGES_TO_KEEP = int(os.environ.get("IMAGES_TO_KEEP", 1))

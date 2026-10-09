@@ -1,10 +1,10 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
 
-from unittest.mock import call, patch
 import textwrap
+from unittest.mock import call, patch
 
-from curtin import gpg
-from curtin import util
+from curtin import gpg, util
+
 from .helpers import CiTestCase
 
 

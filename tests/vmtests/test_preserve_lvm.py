@@ -1,11 +1,11 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
 
-from . import VMBaseClass, skip_if_flag
-from .releases import base_vm_classes as relbase
-
 import json
 import os
 import textwrap
+
+from . import VMBaseClass, skip_if_flag
+from .releases import base_vm_classes as relbase
 
 
 class TestLvmPreserveAbs(VMBaseClass):

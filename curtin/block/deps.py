@@ -1,7 +1,7 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
 
-from curtin.distro import DISTROS
 from curtin.block import iscsi, nvme, zfs
+from curtin.distro import DISTROS
 
 
 def storage_config_required_packages(storage_config, mapping):

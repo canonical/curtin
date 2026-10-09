@@ -1,0 +1,7 @@
+repos:
+  - repo: https://github.com/pycqa/isort
+    rev: 9f905615631c545f5aea2516508109350d1d2f7d  # 9.0.2
+    hooks:
+      - id: isort
+        name: isort
+        files: "(curtin|tests|tools)"

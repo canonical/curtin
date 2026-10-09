@@ -2,6 +2,7 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
 
 import socket
+
 try:
     # python2
     import SimpleHTTPServer as http_server

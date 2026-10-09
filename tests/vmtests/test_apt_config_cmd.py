@@ -6,9 +6,10 @@
 """
 import textwrap
 
+from curtin.config import load_config
+
 from . import VMBaseClass, skip_if_flag
 from .releases import base_vm_classes as relbase
-from curtin.config import load_config
 
 
 class TestAptConfigCMD(VMBaseClass):

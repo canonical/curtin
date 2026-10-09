@@ -1,21 +1,18 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
-import re
-from contextlib import contextmanager
 import errno
 import itertools
 import os
+import re
 import stat
 import tempfile
+from contextlib import contextmanager
 from typing import Optional
 
-from curtin import util
-from curtin.block import lvm
-from curtin.block import multipath
+from curtin import storage_config, util
+from curtin.block import lvm, multipath
 from curtin.log import LOG
-from curtin.udev import udevadm_settle, udevadm_info
+from curtin.udev import udevadm_info, udevadm_settle
 from curtin.util import NotExclusiveError
-from curtin import storage_config
-
 
 SECTOR_SIZE_BYTES = 512
 

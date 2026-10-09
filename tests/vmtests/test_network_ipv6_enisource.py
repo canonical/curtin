@@ -1,9 +1,9 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
 
+import unittest
+
 from .releases import base_vm_classes as relbase
 from .test_network_enisource import TestNetworkENISource
-
-import unittest
 
 
 class TestNetworkIPV6ENISource(TestNetworkENISource):

@@ -4,10 +4,10 @@ import argparse
 import os
 import sys
 
+import curtin.config as config
+import curtin.util as util
 from curtin import net
 from curtin.log import LOG
-import curtin.util as util
-import curtin.config as config
 
 from . import populate_one_subcmd
 

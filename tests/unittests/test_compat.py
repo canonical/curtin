@@ -3,6 +3,7 @@
 from unittest import mock
 
 from curtin import compat
+
 from .helpers import CiTestCase
 
 

@@ -1,14 +1,15 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
 
-from . import VMBaseClass, load_config, sanitize_dname, skip_if_flag
-from .releases import base_vm_classes as relbase
-from .releases import centos_base_vm_classes as centos_relbase
+import os
+import textwrap
+from unittest import SkipTest
+
 from curtin import util
 from curtin.commands.block_meta import DNAME_BYID_KEYS
 
-from unittest import SkipTest
-import os
-import textwrap
+from . import VMBaseClass, load_config, sanitize_dname, skip_if_flag
+from .releases import base_vm_classes as relbase
+from .releases import centos_base_vm_classes as centos_relbase
 
 
 class TestMultipathBasicAbs(VMBaseClass):

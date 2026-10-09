@@ -4,8 +4,8 @@ import os
 import sys
 
 import curtin.config
-from curtin.log import LOG
 import curtin.util
+from curtin.log import LOG
 
 from . import populate_one_subcmd
 

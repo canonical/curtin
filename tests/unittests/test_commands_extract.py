@@ -1,14 +1,11 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
 import os
 
-from .helpers import CiTestCase
-
 from curtin import util
-from curtin.commands.extract import (
-    extract_source,
-    _get_image_stack,
-    )
+from curtin.commands.extract import _get_image_stack, extract_source
 from curtin.url_helper import UrlError
+
+from .helpers import CiTestCase
 
 
 class Mount:

@@ -5,16 +5,17 @@ from unittest import mock
 
 from parameterized import parameterized
 
-from .helpers import CiTestCase, skipUnlessJsonSchema
-from curtin import storage_config
-from curtin.storage_config import ProbertParser as baseparser
+from curtin import storage_config, util
+from curtin.storage_config import LOG as SCLogger
 from curtin.storage_config import (BcacheParser, BlockdevParser, DasdParser,
                                    DmcryptParser, FilesystemParser, LvmParser,
-                                   RaidParser, MountParser, ZfsParser)
-from curtin.storage_config import decode_libblkid_string
-from curtin.storage_config import ptable_part_type_to_flag, select_configs
-from curtin.storage_config import LOG as SCLogger
-from curtin import util
+                                   MountParser)
+from curtin.storage_config import ProbertParser as baseparser
+from curtin.storage_config import (RaidParser, ZfsParser,
+                                   decode_libblkid_string,
+                                   ptable_part_type_to_flag, select_configs)
+
+from .helpers import CiTestCase, skipUnlessJsonSchema
 
 
 class TestStorageConfigSchema(CiTestCase):

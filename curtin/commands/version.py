@@ -1,6 +1,7 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
 
 import sys
+
 from .. import version
 from . import populate_one_subcmd
 

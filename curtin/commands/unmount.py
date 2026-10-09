@@ -1,10 +1,11 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
 
-from curtin.log import LOG
-from curtin import util
-from . import populate_one_subcmd
-
 import os
+
+from curtin import util
+from curtin.log import LOG
+
+from . import populate_one_subcmd
 
 
 def unmount_main(args):

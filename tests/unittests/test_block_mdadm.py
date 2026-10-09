@@ -1,12 +1,13 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
 
-from unittest.mock import call, patch
-from curtin.block import dev_short
-from curtin.block import mdadm
-from curtin import util
-from .helpers import CiTestCase, raise_pexec_error
 import os
 import textwrap
+from unittest.mock import call, patch
+
+from curtin import util
+from curtin.block import dev_short, mdadm
+
+from .helpers import CiTestCase, raise_pexec_error
 
 
 class TestBlockMdadmAssemble(CiTestCase):

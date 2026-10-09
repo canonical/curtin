@@ -1,10 +1,11 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
 
-from .test_uefi_basic import TestBasicAbs
+from curtin import util
+from curtin.commands.curthooks import uefi_find_duplicate_entries
+
 from .releases import base_vm_classes as relbase
 from .releases import centos_base_vm_classes as cent_rbase
-from curtin.commands.curthooks import uefi_find_duplicate_entries
-from curtin import util
+from .test_uefi_basic import TestBasicAbs
 
 
 class TestUefiReuseEspAbs(TestBasicAbs):

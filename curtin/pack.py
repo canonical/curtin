@@ -5,8 +5,7 @@ import os
 import shutil
 import tempfile
 
-from . import util
-from . import version
+from . import util, version
 
 CALL_ENTRY_POINT_SH_HEADER = """
 #!/bin/sh

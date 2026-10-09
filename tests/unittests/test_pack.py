@@ -1,17 +1,15 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
 
-from unittest import TestCase
-
-from curtin import version
-from curtin import util
-from curtin.commands.install import INSTALL_PASS_MSG, INSTALL_START_MSG
-
 import glob
 import json
 import os
 import shutil
 import sys
 import tempfile
+from unittest import TestCase
+
+from curtin import util, version
+from curtin.commands.install import INSTALL_PASS_MSG, INSTALL_START_MSG
 
 
 class TestPack(TestCase):

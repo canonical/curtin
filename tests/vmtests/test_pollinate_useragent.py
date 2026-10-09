@@ -1,11 +1,11 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
 
-from . import VMBaseClass
-from .releases import base_vm_classes as relbase
-
 import re
 import textwrap
 from unittest import SkipTest
+
+from . import VMBaseClass
+from .releases import base_vm_classes as relbase
 
 
 class TestPollinateUserAgent(VMBaseClass):

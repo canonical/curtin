@@ -2,8 +2,8 @@
 
 """Reporter Abstract Base Class."""
 
-from .registry import DictRegistry
 from .handlers import available_handlers
+from .registry import DictRegistry
 
 DEFAULT_CONFIG = {
     'logging': {'type': 'log'},

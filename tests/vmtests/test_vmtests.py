@@ -8,7 +8,7 @@ To see these tests fail, run:
   CURTIN_VMTEST_DEBUG_ALLOW_FAIL=1 nosetests3 tests/vmtests/test_vmtests.py
 """
 
-from . import (PsuedoVMBaseClass)
+from . import PsuedoVMBaseClass
 from .releases import base_vm_classes as relbase
 
 

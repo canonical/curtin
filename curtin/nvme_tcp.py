@@ -10,10 +10,10 @@ from typing import Any, Dict, Iterator, List, Set, Tuple
 
 import yaml
 
+from curtin import util
 from curtin.block import nvme
 from curtin.log import LOG
 from curtin.paths import target_path
-from curtin import util
 
 
 def _iter_nvme_tcp_controllers(cfg) -> Iterator[Dict[str, Any]]:

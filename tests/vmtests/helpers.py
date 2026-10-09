@@ -3,8 +3,8 @@
 
 import os
 import re
-import subprocess
 import signal
+import subprocess
 import threading
 from unittest import TestLoader
 

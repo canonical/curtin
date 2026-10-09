@@ -1,7 +1,7 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
 
-from curtin.log import LOG
 import curtin.config as curtin_config
+from curtin.log import LOG
 
 NETWORK_STATE_VERSION = 1
 NETWORK_STATE_REQUIRED_KEYS = {
@@ -376,8 +376,9 @@ def mask2cidr(mask):
 
 
 if __name__ == '__main__':
-    import sys
     import random
+    import sys
+
     from curtin import net
 
     def load_config(nc):

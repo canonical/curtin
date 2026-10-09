@@ -2,8 +2,7 @@
 
 from .releases import base_vm_classes as relbase
 from .releases import centos_base_vm_classes as centos_relbase
-from .test_network import (TestNetworkBaseTestsAbs,
-                           CentosTestNetworkBasicAbs)
+from .test_network import CentosTestNetworkBasicAbs, TestNetworkBaseTestsAbs
 
 
 class TestNetworkStaticRoutesAbs(TestNetworkBaseTestsAbs):

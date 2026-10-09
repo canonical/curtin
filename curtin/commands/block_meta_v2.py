@@ -3,29 +3,20 @@
 import os
 import re
 import tempfile
-from typing import (
-    List,
-    Optional,
-    )
+from typing import List, Optional
 
 import attr
 
-from curtin import (block, compat, util)
-from curtin.commands.block_meta import (
-    _get_volume_fstype,
-    disk_handler as disk_handler_v1,
-    get_path_to_storage_volume,
-    make_dname,
-    partition_handler as partition_handler_v1,
-    verify_ptable_flag,
-    verify_size,
-    )
+from curtin import block, compat, util
+from curtin.commands.block_meta import _get_volume_fstype
+from curtin.commands.block_meta import disk_handler as disk_handler_v1
+from curtin.commands.block_meta import get_path_to_storage_volume, make_dname
+from curtin.commands.block_meta import \
+    partition_handler as partition_handler_v1
+from curtin.commands.block_meta import verify_ptable_flag, verify_size
 from curtin.log import LOG
-from curtin.storage_config import (
-    GPT_GUID_TO_CURTIN_MAP,
-    MBR_TYPE_TO_CURTIN_MAP,
-    select_configs,
-    )
+from curtin.storage_config import (GPT_GUID_TO_CURTIN_MAP,
+                                   MBR_TYPE_TO_CURTIN_MAP, select_configs)
 from curtin.udev import udevadm_settle
 
 

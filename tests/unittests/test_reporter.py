@@ -1,32 +1,19 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
 
-from __future__ import (
-    absolute_import,
-    print_function,
-    unicode_literals,
-    )
-
-from unittest.mock import patch
-
-from curtin.reporter.legacy import (
-    EmptyReporter,
-    load_reporter,
-    LoadReporterException,
-    )
-# #XXX: see `XXX` below for details
-from curtin.reporter.legacy.maas import (
-    load_factory,
-    MAASReporter
-    )
-
-from curtin import reporter
-from curtin.reporter import handlers
-from curtin import url_helper
-from curtin.reporter import events
-from .helpers import CiTestCase
+from __future__ import absolute_import, print_function, unicode_literals
 
 import base64
 import os
+from unittest.mock import patch
+
+from curtin import reporter, url_helper
+from curtin.reporter import events, handlers
+from curtin.reporter.legacy import (EmptyReporter, LoadReporterException,
+                                    load_reporter)
+# #XXX: see `XXX` below for details
+from curtin.reporter.legacy.maas import MAASReporter, load_factory
+
+from .helpers import CiTestCase
 
 
 class TestLegacyReporter(CiTestCase):

@@ -1,10 +1,10 @@
 from unittest import mock
 
-from curtin import swap
-from curtin import util
-from .helpers import CiTestCase
-
 from parameterized import parameterized
+
+from curtin import swap, util
+
+from .helpers import CiTestCase
 
 
 def gigify(val):

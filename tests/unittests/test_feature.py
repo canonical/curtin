@@ -1,8 +1,8 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
 
-from .helpers import CiTestCase
-
 import curtin
+
+from .helpers import CiTestCase
 
 
 class TestExportsFeatures(CiTestCase):

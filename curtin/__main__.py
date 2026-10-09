@@ -1,4 +1,5 @@
 if __name__ == '__main__':
-    from .commands.main import main
     import sys
+
+    from .commands.main import main
     sys.exit(main())

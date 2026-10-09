@@ -1,7 +1,8 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
 
-from . import populate_one_subcmd
 from curtin.block import iscsi
+
+from . import populate_one_subcmd
 
 
 def block_detach_iscsi_main(args):

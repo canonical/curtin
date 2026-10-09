@@ -1,9 +1,9 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
 
+import textwrap
+
 from . import VMBaseClass
 from .releases import ubuntu_core_base_vm_classes as relbase
-
-import textwrap
 
 
 class TestUbuntuCoreAbs(VMBaseClass):

@@ -1,26 +1,26 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
 
-import dataclasses
-from dataclasses import dataclass
 import contextlib
+import dataclasses
 import json
 import os
-from parameterized import parameterized
-from pathlib import Path
 import re
 import stat
 import sys
-from typing import Optional
 import tempfile
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Optional
 from unittest import skipIf
+
 import yaml
+from parameterized import parameterized
 
 from curtin import block, compat, distro, log, udev, util
 from curtin.commands.block_meta import _get_volume_fstype
 from curtin.commands.block_meta_v2 import ONE_MIB_BYTES
-
-from tests.unittests.helpers import CiTestCase
 from tests.integration.webserv import ImageServer
+from tests.unittests.helpers import CiTestCase
 
 
 class IntegrationTestCase(CiTestCase):

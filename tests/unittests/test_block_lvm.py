@@ -1,9 +1,10 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
 
+from unittest import mock
+
 from curtin.block import lvm
 
 from .helpers import CiTestCase
-from unittest import mock
 
 
 class TestBlockLvm(CiTestCase):

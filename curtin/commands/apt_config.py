@@ -12,11 +12,10 @@ import re
 import sys
 
 from aptsources.sourceslist import SourceEntry
-
 from debian.deb822 import Deb822
 
+from curtin import config, distro, gpg, paths, util
 from curtin.log import LOG
-from curtin import (config, distro, gpg, paths, util)
 
 from . import populate_one_subcmd
 

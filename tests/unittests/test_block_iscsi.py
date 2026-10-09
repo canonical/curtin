@@ -1,10 +1,11 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
 
-from unittest import mock
 import os
+from unittest import mock
 
-from curtin.block import iscsi
 from curtin import util
+from curtin.block import iscsi
+
 from .helpers import CiTestCase
 
 

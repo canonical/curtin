@@ -1,11 +1,12 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
 
-from unittest import skip
-from unittest import mock
+from sys import version_info
+from unittest import mock, skip
+
 import curtin.commands.block_meta
+
 from .helpers import CiTestCase
 
-from sys import version_info
 if version_info.major == 2:
     import __builtin__ as builtins
 else:

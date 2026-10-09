@@ -1,12 +1,11 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
 
-from .releases import base_vm_classes as relbase
-from .releases import centos_base_vm_classes as centos_relbase
-from .test_network_ipv6 import TestNetworkIPV6Abs
-
 import textwrap
 import unittest
 
+from .releases import base_vm_classes as relbase
+from .releases import centos_base_vm_classes as centos_relbase
+from .test_network_ipv6 import TestNetworkIPV6Abs
 
 NETWORKD_NO_AUTO_RAISE_MTU = (
     "networkd does not support auto raising iface mtu")

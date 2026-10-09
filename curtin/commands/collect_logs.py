@@ -13,21 +13,18 @@
 #   You should have received a copy of the GNU Affero General Public License
 #   along with Curtin.  If not, see <http://www.gnu.org/licenses/>.
 
-from datetime import datetime
 import json
 import os
 import re
 import shutil
 import sys
 import tempfile
+from datetime import datetime
 
-
-from .. import util
-from .. import version
+from .. import util, version
 from ..config import load_config, merge_config
 from . import populate_one_subcmd
 from .install import CONFIG_BUILTIN, SAVE_INSTALL_CONFIG
-
 
 CURTIN_PACK_CONFIG_DIR = '/curtin/configs'
 

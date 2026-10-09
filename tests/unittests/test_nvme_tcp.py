@@ -1,14 +1,14 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
 
 from pathlib import Path
-from unittest.mock import patch, Mock
+from unittest.mock import Mock, patch
 
+import yaml
 
 from curtin import nvme_tcp
 from curtin.util import ProcessExecutionError
-from .helpers import CiTestCase
 
-import yaml
+from .helpers import CiTestCase
 
 
 class TestNVMeTCP(CiTestCase):

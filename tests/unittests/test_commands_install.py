@@ -2,15 +2,15 @@
 
 import copy
 import json
-from unittest import mock
 import os
+from collections import namedtuple
+from unittest import mock
 
 from curtin import config
 from curtin.commands import install
 from curtin.util import ensure_dir, write_file
-from .helpers import CiTestCase
-from collections import namedtuple
 
+from .helpers import CiTestCase
 
 FakeArgs = namedtuple('FakeArgs', ['config', 'source', 'reportstack'])
 

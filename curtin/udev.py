@@ -1,10 +1,10 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
 
-import shlex
 import os
+import shlex
 
 from curtin import util
-from curtin.log import logged_call, LOG
+from curtin.log import LOG, logged_call
 
 try:
     shlex_quote = shlex.quote

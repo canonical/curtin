@@ -1,15 +1,9 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
 
-from curtin.util import (
-    try_import_module,
-    )
-
-from abc import (
-    ABCMeta,
-    abstractmethod,
-    )
+from abc import ABCMeta, abstractmethod
 
 from curtin.log import LOG
+from curtin.util import try_import_module
 
 
 class BaseReporter:

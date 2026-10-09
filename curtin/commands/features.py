@@ -2,6 +2,7 @@
 """List the supported feature names to stdout."""
 
 import sys
+
 from .. import FEATURES
 from . import populate_one_subcmd
 

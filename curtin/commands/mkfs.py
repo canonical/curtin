@@ -1,10 +1,11 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
 
-from . import populate_one_subcmd
+import sys
+
 from curtin.block.mkfs import mkfs as run_mkfs
 from curtin.block.mkfs import valid_fstypes
 
-import sys
+from . import populate_one_subcmd
 
 CMD_ARGUMENTS = (
     (('devices',

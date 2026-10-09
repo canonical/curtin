@@ -4,8 +4,9 @@ import random
 import string
 import textwrap
 
-from curtin.block import dasd
 from curtin import util
+from curtin.block import dasd
+
 from .helpers import CiTestCase
 
 

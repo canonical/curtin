@@ -4,6 +4,7 @@ import glob
 import os
 import re
 import tempfile
+
 from curtin import util
 from curtin.log import LOG, logged_time
 

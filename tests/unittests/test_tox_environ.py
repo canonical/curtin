@@ -5,6 +5,7 @@ verify that systems running tests contain the environmental packages expected
 """
 
 from aptsources.sourceslist import SourceEntry
+
 from .helpers import CiTestCase
 
 

@@ -1,13 +1,10 @@
 import os
-import re
 import platform
+import re
 import shutil
 from typing import List, Optional
 
-from curtin import block
-from curtin import config
-from curtin import distro
-from curtin import util
+from curtin import block, config, distro, util
 from curtin.log import LOG
 from curtin.paths import target_path
 

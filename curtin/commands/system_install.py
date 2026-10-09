@@ -4,10 +4,10 @@ import os
 import sys
 
 import curtin.util as util
-
-from . import populate_one_subcmd, MutuallyExclusiveGroup
-from curtin.log import LOG
 from curtin import distro
+from curtin.log import LOG
+
+from . import MutuallyExclusiveGroup, populate_one_subcmd
 
 
 def system_install_pkgs_main(args):

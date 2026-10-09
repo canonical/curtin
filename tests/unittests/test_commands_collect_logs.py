@@ -1,16 +1,16 @@
-from collections import namedtuple
 import copy
-from datetime import datetime
 import json
-from unittest import mock
 import os
+from collections import namedtuple
+from datetime import datetime
 from textwrap import dedent
+from unittest import mock
 
 from curtin.commands import collect_logs
 from curtin.commands.install import CONFIG_BUILTIN
 from curtin.util import ensure_dir, write_file
-from .helpers import CiTestCase
 
+from .helpers import CiTestCase
 
 # FakeArgs for providing cmdline params to collect_logs_main
 FakeArgs = namedtuple('FakeArgs', ['output'])

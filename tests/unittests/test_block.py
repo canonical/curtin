@@ -4,16 +4,15 @@ import errno
 import functools
 import json
 import os
-from unittest import mock
 import textwrap
-
 from collections import OrderedDict
+from unittest import mock
 
 from parameterized import parameterized
 
+from curtin import block, util
+
 from .helpers import CiTestCase, simple_mocked_open
-from curtin import util
-from curtin import block
 
 
 class TestBlock(CiTestCase):

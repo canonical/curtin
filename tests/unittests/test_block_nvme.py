@@ -3,6 +3,7 @@
 from typing import List
 
 import curtin.block.nvme as nvme
+
 from .helpers import CiTestCase
 
 

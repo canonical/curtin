@@ -1,12 +1,11 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
 
 import os
-
 from unittest.mock import MagicMock, call
 
-from .helpers import CiTestCase, simple_mocked_open
-
 from curtin.commands.net_meta import net_meta
+
+from .helpers import CiTestCase, simple_mocked_open
 
 
 class NetMetaTarget:

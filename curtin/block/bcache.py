@@ -7,6 +7,7 @@ import time
 from curtin import util
 from curtin.log import LOG
 from curtin.udev import udevadm_settle
+
 from . import dev_path, sys_block_path
 
 # Wait up to 20 minutes (150 + 300 + 750 = 1200 seconds)

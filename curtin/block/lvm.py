@@ -4,11 +4,11 @@
 This module provides some helper functions for manipulating lvm devices
 """
 
-from curtin import distro
-from curtin import util
-from curtin.log import LOG
 import json
 import os
+
+from curtin import distro, util
+from curtin.log import LOG
 
 # separator to use for dm tool
 _SEP = '='

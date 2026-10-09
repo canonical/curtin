@@ -1,15 +1,13 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
 
-from pathlib import Path
 import tempfile
+from pathlib import Path
 from unittest import mock
 
-from .helpers import CiTestCase
-
-from curtin import config
-from curtin import paths
+from curtin import config, paths
 from curtin.commands import curthooks, install_extlinux
 
+from .helpers import CiTestCase
 
 USE_EXTLINUX = ['extlinux']
 ROOT_DEV = '/dev/sda1'

@@ -1,10 +1,11 @@
 #!/usr/bin/python3
 # This file is part of curtin. See LICENSE file for copyright and license info.
 import json
-import pdb
 import os
+import pdb
 import sys
 import traceback
+
 import yaml
 
 # Fix path so we can import curtin

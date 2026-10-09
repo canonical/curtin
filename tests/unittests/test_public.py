@@ -1,11 +1,8 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
 
-from curtin import block
-from curtin import config
-from curtin import futil
-from curtin import util
-
+from curtin import block, config, futil, util
 from curtin.commands import curthooks
+
 from .helpers import CiTestCase
 
 

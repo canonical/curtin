@@ -4,13 +4,13 @@
     Collection of tests for the apt configuration features
 """
 import textwrap
+from unittest import SkipTest
+
+from curtin import util
+from curtin.config import load_config
 
 from . import VMBaseClass
 from .releases import base_vm_classes as relbase
-
-from unittest import SkipTest
-from curtin import util
-from curtin.config import load_config
 
 
 class TestAptSrcAbs(VMBaseClass):

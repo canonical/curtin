@@ -2,7 +2,6 @@
 
 import argparse
 import collections
-from contextlib import contextmanager, suppress
 import errno
 import fcntl
 import json
@@ -12,11 +11,12 @@ import re
 import shlex
 import shutil
 import socket
-import subprocess
 import stat
+import subprocess
 import sys
 import tempfile
 import time
+from contextlib import contextmanager, suppress
 from typing import Dict, List, Optional
 
 import attr

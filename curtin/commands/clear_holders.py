@@ -1,12 +1,11 @@
 # This file is part of curtin. See LICENSE file for copyright and license info.
 
-from .block_meta import (
-    extract_storage_ordered_dict,
-    get_device_paths_from_storage_config,
-)
 from curtin import block
 from curtin.log import LOG
-from .import populate_one_subcmd
+
+from . import populate_one_subcmd
+from .block_meta import (extract_storage_ordered_dict,
+                         get_device_paths_from_storage_config)
 
 
 def clear_holders_main(args):
