@@ -464,6 +464,17 @@ class TestGetPathToStorageVolume(CiTestCase):
             devname2,
             block_meta.get_path_to_storage_volume(disk_id, s_cfg))
 
+    def test_format_resolves_to_parent_volume(self):
+        path = "/%s/%s" % (self.random_string(), self.random_string())
+        disk_id = 'mydisk'
+        fmt_id = 'myfmt'
+        s_cfg = OrderedDict({
+            disk_id: {'id': disk_id, 'type': 'disk', 'path': path},
+            fmt_id: {'id': fmt_id, 'type': 'format', 'volume': disk_id},
+        })
+        result = block_meta.get_path_to_storage_volume(fmt_id, s_cfg)
+        self.assertEqual(path, result)
+
 
 class TestBlockMetaSimple(CiTestCase):
     def setUp(self):

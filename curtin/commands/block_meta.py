@@ -12,8 +12,8 @@ import time
 from collections import OrderedDict, namedtuple
 
 from curtin import block, compat, config, distro, paths, storage_actions, util
-from curtin.block import (bcache, clear_holders, dasd, iscsi, lvm, mdadm, mkfs,
-                          multipath, schemas, zfs)
+from curtin.block import (bcache, btrfs, clear_holders, dasd, iscsi, lvm,
+                          mdadm, mkfs, multipath, schemas, zfs)
 from curtin.log import LOG, logged_time
 from curtin.reporter import events
 from curtin.storage_config import (extract_storage_ordered_dict,
@@ -638,6 +638,12 @@ def get_path_to_storage_volume(volume, storage_config):
 
     elif vol.get('type') == 'device':
         volume_path = vol['path']
+
+    elif vol.get('type') == 'format':
+        # formats are not block devices; resolve the volume the
+        # format action was applied to
+        volume_path = get_path_to_storage_volume(vol.get('volume'),
+                                                 storage_config)
 
     else:
         raise NotImplementedError("cannot determine the path to storage \
@@ -2087,6 +2093,27 @@ def zfs_handler(info, storage_config, context):
             util.write_file(state['fstab'], fstab_entry, omode='a')
 
 
+def btrfs_subvolume_handler(info, storage_config, context):
+    """
+    Create a btrfs subvolume on a formatted btrfs filesystem
+    """
+    volume = info.get('volume')
+    if not volume:
+        raise ValueError("volume must be specified for btrfs_subvolume '%s'"
+                         % info.get('id'))
+
+    name = info.get('name')
+    if not name:
+        raise ValueError("name must be specified for btrfs_subvolume "
+                         "'%s'" % info.get('id'))
+
+    # 'volume' refers to a format action; get_path_to_storage_volume()
+    # resolves it to the volume the format action was applied to.
+    volume_path = get_path_to_storage_volume(volume, storage_config)
+    LOG.info('Creating btrfs subvolume %s on %s', name, volume_path)
+    btrfs.btrfs_subvolume_create(volume_path, name)
+
+
 def get_device_paths_from_storage_config(storage_config):
     """Returns a list of device paths in a storage config which have wipe
        config enabled filtering out constructed paths that do not exist.
@@ -2252,6 +2279,7 @@ def meta_custom(args):
         'bcache': bcache_handler,
         'zfs': zfs_handler,
         'zpool': zpool_handler,
+        'btrfs_subvolume': btrfs_subvolume_handler,
         'nvme_controller': nvme_controller_handler,
     }
 

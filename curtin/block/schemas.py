@@ -422,4 +422,22 @@ ZPOOL = {
     },
 }
 
+BTRFS_SUBVOLUME = {
+    '$schema': 'http://json-schema.org/draft-07/schema#',
+    'name': 'CURTIN-BTRFS-SUBVOLUME',
+    'title': 'curtin storage configuration for a btrfs subvolume.',
+    'description': ('Declarative syntax for specifying a btrfs subvolume '
+                    'on an existing btrfs filesystem.'),
+    'definitions': definitions,
+    'required': ['id', 'type', 'volume', 'name'],
+    'type': 'object',
+    'additionalProperties': False,
+    'properties': {
+        'id': {'$ref': '#/definitions/id'},
+        'volume': {'$ref': '#/definitions/ref_id'},
+        'name': {'type': 'string', 'pattern': r'^[^/\s]+$'},
+        'type': {'const': 'btrfs_subvolume'},
+    },
+}
+
 # vi: ts=4 expandtab syntax=python

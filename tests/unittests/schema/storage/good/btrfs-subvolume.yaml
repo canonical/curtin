@@ -1,0 +1,25 @@
+storage:
+  version: 2
+  config:
+    - type: disk
+      id: disk-main
+      ptable: gpt
+      wipe: superblock
+      path: /dev/sda
+    - type: partition
+      id: partition-root
+      device: disk-main
+      number: 1
+      size: 900M
+    - type: format
+      id: format-root
+      volume: partition-root
+      fstype: btrfs
+    - type: btrfs_subvolume
+      id: subvolume-root
+      volume: format-root
+      name: '@'
+    - type: btrfs_subvolume
+      id: subvolume-home
+      volume: format-root
+      name: '@home'
