@@ -760,7 +760,8 @@ with ``fstype: btrfs``. The format entry must already have been processed.
 **name**: *<name>*
 
 The ``name`` key specifies the name of the subvolume to create. The name
-must not contain whitespace or forward slashes.
+must not contain whitespace or forward slashes. Nested subvolumes are not
+yet addressed; each subvolume is created at the top level of the filesystem.
 
 **Config Example**::
 

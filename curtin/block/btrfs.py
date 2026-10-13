@@ -14,6 +14,6 @@ def btrfs_subvolume_create(device, subvol_name):
             'nested subvolume paths not supported: %s' % subvol_name)
 
     with util.temporary_mount(device) as mnt:
-        target = mnt / subvol_name
-        util.subp(["btrfs", "subvolume", "create", "--", str(target)],
+        subvol_path = mnt / subvol_name
+        util.subp(["btrfs", "subvolume", "create", "--", str(subvol_path)],
                   capture=True)

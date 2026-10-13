@@ -2107,6 +2107,15 @@ def btrfs_subvolume_handler(info, storage_config, context):
         raise ValueError("name must be specified for btrfs_subvolume "
                          "'%s'" % info.get('id'))
 
+    vol_info = storage_config.get(volume)
+    if vol_info and (vol_info.get('type') != 'format' or
+                     vol_info.get('fstype') != 'btrfs'):
+        raise ValueError(
+            "btrfs_subvolume '%s' volume '%s' must refer to a format "
+            "action with fstype btrfs, found type '%s' fstype '%s'" %
+            (info.get('id'), volume, vol_info.get('type'),
+             vol_info.get('fstype')))
+
     # 'volume' refers to a format action; get_path_to_storage_volume()
     # resolves it to the volume the format action was applied to.
     volume_path = get_path_to_storage_volume(volume, storage_config)
