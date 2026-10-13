@@ -464,6 +464,17 @@ class TestGetPathToStorageVolume(CiTestCase):
             devname2,
             block_meta.get_path_to_storage_volume(disk_id, s_cfg))
 
+    def test_format_resolves_to_parent_volume(self):
+        path = "/%s/%s" % (self.random_string(), self.random_string())
+        disk_id = 'mydisk'
+        fmt_id = 'myfmt'
+        s_cfg = OrderedDict({
+            disk_id: {'id': disk_id, 'type': 'disk', 'path': path},
+            fmt_id: {'id': fmt_id, 'type': 'format', 'volume': disk_id},
+        })
+        result = block_meta.get_path_to_storage_volume(fmt_id, s_cfg)
+        self.assertEqual(path, result)
+
 
 class TestBlockMetaSimple(CiTestCase):
     def setUp(self):
@@ -4217,6 +4228,38 @@ class TestGetDevicePathsFromStorageConfig(CiTestCase):
         self.assertEqual(
             [call(self.prefix + self.disk1['id'])],
             self.m_exists.call_args_list)
+
+
+class TestBtrfsSubvolumeHandler(CiTestCase):
+    base_cfg = [
+        {'id': 'vda', 'type': 'disk', 'ptable': 'gpt'},
+        {'id': 'vda1', 'type': 'partition', 'size': '2GB', 'device': 'vda'},
+        {'id': 'vda1-fs', 'type': 'format', 'fstype': 'btrfs',
+         'volume': 'vda1'},
+    ]
+
+    def _scfg_with(self, subvol):
+        cfgs = copy.deepcopy(self.base_cfg) + [subvol]
+        return OrderedDict([(c['id'], c) for c in cfgs])
+
+    def test_non_btrfs_fstype_raises_valueerror(self):
+        """btrfs_subvolume whose volume has non-btrfs fstype raises."""
+        subvol = {'id': 'subvol1', 'type': 'btrfs_subvolume', 'name': '@',
+                  'volume': 'vda1-fs'}
+        scfg = self._scfg_with(subvol)
+        scfg['vda1-fs']['fstype'] = 'ext4'
+        with self.assertRaisesRegex(ValueError, r".*fstype btrfs.*ext4.*"):
+            block_meta.btrfs_subvolume_handler(
+                scfg['subvol1'], scfg, empty_context)
+
+    def test_volume_not_format_raises_valueerror(self):
+        """btrfs_subvolume whose volume is not a format action raises."""
+        subvol = {'id': 'subvol1', 'type': 'btrfs_subvolume', 'name': '@',
+                  'volume': 'vda1'}
+        scfg = self._scfg_with(subvol)
+        with self.assertRaisesRegex(ValueError, r".*format action.*"):
+            block_meta.btrfs_subvolume_handler(
+                scfg['subvol1'], scfg, empty_context)
 
 
 # vi: ts=4 expandtab syntax=python
