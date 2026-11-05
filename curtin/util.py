@@ -17,6 +17,7 @@ import sys
 import tempfile
 import time
 from contextlib import contextmanager, suppress
+from pathlib import Path
 from typing import Dict, List, Optional
 
 import attr
@@ -562,6 +563,29 @@ def mount(src, target):
         yield
     finally:
         do_umount(target)
+
+
+@contextmanager
+def temporary_mount(device, prefix='curtin-'):
+    """
+    Mount device at a temporary directory and yield its path.
+
+    Used instead of a TemporaryDirectory + util.mount: if the umount
+    fails there, cleanup() recursively deletes the contents of the
+    still-mounted filesystem. Here the mountpoint is removed with
+    rmdir, so a failed umount leaves the filesystem contents in place.
+    """
+    mnt = tempfile.mkdtemp(prefix=prefix)
+    try:
+        with mount(device, mnt):
+            yield Path(mnt)
+    finally:
+        try:
+            Path(mnt).rmdir()
+        except OSError as e:
+            LOG.warning(
+                "Error occurred while removing temporary "
+                "mount directory: %s", e)
 
 
 def do_mount(src, target, opts=None):
