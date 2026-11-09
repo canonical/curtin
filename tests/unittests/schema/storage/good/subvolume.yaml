@@ -15,7 +15,11 @@ storage:
       id: format-root
       volume: partition-root
       fstype: btrfs
-    - type: btrfs_subvolume
+    - type: subvolume
       id: subvolume-root
       volume: format-root
-      name: '@home/snapshots'
+      name: '@'
+    - type: subvolume
+      id: subvolume-home
+      volume: format-root
+      name: '@home'

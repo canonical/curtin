@@ -70,12 +70,13 @@ BCACHE = {
         'path': {'type': 'string', 'pattern': _path_dev},
     },
 }
-BTRFS_SUBVOLUME = {
+SUBVOLUME = {
     '$schema': 'http://json-schema.org/draft-07/schema#',
-    'name': 'CURTIN-BTRFS-SUBVOLUME',
-    'title': 'curtin storage configuration for a btrfs subvolume.',
-    'description': ('Declarative syntax for specifying a btrfs subvolume '
-                    'on an existing btrfs filesystem.'),
+    'name': 'CURTIN-SUBVOLUME',
+    'title': 'curtin storage configuration for a subvolume.',
+    'description': ('Declarative syntax for specifying a subvolume '
+                    'on an existing filesystem that supports them '
+                    '(currently btrfs).'),
     'definitions': definitions,
     'required': ['id', 'type', 'name', 'volume'],
     'type': 'object',
@@ -84,7 +85,7 @@ BTRFS_SUBVOLUME = {
         'id': {'$ref': '#/definitions/id'},
         'volume': {'$ref': '#/definitions/ref_id'},
         'name': {'type': 'string', 'pattern': r'^[^/\s]+$'},
-        'type': {'const': 'btrfs_subvolume'},
+        'type': {'const': 'subvolume'},
     },
 }
 DASD = {
