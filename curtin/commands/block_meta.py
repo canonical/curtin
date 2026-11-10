@@ -2093,25 +2093,25 @@ def zfs_handler(info, storage_config, context):
             util.write_file(state['fstab'], fstab_entry, omode='a')
 
 
-def btrfs_subvolume_handler(info, storage_config, context):
+def subvolume_handler(info, storage_config, context):
     """
-    Create a btrfs subvolume on a formatted btrfs filesystem
+    Create a subvolume on a formatted filesystem
     """
     volume = info.get('volume')
     if not volume:
-        raise ValueError("volume must be specified for btrfs_subvolume '%s'"
+        raise ValueError("volume must be specified for subvolume '%s'"
                          % info.get('id'))
 
     name = info.get('name')
     if not name:
-        raise ValueError("name must be specified for btrfs_subvolume "
+        raise ValueError("name must be specified for subvolume "
                          "'%s'" % info.get('id'))
 
     vol_info = storage_config.get(volume)
     if vol_info and (vol_info.get('type') != 'format' or
                      vol_info.get('fstype') != 'btrfs'):
         raise ValueError(
-            "btrfs_subvolume '%s' volume '%s' must refer to a format "
+            "subvolume '%s' volume '%s' must refer to a format "
             "action with fstype btrfs, found type '%s' fstype '%s'" %
             (info.get('id'), volume, vol_info.get('type'),
              vol_info.get('fstype')))
@@ -2288,7 +2288,7 @@ def meta_custom(args):
         'bcache': bcache_handler,
         'zfs': zfs_handler,
         'zpool': zpool_handler,
-        'btrfs_subvolume': btrfs_subvolume_handler,
+        'subvolume': subvolume_handler,
         'nvme_controller': nvme_controller_handler,
     }
 

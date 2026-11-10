@@ -4230,7 +4230,7 @@ class TestGetDevicePathsFromStorageConfig(CiTestCase):
             self.m_exists.call_args_list)
 
 
-class TestBtrfsSubvolumeHandler(CiTestCase):
+class TestSubvolumeHandler(CiTestCase):
     base_cfg = [
         {'id': 'vda', 'type': 'disk', 'ptable': 'gpt'},
         {'id': 'vda1', 'type': 'partition', 'size': '2GB', 'device': 'vda'},
@@ -4243,22 +4243,22 @@ class TestBtrfsSubvolumeHandler(CiTestCase):
         return OrderedDict([(c['id'], c) for c in cfgs])
 
     def test_non_btrfs_fstype_raises_valueerror(self):
-        """btrfs_subvolume whose volume has non-btrfs fstype raises."""
-        subvol = {'id': 'subvol1', 'type': 'btrfs_subvolume', 'name': '@',
+        """subvolume whose volume has non-btrfs fstype raises."""
+        subvol = {'id': 'subvol1', 'type': 'subvolume', 'name': '@',
                   'volume': 'vda1-fs'}
         scfg = self._scfg_with(subvol)
         scfg['vda1-fs']['fstype'] = 'ext4'
         with self.assertRaisesRegex(ValueError, r".*fstype btrfs.*ext4.*"):
-            block_meta.btrfs_subvolume_handler(
+            block_meta.subvolume_handler(
                 scfg['subvol1'], scfg, empty_context)
 
     def test_volume_not_format_raises_valueerror(self):
-        """btrfs_subvolume whose volume is not a format action raises."""
-        subvol = {'id': 'subvol1', 'type': 'btrfs_subvolume', 'name': '@',
+        """subvolume whose volume is not a format action raises."""
+        subvol = {'id': 'subvol1', 'type': 'subvolume', 'name': '@',
                   'volume': 'vda1'}
         scfg = self._scfg_with(subvol)
         with self.assertRaisesRegex(ValueError, r".*format action.*"):
-            block_meta.btrfs_subvolume_handler(
+            block_meta.subvolume_handler(
                 scfg['subvol1'], scfg, empty_context)
 
 
