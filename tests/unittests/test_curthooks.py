@@ -380,6 +380,88 @@ class TestEnableDisableUpdateInitramfs(CiTestCase):
         self._test_disable_on_machine(machine, tools)
 
 
+class TestEnableDisableIschroot(CiTestCase):
+
+    def setUp(self):
+        super(TestEnableDisableIschroot, self).setUp()
+        ccc = 'curtin.commands.curthooks'
+        self.add_patch(ccc + '.util.subp', 'mock_subp')
+        self.add_patch(ccc + '.util.which', 'mock_which')
+        self.target = self.tmp_dir()
+        self.ischroot = '/usr/bin/ischroot'
+
+    def test_disable_does_nothing_if_no_binary(self):
+        self.mock_which.return_value = None
+        curthooks.disable_ischroot({}, self.target)
+        self.mock_which.assert_called_with('ischroot', target=self.target)
+        self.assertEqual(0, self.mock_subp.call_count)
+
+    def test_disable_diverts_and_writes_stub(self):
+        self.mock_which.return_value = self.ischroot
+        self.mock_subp.return_value = ('', '')
+        curthooks.disable_ischroot({}, self.target)
+        self.assertIn(
+            call(['dpkg-divert', '--add', '--rename', '--divert',
+                  self.ischroot + curthooks.ISCHROOT_DIVERT_SUFFIX,
+                  self.ischroot], target=self.target),
+            self.mock_subp.call_args_list)
+
+        # the true stub is written over the diverted ischroot path
+        target_ischroot = self.target + self.ischroot
+        self.assertTrue(os.path.exists(target_ischroot))
+        self.assertTrue(util.is_exe(target_ischroot))
+        self.assertEqual(curthooks.ISCHROOT_STUB,
+                         util.load_file(target_ischroot))
+
+    def test_disable_divert_suffix_distinct_from_initramfs(self):
+        # update_initramfs_is_disabled() matches '.curtin-disabled'; the
+        # ischroot divert must not collide with it
+        self.assertFalse(
+            curthooks.ISCHROOT_DIVERT_SUFFIX.endswith('.curtin-disabled'))
+
+    def test_ischroot_is_disabled_false_if_not_diverted(self):
+        self.mock_subp.return_value = ('', '')
+        self.assertFalse(curthooks.ischroot_is_disabled(self.target))
+        divert_call = call(['dpkg-divert', '--list'], capture=True,
+                           target=self.target)
+        self.assertIn(divert_call, self.mock_subp.call_args_list)
+
+    def test_ischroot_is_disabled_true_if_diverted(self):
+        dpkg_divert_output = "\n".join([
+            'diversion of foobar to wark',
+            ('local diversion of %s to %s%s' % (
+                self.ischroot, self.ischroot,
+                curthooks.ISCHROOT_DIVERT_SUFFIX)),
+        ])
+        self.mock_subp.return_value = (dpkg_divert_output, '')
+        self.assertTrue(curthooks.ischroot_is_disabled(self.target))
+
+    @patch('curtin.commands.curthooks.ischroot_is_disabled')
+    def test_enable_restores_diverted_binary(self, mock_disabled):
+        self.mock_which.return_value = self.ischroot
+        mock_disabled.return_value = True
+        # the stub from a previous disable_ischroot() sits at the path
+        target_ischroot = self.target + self.ischroot
+        util.write_file(target_ischroot, 'stub')
+
+        curthooks.enable_ischroot({}, self.target)
+
+        # the stub is removed before un-diverting, then the diversion is
+        # dropped, restoring the real (possibly updated) binary
+        self.assertFalse(os.path.exists(target_ischroot))
+        self.assertIn(
+            call(['dpkg-divert', '--rename', '--remove', self.ischroot],
+                 target=self.target),
+            self.mock_subp.call_args_list)
+
+    @patch('curtin.commands.curthooks.ischroot_is_disabled')
+    def test_enable_does_nothing_if_not_diverted(self, mock_disabled):
+        mock_disabled.return_value = False
+        curthooks.enable_ischroot({}, self.target)
+        self.assertEqual(0, self.mock_which.call_count)
+        self.assertEqual(0, self.mock_subp.call_count)
+
+
 class TestUpdateInitramfs(CiTestCase):
     def setUp(self):
         super(TestUpdateInitramfs, self).setUp()
@@ -2987,6 +3069,7 @@ class TestBuiltinCurthooks(CiTestCase):
             ("do_apt_config", call(cfg, "/tgt")),
             ("disable_overlayroot", call(cfg, "/tgt")),
             ("disable_update_initramfs", call(cfg, "/tgt", "amd64")),
+            ("disable_ischroot", call(cfg, "/tgt")),
             ("curthook_zfs_dkms", call("/tgt")),
             ("install_missing_packages",
              call(cfg, "/tgt", osfamily=distro.DISTROS.debian)),
@@ -3013,6 +3096,7 @@ class TestBuiltinCurthooks(CiTestCase):
             ("curthook_dname_rules", call("/tgt", state)),
             ("configure_kernel_crash_dumps", call(cfg, Path("/tgt"))),
             ("enable_update_initramfs", call(cfg, "/tgt", "amd64")),
+            ("enable_ischroot", call(cfg, "/tgt")),
             ("reconfigure_kernel", call("/tgt")),
             ("redhat_update_initramfs", None),
             ("setup_boot",

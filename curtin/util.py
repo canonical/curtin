@@ -843,18 +843,6 @@ class ChrootableTarget(object):
                     self.rc_tmp = None
                 raise
 
-        # Bind-mount true to ischroot since we may be in separate PID
-        # namespace, which can throw off ischroot
-        true_mount_path = paths.target_path(self.target, '/usr/bin/true')
-        ischroot_mount_path = paths.target_path(self.target,
-                                                '/usr/bin/ischroot')
-        true_exists = os.path.isfile(true_mount_path)
-        ischroot_exists = os.path.isfile(ischroot_mount_path)
-        both_exist = true_exists and ischroot_exists
-        if both_exist and do_mount(true_mount_path, ischroot_mount_path,
-                                   opts='--bind'):
-            self.umounts.append(ischroot_mount_path)
-
         return self
 
     def __exit__(self, etype, value, trace):

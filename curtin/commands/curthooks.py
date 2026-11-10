@@ -168,6 +168,69 @@ def enable_update_initramfs(cfg, target, machine=None):
                     ['dpkg-divert', '--rename', '--remove', found])
 
 
+# Suffix of the diversion curtin registers for target ischroot during
+# curthooks.  It is deliberately distinct from the '.curtin-disabled'
+# suffix used for the update-initramfs tools so that
+# update_initramfs_is_disabled() does not match on it.
+ISCHROOT_DIVERT_SUFFIX = '.curtin-ischroot'
+
+# Stub written over the diverted ischroot: always report 'in a chroot'
+# (exit 0), ignoring any arguments and writing nothing.
+ISCHROOT_STUB = '#!/bin/sh\n# diverted by curtin\nexit 0\n'
+
+
+def disable_ischroot(cfg, target):
+    """ Divert target's ischroot and write a stub in its place.
+
+    ischroot wrongly reports 'not a chroot' when run inside a separate
+    PID namespace (LP: #2037682), confusing target maintainer scripts
+    into starting daemons.  curtin has previously shadowed ischroot
+    with a bind mount of /bin/true, which fails depending on the true
+    implementation (LP: #2174780), and later with a bind mount of a
+    true stub, which breaks in-window dpkg updates of the shadowed
+    file (rename/unlink of a mountpoint fails with EBUSY).  So divert
+    the real binary once, early in curthooks, and write a true stub
+    over its path; dpkg then unpacks updates of the package
+    (debianutils) onto the diverted file.
+    enable_ischroot() restores the (possibly updated) real binary.
+    """
+    found = util.which('ischroot', target=target)
+    if not found:
+        return
+
+    LOG.debug('Diverting original %s in target.', found)
+    rename = found + ISCHROOT_DIVERT_SUFFIX
+    divert = ['dpkg-divert', '--add', '--rename', '--divert', rename, found]
+    with util.ChrootableTarget(target) as in_chroot:
+        in_chroot.subp(divert)
+
+    util.write_file(paths.target_path(target, found),
+                    ISCHROOT_STUB, mode=0o755)
+
+
+def ischroot_is_disabled(target):
+    """ Return a bool indicating if ischroot is diverted by curtin. """
+    with util.ChrootableTarget(target) as in_chroot:
+        out, _err = in_chroot.subp(['dpkg-divert', '--list'], capture=True)
+    return any(divert.endswith(ISCHROOT_DIVERT_SUFFIX)
+               for divert in out.splitlines())
+
+
+def enable_ischroot(cfg, target):
+    """ Restore target's ischroot diverted by disable_ischroot(). """
+    if not ischroot_is_disabled(target):
+        return
+
+    found = util.which('ischroot', target=target)
+    if not found:
+        return
+
+    LOG.info('Restoring %s in target.', found)
+    util.del_file(paths.target_path(target, found))
+    with util.ChrootableTarget(target) as in_chroot:
+        in_chroot.subp(['dpkg-divert', '--rename', '--remove', found])
+
+
 def setup_zipl(cfg, target):
     if platform.machine() != 's390x':
         return
@@ -2078,6 +2141,7 @@ def builtin_curthooks(cfg: dict, target: str, state: dict):
                 name=stack_prefix + '/writing-apt-config',
                 reporting_enabled=True, level="INFO",
                 description="configuring apt configuring apt"):
+            disable_ischroot(cfg, target)
             do_apt_config(cfg, target)
             disable_overlayroot(cfg, target)
             disable_update_initramfs(cfg, target, machine)
@@ -2207,6 +2271,9 @@ def builtin_curthooks(cfg: dict, target: str, state: dict):
             description="copying metadata from /cdrom"):
         cdrom_loc: str = "/cdrom"
         copy_cdrom(cdrom_loc, target)
+
+    if osfamily == DISTROS.debian:
+        enable_ischroot(cfg, target)
 
 
 def curthooks(args):
