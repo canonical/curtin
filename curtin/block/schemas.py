@@ -75,8 +75,7 @@ SUBVOLUME = {
     'name': 'CURTIN-SUBVOLUME',
     'title': 'curtin storage configuration for a subvolume.',
     'description': ('Declarative syntax for specifying a subvolume '
-                    'on an existing filesystem that supports them '
-                    '(currently btrfs).'),
+                    'on an existing filesystem that supports them.'),
     'definitions': definitions,
     'required': ['id', 'type', 'name', 'volume'],
     'type': 'object',

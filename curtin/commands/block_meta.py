@@ -2095,7 +2095,7 @@ def zfs_handler(info, storage_config, context):
 
 def subvolume_handler(info, storage_config, context):
     """
-    Create a subvolume on a formatted btrfs filesystem
+    Create a subvolume on a formatted filesystem
     """
     volume = info.get('volume')
     if not volume:

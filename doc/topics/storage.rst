@@ -750,7 +750,7 @@ That would result in a fstab entry like::
 Subvolume Command
 ~~~~~~~~~~~~~~~~~
 The subvolume command creates a subvolume on a filesystem that supports
-them. Currently only ``fstype: btrfs`` is supported.
+them.
 
 **volume**: *<volume id>*
 
