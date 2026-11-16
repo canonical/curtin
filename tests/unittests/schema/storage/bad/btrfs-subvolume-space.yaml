@@ -15,7 +15,7 @@ storage:
       id: format-root
       volume: partition-root
       fstype: btrfs
-    - type: btrfs_subvolume
+    - type: subvolume
       id: subvolume-root
       volume: format-root
       name: 'has space'

@@ -64,7 +64,7 @@ commands include:
 - Partition Command (``partition``)
 - Format Command (``format``)
 - Mount Command  (``mount``)
-- Btrfs Subvolume Command (``btrfs_subvolume``)
+- Subvolume Command (``subvolume``)
 - LVM_VolGroup Command (``lvm_volgroup``)
 - LVM_Partition Command (``lvm_partition``)
 - DM_Crypt Command (``dm_crypt``)
@@ -747,15 +747,16 @@ That would result in a fstab entry like::
   none /my/tmpfs tmpfs size=4194304 0 0
 
 
-Btrfs Subvolume Command
-~~~~~~~~~~~~~~~~~~~~~~~
-The btrfs_subvolume command creates a btrfs subvolume on a filesystem
-that was formatted with ``fstype: btrfs``.
+Subvolume Command
+~~~~~~~~~~~~~~~~~
+The subvolume command creates a subvolume on a filesystem that supports
+them.
 
 **volume**: *<volume id>*
 
 The ``volume`` key refers to the ``id`` of a :ref:`Format <format>` entry
-with ``fstype: btrfs``. The format entry must already have been processed.
+with a filesystem type that supports subvolumes (currently ``btrfs``). The
+format entry must already have been processed.
 
 **name**: *<name>*
 
@@ -770,11 +771,11 @@ yet addressed; each subvolume is created at the top level of the filesystem.
    fstype: btrfs
    volume: disk0-part1
  - id: disk0-part1-subvol-root
-   type: btrfs_subvolume
+   type: subvolume
    name: '@'
    volume: disk0-part1-fs
  - id: disk0-part1-subvol-home
-   type: btrfs_subvolume
+   type: subvolume
    name: '@home'
    volume: disk0-part1-fs
 
