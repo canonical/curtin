@@ -273,33 +273,47 @@ class TestCurthooksInstallKernel(CiTestCase):
             )
 
 
-class TestEnableDisableUpdateInitramfs(CiTestCase):
+class TestDivertUndivertUpdateInitramfs(CiTestCase):
 
     def setUp(self):
-        super(TestEnableDisableUpdateInitramfs, self).setUp()
+        super(TestDivertUndivertUpdateInitramfs, self).setUp()
         ccc = 'curtin.commands.curthooks'
         self.add_patch(ccc + '.util.subp', 'mock_subp')
         self.add_patch(ccc + '.util.which', 'mock_which')
         self.add_patch(ccc + '.platform.machine', 'mock_machine')
+        # ChrootableTarget.__enter__ does target mounts etc.; avoid that
+        self.add_patch('curtin.util.ChrootableTarget.__enter__',
+                       new=lambda a: a)
         self.target = self.tmp_dir()
         self.mock_machine.return_value = 'x86_64'
+        # default 'dpkg-divert --list' output: no diversions
+        self.mock_subp.return_value = ('', '')
         self.update_initramfs = '/usr/sbin/update-initramfs'
         self.flash_kernel = '/usr/sbin/flash-kernel'
         self.zipl = '/sbin/zipl'
 
-    def test_disable_does_nothing_if_no_binary(self):
+    def _subp_cmds(self):
+        return [c[0] for c in self.mock_subp.call_args_list]
+
+    def test_divert_does_nothing_if_no_binary_or_divert(self):
         self.mock_which.return_value = None
-        curthooks.disable_update_initramfs({}, self.target)
+        curthooks.divert_update_initramfs(self.target)
         self.mock_which.assert_called_with('update-initramfs',
                                            target=self.target)
+        # the divert list is checked, but nothing is diverted
+        self.assertIn(
+            call(['dpkg-divert', '--list'], capture=True, target=self.target),
+            self.mock_subp.call_args_list)
+        self.assertFalse(any('--add' in cmd for cmd in self._subp_cmds()))
 
-    def test_disable_changes_binary_name_write_stub_binary(self):
+    def test_divert_changes_binary_name_write_stub_binary(self):
         self.mock_which.return_value = self.update_initramfs
         self.mock_subp.side_effect = iter([('', '')] * 10)
-        curthooks.disable_update_initramfs({}, self.target)
+        curthooks.divert_update_initramfs(self.target)
         self.assertIn(
             call(['dpkg-divert', '--add', '--rename', '--divert',
-                  self.update_initramfs + '.curtin-disabled',
+                  self.update_initramfs
+                  + curthooks.UPDATE_INITRAMFS_DIVERT_SUFFIX,
                   self.update_initramfs], target=self.target),
             self.mock_subp.call_args_list)
         self.assertEqual([call('update-initramfs', target=self.target)],
@@ -309,7 +323,7 @@ class TestEnableDisableUpdateInitramfs(CiTestCase):
         target_update_initramfs = self.target + self.update_initramfs
         self.assertTrue(os.path.exists(target_update_initramfs))
         self.assertTrue(util.is_exe(target_update_initramfs))
-        expected_content = "#!/bin/true\n# diverted by curtin"
+        expected_content = curthooks.STUB_TRUE
         self.assertEqual(expected_content,
                          util.load_file(target_update_initramfs))
 
@@ -325,7 +339,8 @@ class TestEnableDisableUpdateInitramfs(CiTestCase):
         binary = 'update-initramfs'
         dpkg_divert_output = "\n".join([
             'diversion of foobar to wark',
-            ('local diversion of %s to %s.curtin-disabled' % (binary, binary))
+            ('local diversion of %s to %s%s' % (
+                binary, binary, curthooks.UPDATE_INITRAMFS_DIVERT_SUFFIX))
         ])
         self.mock_subp.return_value = (dpkg_divert_output, '')
         self.assertTrue(
@@ -334,30 +349,67 @@ class TestEnableDisableUpdateInitramfs(CiTestCase):
                            target=self.target)
         self.assertIn([divert_call], self.mock_subp.call_args_list)
 
-    @patch('curtin.commands.curthooks.update_initramfs_is_disabled')
-    def test_enable_restores_binary_to_original_name(self, mock_disabled):
-        self.mock_which.return_value = self.update_initramfs
-        mock_disabled.return_value = True
-        curthooks.enable_update_initramfs({}, self.target)
-        self.assertIn(call('update-initramfs', target=self.target),
-                      self.mock_which.call_args_list)
-
-    @patch('curtin.commands.curthooks.update_initramfs_is_disabled')
-    def test_enable_does_nothing_if_not_diverted(self, mock_disabled):
-        mock_disabled.return_value = False
-        curthooks.enable_update_initramfs({}, self.target)
+    def test_undivert_restores_diverted_binary_without_which(self):
+        # the stub from a previous divert_update_initramfs()
+        util.write_file(self.target + self.update_initramfs, 'stub')
+        self.mock_which.return_value = None
+        self.mock_subp.return_value = ("\n".join([
+            'diversion of foobar to wark',
+            ('local diversion of %s to %s%s' % (
+                self.update_initramfs, self.update_initramfs,
+                curthooks.UPDATE_INITRAMFS_DIVERT_SUFFIX)),
+        ]), '')
+        curthooks.undivert_update_initramfs(self.target)
         self.assertEqual(0, self.mock_which.call_count)
+        # the stub is removed before un-diverting, then the diversion is
+        # dropped, restoring the real (possibly updated) tool
+        self.assertFalse(
+            os.path.exists(self.target + self.update_initramfs))
+        self.assertIn(
+            call(['dpkg-divert', '--rename', '--remove',
+                  self.update_initramfs], target=self.target),
+            self.mock_subp.call_args_list)
 
-    def _test_disable_on_machine(self, machine, tools):
+    def test_undivert_does_nothing_if_not_diverted(self):
+        self.mock_subp.return_value = ('', '')
+        curthooks.undivert_update_initramfs(self.target)
+        self.assertEqual(0, self.mock_which.call_count)
+        self.assertIn(
+            call(['dpkg-divert', '--list'], capture=True, target=self.target),
+            self.mock_subp.call_args_list)
+        # nothing is un-diverted
+        self.assertFalse(
+            any('--remove' in cmd or '--add' in cmd
+                for cmd in self._subp_cmds()))
+
+    def test_divert_writes_stub_for_leftover_divert(self):
+        """A previous divert without the stub gets its stub."""
+        self.mock_which.return_value = None
+        self.mock_subp.return_value = ("\n".join([
+            ('local diversion of %s to %s%s' % (
+                self.update_initramfs, self.update_initramfs,
+                curthooks.UPDATE_INITRAMFS_DIVERT_SUFFIX)),
+        ]), '')
+        curthooks.divert_update_initramfs(self.target)
+        self.assertIn(
+            call(['dpkg-divert', '--list'], capture=True, target=self.target),
+            self.mock_subp.call_args_list)
+        self.assertFalse(
+            any('--add' in cmd for cmd in self._subp_cmds()))
+        self.assertEqual(curthooks.STUB_TRUE,
+                         util.load_file(self.target + self.update_initramfs))
+
+    def _test_divert_on_machine(self, machine, tools):
         self.mock_machine.return_value = machine
         self.mock_which.side_effect = iter(tools)
         self.mock_subp.side_effect = iter([('', '')] * 10 * len(tools))
-        curthooks.disable_update_initramfs({}, self.target, machine=machine)
+        curthooks.divert_update_initramfs(self.target, machine=machine)
         for tool in tools:
             tname = os.path.basename(tool)
             self.assertIn(
                 call(['dpkg-divert', '--add', '--rename', '--divert',
-                      tool + '.curtin-disabled', tool], target=self.target),
+                      tool + curthooks.UPDATE_INITRAMFS_DIVERT_SUFFIX,
+                      tool], target=self.target),
                 self.mock_subp.call_args_list)
             lhs = [call(tname, target=self.target)]
             self.assertIn(lhs, self.mock_which.call_args_list)
@@ -366,40 +418,68 @@ class TestEnableDisableUpdateInitramfs(CiTestCase):
             target_tool = self.target + tool
             self.assertTrue(os.path.exists(target_tool))
             self.assertTrue(util.is_exe(target_tool))
-            expected_content = "#!/bin/true\n# diverted by curtin"
-            self.assertEqual(expected_content, util.load_file(target_tool))
+            self.assertEqual(curthooks.STUB_TRUE, util.load_file(target_tool))
 
-    def test_disable_on_s390x_masks_zipl(self):
+    def test_divert_on_s390x_masks_zipl(self):
         machine = 's390x'
         tools = [self.update_initramfs, self.zipl]
-        self._test_disable_on_machine(machine, tools)
+        self._test_divert_on_machine(machine, tools)
 
-    def test_disable_on_arm_masks_flash_kernel(self):
+    def test_divert_on_arm_masks_flash_kernel(self):
         machine = 'aarch64'
         tools = [self.update_initramfs, self.flash_kernel]
-        self._test_disable_on_machine(machine, tools)
+        self._test_divert_on_machine(machine, tools)
 
 
-class TestEnableDisableIschroot(CiTestCase):
+class TestDivertUndivertIschroot(CiTestCase):
 
     def setUp(self):
-        super(TestEnableDisableIschroot, self).setUp()
+        super(TestDivertUndivertIschroot, self).setUp()
         ccc = 'curtin.commands.curthooks'
         self.add_patch(ccc + '.util.subp', 'mock_subp')
         self.add_patch(ccc + '.util.which', 'mock_which')
+        # ChrootableTarget.__enter__ does target mounts etc.; avoid that
+        self.add_patch('curtin.util.ChrootableTarget.__enter__',
+                       new=lambda a: a)
         self.target = self.tmp_dir()
         self.ischroot = '/usr/bin/ischroot'
+        # default 'dpkg-divert --list' output: no diversions
+        self.mock_subp.return_value = ('', '')
 
-    def test_disable_does_nothing_if_no_binary(self):
+    def _subp_cmds(self):
+        return [c[0] for c in self.mock_subp.call_args_list]
+
+    def _dpkg_divert_output(self):
+        return ('local diversion of %s to %s%s' % (
+            self.ischroot, self.ischroot, curthooks.ISCHROOT_DIVERT_SUFFIX))
+
+    def test_divert_does_nothing_if_no_binary_or_divert(self):
         self.mock_which.return_value = None
-        curthooks.disable_ischroot({}, self.target)
+        curthooks.divert_ischroot(self.target)
         self.mock_which.assert_called_with('ischroot', target=self.target)
-        self.assertEqual(0, self.mock_subp.call_count)
+        # the divert list is checked, but nothing is diverted
+        self.assertIn(
+            call(['dpkg-divert', '--list'], capture=True, target=self.target),
+            self.mock_subp.call_args_list)
+        self.assertFalse(any('--add' in cmd for cmd in self._subp_cmds()))
 
-    def test_disable_diverts_and_writes_stub(self):
+    def test_divert_writes_stub_for_leftover_divert(self):
+        """A previous divert without the stub gets its stub."""
+        self.mock_which.return_value = None
+        self.mock_subp.return_value = (self._dpkg_divert_output(), '')
+        curthooks.divert_ischroot(self.target)
+
+        self.assertIn(
+            call(['dpkg-divert', '--list'], capture=True, target=self.target),
+            self.mock_subp.call_args_list)
+        self.assertFalse(any('--add' in cmd for cmd in self._subp_cmds()))
+        target_ischroot = self.target + self.ischroot
+        self.assertEqual(curthooks.STUB_TRUE, util.load_file(target_ischroot))
+
+    def test_divert_diverts_and_writes_stub(self):
         self.mock_which.return_value = self.ischroot
         self.mock_subp.return_value = ('', '')
-        curthooks.disable_ischroot({}, self.target)
+        curthooks.divert_ischroot(self.target)
         self.assertIn(
             call(['dpkg-divert', '--add', '--rename', '--divert',
                   self.ischroot + curthooks.ISCHROOT_DIVERT_SUFFIX,
@@ -410,14 +490,14 @@ class TestEnableDisableIschroot(CiTestCase):
         target_ischroot = self.target + self.ischroot
         self.assertTrue(os.path.exists(target_ischroot))
         self.assertTrue(util.is_exe(target_ischroot))
-        self.assertEqual(curthooks.ISCHROOT_STUB,
-                         util.load_file(target_ischroot))
+        self.assertEqual(curthooks.STUB_TRUE, util.load_file(target_ischroot))
 
-    def test_disable_divert_suffix_distinct_from_initramfs(self):
-        # update_initramfs_is_disabled() matches '.curtin-disabled'; the
-        # ischroot divert must not collide with it
-        self.assertFalse(
-            curthooks.ISCHROOT_DIVERT_SUFFIX.endswith('.curtin-disabled'))
+    def test_divert_divert_suffix_distinct_from_initramfs(self):
+        # update_initramfs_is_disabled() matches
+        # UPDATE_INITRAMFS_DIVERT_SUFFIX; the ischroot divert must not
+        # collide with it
+        self.assertNotEqual(curthooks.UPDATE_INITRAMFS_DIVERT_SUFFIX,
+                            curthooks.ISCHROOT_DIVERT_SUFFIX)
 
     def test_ischroot_is_disabled_false_if_not_diverted(self):
         self.mock_subp.return_value = ('', '')
@@ -435,16 +515,18 @@ class TestEnableDisableIschroot(CiTestCase):
         ])
         self.mock_subp.return_value = (dpkg_divert_output, '')
         self.assertTrue(curthooks.ischroot_is_disabled(self.target))
+        divert_call = call(['dpkg-divert', '--list'], capture=True,
+                           target=self.target)
+        self.assertIn(divert_call, self.mock_subp.call_args_list)
 
-    @patch('curtin.commands.curthooks.ischroot_is_disabled')
-    def test_enable_restores_diverted_binary(self, mock_disabled):
+    def test_undivert_restores_diverted_binary(self):
         self.mock_which.return_value = self.ischroot
-        mock_disabled.return_value = True
-        # the stub from a previous disable_ischroot() sits at the path
+        self.mock_subp.return_value = (self._dpkg_divert_output(), '')
+        # the stub from a previous divert_ischroot() sits at the path
         target_ischroot = self.target + self.ischroot
         util.write_file(target_ischroot, 'stub')
 
-        curthooks.enable_ischroot({}, self.target)
+        curthooks.undivert_ischroot(self.target)
 
         # the stub is removed before un-diverting, then the diversion is
         # dropped, restoring the real (possibly updated) binary
@@ -454,12 +536,28 @@ class TestEnableDisableIschroot(CiTestCase):
                  target=self.target),
             self.mock_subp.call_args_list)
 
-    @patch('curtin.commands.curthooks.ischroot_is_disabled')
-    def test_enable_does_nothing_if_not_diverted(self, mock_disabled):
-        mock_disabled.return_value = False
-        curthooks.enable_ischroot({}, self.target)
+    def test_undivert_backs_out_divert_regardless_of_which(self):
+        self.mock_which.return_value = None
+        self.mock_subp.return_value = (self._dpkg_divert_output(), '')
+
+        curthooks.undivert_ischroot(self.target)
+
         self.assertEqual(0, self.mock_which.call_count)
-        self.assertEqual(0, self.mock_subp.call_count)
+        self.assertIn(
+            call(['dpkg-divert', '--rename', '--remove', self.ischroot],
+                 target=self.target),
+            self.mock_subp.call_args_list)
+
+    def test_undivert_does_nothing_if_not_diverted(self):
+        self.mock_subp.return_value = ('', '')
+        curthooks.undivert_ischroot(self.target)
+        self.assertEqual(0, self.mock_which.call_count)
+        self.assertIn(
+            call(['dpkg-divert', '--list'], capture=True, target=self.target),
+            self.mock_subp.call_args_list)
+        # nothing is un-diverted
+        self.assertFalse(
+            any('--remove' in cmd for cmd in self._subp_cmds()))
 
 
 class TestUpdateInitramfs(CiTestCase):
@@ -504,7 +602,8 @@ class TestUpdateInitramfs(CiTestCase):
         binary = 'update-initramfs'
         dpkg_divert_output = "\n".join([
             'diversion of foobar to wark',
-            ('local diversion of %s to %s.curtin-disabled' % (binary, binary))
+            ('local diversion of %s to %s%s' % (
+                binary, binary, curthooks.UPDATE_INITRAMFS_DIVERT_SUFFIX))
         ])
         self.mock_subp.side_effect = (
             iter(self._side_eff(cmd_out=dpkg_divert_output)))
@@ -3068,8 +3167,8 @@ class TestBuiltinCurthooks(CiTestCase):
         expected = [
             ("do_apt_config", call(cfg, "/tgt")),
             ("disable_overlayroot", call(cfg, "/tgt")),
-            ("disable_update_initramfs", call(cfg, "/tgt", "amd64")),
-            ("disable_ischroot", call(cfg, "/tgt")),
+            ("divert_update_initramfs", call("/tgt", "amd64")),
+            ("divert_ischroot", call("/tgt")),
             ("curthook_zfs_dkms", call("/tgt")),
             ("install_missing_packages",
              call(cfg, "/tgt", osfamily=distro.DISTROS.debian)),
@@ -3095,8 +3194,8 @@ class TestBuiltinCurthooks(CiTestCase):
             ("curthook_crypttab", call("/tgt", state)),
             ("curthook_dname_rules", call("/tgt", state)),
             ("configure_kernel_crash_dumps", call(cfg, Path("/tgt"))),
-            ("enable_update_initramfs", call(cfg, "/tgt", "amd64")),
-            ("enable_ischroot", call(cfg, "/tgt")),
+            ("undivert_update_initramfs", call("/tgt")),
+            ("undivert_ischroot", call("/tgt")),
             ("reconfigure_kernel", call("/tgt")),
             ("redhat_update_initramfs", None),
             ("setup_boot",
