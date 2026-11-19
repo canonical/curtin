@@ -122,64 +122,100 @@ def _update_initramfs_tools(machine=None):
     return tools
 
 
-def disable_update_initramfs(cfg, target, machine=None):
-    """ Find update-initramfs tools in target and change their name. """
-    with util.ChrootableTarget(target) as in_chroot:
-        for tool in _update_initramfs_tools(machine=machine):
-            found = util.which(tool, target=target)
-            if found:
-                LOG.debug('Diverting original %s in target.', tool)
-                rename = found + '.curtin-disabled'
-                divert = ['dpkg-divert', '--add', '--rename',
-                          '--divert', rename, found]
-                in_chroot.subp(divert)
+# Stub written over the diverted tool's path, simulating /bin/true
+STUB_TRUE = '#!/bin/sh\n# diverted by curtin\nexit 0\n'
 
-                # create a no-op update-initramfs which just returns true;
-                # this handles postinstall scripts which make invoke $tool
-                # directly
-                util.write_file(target + found,
-                                content="#!/bin/true\n# diverted by curtin",
-                                mode=0o755)
+# Suffix of the diversion curtin registers for target update-initramfs
+# tooling during curthooks.
+UPDATE_INITRAMFS_DIVERT_SUFFIX = '.curtin-update-initramfs'
+
+# Suffix of the diversion curtin registers for target ischroot during
+# curthooks.  It is deliberately distinct from
+# UPDATE_INITRAMFS_DIVERT_SUFFIX so that update_initramfs_is_disabled()
+# does not match on it.
+ISCHROOT_DIVERT_SUFFIX = '.curtin-ischroot'
+
+
+def _diverted_paths(in_chroot, suffix):
+    """ Return the target paths curtin diverted to <path><suffix>.
+
+    Parsed out of 'dpkg-divert --list' output, which prints one line per
+    diversion, like: 'local diversion of /usr/sbin/update-initramfs
+    to /usr/sbin/update-initramfs.curtin-update-initramfs' (a single
+    line in the actual output).
+    """
+    out, _err = in_chroot.subp(['dpkg-divert', '--list'], capture=True)
+    diverted = []
+    for line in out.splitlines():
+        match = re.fullmatch(
+            r'(?:local )?diversion of (\S+) to \S*'
+            + re.escape(suffix), line)
+        if match:
+            diverted.append(match.group(1))
+    return diverted
+
+
+def _divert_target_tools(in_chroot, target, tools, suffix):
+    """ Divert target's tools and write a true stub in their place.
+
+    Each tool visible in PATH is diverted with dpkg-divert and the
+    stub is written over its path, so target commands keep seeing the
+    no-op tool.
+    """
+    leftover = {
+        os.path.basename(path): path
+        for path in _diverted_paths(in_chroot, suffix)}
+    for tool in tools:
+        found = util.which(tool, target=target)
+        if found:
+            LOG.debug('Diverting original %s in target.', tool)
+            in_chroot.subp(['dpkg-divert', '--add', '--rename',
+                            '--divert', found + suffix, found])
+        else:
+            found = leftover.get(tool)
+            if not found:
+                continue
+            # so we have the divert in place, but not the stub.
+            # strange corner case, fix this by only writing the stub.
+            LOG.debug('Writing stub over diverted %s in target.', found)
+        util.write_file(paths.target_path(target, found), STUB_TRUE,
+                        mode=0o755)
+
+
+def _undivert_target_tools(in_chroot, target, suffix):
+    """ Back out target's diverts registered with suffix. """
+    for found in _diverted_paths(in_chroot, suffix):
+        LOG.info('Restoring %s in target.', found)
+        # remove the stub first: dpkg-divert --remove --rename
+        # refuses to rename over a differing file at the diverted path.
+        util.del_file(paths.target_path(target, found))
+        # un-divert and restore original file
+        in_chroot.subp(['dpkg-divert', '--rename', '--remove', found])
+
+
+def divert_update_initramfs(target, machine=None):
+    """ Divert target update-initramfs tooling, stubs over its paths. """
+    with util.ChrootableTarget(target) as in_chroot:
+        _divert_target_tools(
+            in_chroot, target, _update_initramfs_tools(machine=machine),
+            UPDATE_INITRAMFS_DIVERT_SUFFIX)
 
 
 def update_initramfs_is_disabled(target):
-    """ Return a bool indicating if initramfs tooling is disabled. """
-    disabled = []
+    """ Return a bool indicating if update-initramfs tooling is disabled. """
     with util.ChrootableTarget(target) as in_chroot:
-        out, _err = in_chroot.subp(['dpkg-divert', '--list'], capture=True)
-        disabled = [divert for divert in out.splitlines()
-                    if divert.endswith('.curtin-disabled')]
-    return len(disabled) > 0
+        return bool(
+            _diverted_paths(in_chroot, UPDATE_INITRAMFS_DIVERT_SUFFIX))
 
 
-def enable_update_initramfs(cfg, target, machine=None):
-    """ Enable initramfs update tools by restoring their original name. """
-    if update_initramfs_is_disabled(target):
-        with util.ChrootableTarget(target) as in_chroot:
-            for tool in _update_initramfs_tools(machine=machine):
-                LOG.info('Restoring %s in target for initrd updates.', tool)
-                found = util.which(tool, target=target)
-                if not found:
-                    continue
-                # remove the diverted
-                util.del_file(target + found)
-                # un-divert and restore original file
-                in_chroot.subp(
-                    ['dpkg-divert', '--rename', '--remove', found])
+def undivert_update_initramfs(target):
+    """ Enable update initramfs tools by restoring their original name. """
+    with util.ChrootableTarget(target) as in_chroot:
+        _undivert_target_tools(
+            in_chroot, target, UPDATE_INITRAMFS_DIVERT_SUFFIX)
 
 
-# Suffix of the diversion curtin registers for target ischroot during
-# curthooks.  It is deliberately distinct from the '.curtin-disabled'
-# suffix used for the update-initramfs tools so that
-# update_initramfs_is_disabled() does not match on it.
-ISCHROOT_DIVERT_SUFFIX = '.curtin-ischroot'
-
-# Stub written over the diverted ischroot: always report 'in a chroot'
-# (exit 0), ignoring any arguments and writing nothing.
-ISCHROOT_STUB = '#!/bin/sh\n# diverted by curtin\nexit 0\n'
-
-
-def disable_ischroot(cfg, target):
+def divert_ischroot(target):
     """ Divert target's ischroot and write a stub in its place.
 
     ischroot wrongly reports 'not a chroot' when run inside a separate
@@ -192,43 +228,23 @@ def disable_ischroot(cfg, target):
     the real binary once, early in curthooks, and write a true stub
     over its path; dpkg then unpacks updates of the package
     (debianutils) onto the diverted file.
-    enable_ischroot() restores the (possibly updated) real binary.
+    undivert_ischroot() restores the (possibly updated) real binary.
     """
-    found = util.which('ischroot', target=target)
-    if not found:
-        return
-
-    LOG.debug('Diverting original %s in target.', found)
-    rename = found + ISCHROOT_DIVERT_SUFFIX
-    divert = ['dpkg-divert', '--add', '--rename', '--divert', rename, found]
     with util.ChrootableTarget(target) as in_chroot:
-        in_chroot.subp(divert)
-
-    util.write_file(paths.target_path(target, found),
-                    ISCHROOT_STUB, mode=0o755)
+        _divert_target_tools(
+            in_chroot, target, ['ischroot'], ISCHROOT_DIVERT_SUFFIX)
 
 
 def ischroot_is_disabled(target):
     """ Return a bool indicating if ischroot is diverted by curtin. """
     with util.ChrootableTarget(target) as in_chroot:
-        out, _err = in_chroot.subp(['dpkg-divert', '--list'], capture=True)
-    return any(divert.endswith(ISCHROOT_DIVERT_SUFFIX)
-               for divert in out.splitlines())
+        return bool(_diverted_paths(in_chroot, ISCHROOT_DIVERT_SUFFIX))
 
 
-def enable_ischroot(cfg, target):
-    """ Restore target's ischroot diverted by disable_ischroot(). """
-    if not ischroot_is_disabled(target):
-        return
-
-    found = util.which('ischroot', target=target)
-    if not found:
-        return
-
-    LOG.info('Restoring %s in target.', found)
-    util.del_file(paths.target_path(target, found))
+def undivert_ischroot(target):
+    """ Restore target's ischroot diverted by divert_ischroot(). """
     with util.ChrootableTarget(target) as in_chroot:
-        in_chroot.subp(['dpkg-divert', '--rename', '--remove', found])
+        _undivert_target_tools(in_chroot, target, ISCHROOT_DIVERT_SUFFIX)
 
 
 def setup_zipl(cfg, target):
@@ -2141,10 +2157,10 @@ def builtin_curthooks(cfg: dict, target: str, state: dict):
                 name=stack_prefix + '/writing-apt-config',
                 reporting_enabled=True, level="INFO",
                 description="configuring apt configuring apt"):
-            disable_ischroot(cfg, target)
+            divert_ischroot(target)
             do_apt_config(cfg, target)
             disable_overlayroot(cfg, target)
-            disable_update_initramfs(cfg, target, machine)
+            divert_update_initramfs(target, machine)
 
         curthook_zfs_dkms(target)
 
@@ -2248,7 +2264,7 @@ def builtin_curthooks(cfg: dict, target: str, state: dict):
             description="final kernel configuration"):
         if osfamily == DISTROS.debian:
             # re-enable update_initramfs
-            enable_update_initramfs(cfg, target, machine)
+            undivert_update_initramfs(target)
             # The kernel postinstall hooks can now finally create the
             # initrd, among other things to prepare for boot into the
             # target system (e.g. running zipl on s390x)
@@ -2273,7 +2289,7 @@ def builtin_curthooks(cfg: dict, target: str, state: dict):
         copy_cdrom(cdrom_loc, target)
 
     if osfamily == DISTROS.debian:
-        enable_ischroot(cfg, target)
+        undivert_ischroot(target)
 
 
 def curthooks(args):
